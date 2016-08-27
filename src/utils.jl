@@ -1,144 +1,148 @@
-##############################################################################
-##
-## Reflecting Array (i.e. 0 is 1 and N+1 is N)
-##
-##############################################################################
 
-if !isdefined(:ReflectingArray)
-    type ReflectingArray{T, N}
-        A::Array{T, N}
-    end
-end
-Base.size(y::ReflectingArray, args...) = size(y.A, args...)
-Base.eltype(y::ReflectingArray) = eltype(y.A)
-Base.eachindex(y) = eachindex(y.A)
-@generated function Base.getindex{N, T}(A::ReflectingArray{T, N}, args...)
-    expr = tuple([_helper(args[i], i) for i in 1:N]...)
-    Expr(:call, :getindex, :(A.A), expr...)
-end
-_helper(x::Type{Int64}, i) = :(min(max(args[$i], 1), size(A, $i)))
-_helper(x::Type{UnitRange{Int64}}, i) = :(:)
-_helper(x::Type{Colon}, i) = :(:)
+#========================================================================================
 
+Stationary Distribution
 
-##############################################################################
-##
-## State Space Grid
-##
-##############################################################################
+========================================================================================#
 
-type StateSpace{N}
-    a::NTuple{N, Vector{Float64}}
-    inva::NTuple{N, Float64}
-    n::NTuple{N, Int}
-end
-
-function StateSpace(args...)
-    inva = map(x -> 1 / (x[2] - x[1]), args)
-    n = map(length, args)
-    StateSpace(args, inva, n)
-end
-Base.eachindex(grid::StateSpace) = CartesianRange(grid.n)
-@generated function Base.getindex{N}(grid::StateSpace{N}, args...)
-    Expr(:call, :tuple, [:(getindex(grid.a[$i], args[$i])) for i in 1:N]...)
-end
-
-function convert(::Type{Tuple{N}{Vector{Float64}}}, x::StateSpace{N})
-    A = Array{Float64, N}[zeros(grid.n) for i in 1:N]
-    for ituple in eachindex(x)
-        for j in 1:N
-            A[j][ituple...] = x.a[j][ituple[j]]
-        end
-    end
-    return tuple(A...)
-end
-
-
-
-##############################################################################
-##
-## HJB Solver
-##
-## solves y such that 0 = max \{ f(c, y), + E[dy] \}
-##
-## F!(y, ydot) is a function that updates in place ydot to max \{ f(c, y), + E[dy] \}
-##
-##############################################################################
-
-
-function F_step!(F!, y, ydot, ypost, invΔ)
-    for i in 1:length(ydot)
-        ydot[i] = ydot[i] + (ypost[i] - y[i]) * invΔ
-    end
-    return ydot
-end
-
-function iterate_backward(X, ypost, invΔ; iterations = 100, method = :newton, maxdist = 1e-9, verbose = false) 
-    y0 = deepcopy(ypost)
-    out = nlsolve((y, ydot) -> F_step!(F!, y, ydot, ypost, invΔ), y0, method = method, autodiff = true, show_trace = verbose, ftol = maxdist, iterations = iterations)
-    return out.zero, out.residual_norm
-end
-
-function solve_backward(F!, y0; iterations = 100, method = :newton, maxdist = 1e-9, verbose = true, autodiff = true, kwargs...)
-    ypost = deepcopy(y0)
-    y = deepcopy(y0)
-    ydot = deepcopy(y0)
-    distance = Inf
-    olddistance = Inf
-    oldolddistance = Inf
-    invΔ = 10
-    iter = 0
-    while (iter <= iterations) & (invΔ <= 1e6)
-        iter += 1
-        y, distance = iterate_backward(F!, ypost, invΔ)
-        distance = maxabs(F!(y, ydot))
-        if show_trace
-            @show iter, distance
-        end
-        if (distance >=  olddistance)
-            invΔ = 10 * invΔ
-            copy!(v, ypost)
+# Case with 1 state variable
+function stationary_distribution(grid::StateGrid{1}, a)
+    n, = size(grid)
+    invΔx, = grid.invΔx
+    invΔxp, = grid.invΔxp
+    invΔxm, = grid.invΔxm
+    A = zeros(n, n)
+    for i in 1:n
+        μ = a[Symbol(:μ, grid.name[1])][i]
+        σ2 = a[Symbol(:σ, grid.name[1])][i]^2
+        if μ >= 0
+            A[min(i + 1, size(A, 1)), i] += μ * invΔxp[i]
+            A[i, i] -= μ * invΔxp[i]
         else
-            invΔ = max(1e-3, invΔ / 10)
+            A[i, i] += μ * invΔxm[i] 
+            A[min(i - 1, 1), i] -= μ * invΔxm[i] 
         end
-        if (distance <= maxdist) 
-            break
-        else
-            ypost, y = y, ypost
-            olddistance, oldolddistance = distance, olddistance
-        end
+        A[min(i - 1, 1), i] += 0.5 * σ2 * invΔx[i] * invΔxm[i] 
+        A[i, i] -= 0.5 * σ2 * 2 * invΔxm[i] * invΔxp[i]
+        A[min(i + 1, size(A, 1)), i] += 0.5 * σ2 * invΔx[i] * invΔxp[i]
     end
-    return y, distance
+    for j in 1:size(A, 2)
+        A[1, j] = 1.0
+    end
+    b = vcat(1.0, zeros(n - 1))
+    density = A.A \ b
+    @assert all(density .> -1e-5)
+    density = abs(density) ./ sumabs(density)  
+    return density 
 end
 
+function stationary_distribution(grid::StateGrid{2}, a)
+    n1, n2 = size(grid)
+    A = zeros(n1, n2, n1, n2)
+    invΔx1, invΔx2 = grid.invΔx
+    for i2 in 1:n2
+        for i1 in 1:n1
+            μ = a[Symbol(:μ, grid.name[1])][i1, i2]
+            σ2 = a[Symbol(:σ, grid.name[1], :2)][i1, i2]
+            if μ >= 0
+                i1h = min(i1 + 1, size(A, 1))
+                i1l = i1
+            else
+               i1h = i1
+               i1l = max(i1 - 1, 1)
+            end
+            A[i1h, i2, i1, i2] += μ * invΔx1[i1]
+            A[i1l, i2, i1, i2] -= μ * invΔx1[i1]
+            A[max(i1 - 1, 1), i2, i1, i2] += 0.5 * σ2 * invΔx1[i1]^2
+            A[i1, i2, i1, i2] -= 0.5 * σ2 * 2 * invΔx1[i1]^2
+            A[min(i1 + 1, size(A, 1)),i2, i1, i2] += 0.5 * σ2 * invΔx1[i1]^2
 
-##############################################################################
-##
-## Model Solver
-##
-##############################################################################
+            μ = a[Symbol(:μ, grid.name[2])][i1, i2]
+            σ2 = a[Symbol(:σ, grid.name[2], :2)][i1, i2]
+            if μ >= 0
+                i2h = min(i2 + 1, size(A, 2))
+                i2l = i2
+            else
+               i2h = i2
+               i2l = max(i2 - 1, 1)
+            end
+            A[i1, i2h, i1, i2] += μ * invΔx1[i1]
+            A[i1, i2l, i1, i2] -= μ * invΔx1[i1]
+            A[i1, max(i2 - 1, 1), i1, i2] += 0.5 * σ2 * invΔx2[i2]^2
+            A[i1, i2, i1, i2] -= 0.5 * σ2 * 2 * invΔx2[i2]^2
+            A[i1,min(i2 + 1, size(A, 2)), i1, i2] += 0.5 * σ2 * invΔx2[i2]^2
 
-function F_fd!(byp::::AbstractAssetPricingContinuousTimeModel, grid::StateSpace, y::Vector, ydot::Vector)
-    byp, grid = X
-    n = n_functions(byp)
-    fy = ReflectingArray(reshape(y, grid.n..., n))
-    fydot = reshape(ydot, grid.n..., n)
-    for ituple in eachindex(grid)
-        gridi = derive(byp, ituple, grid, fy)
-        out, μ, others = pde(byp, gridi)
-        gridi = derive(byp, ituple, grid, fy, μ)
-        out, μ, others = pde(byp, gridi)
-        for k in 1:n
-            fydot[ituple, k] = out[k]
+            σ12 = a[Symbol(:σ, grid.name[1], :σ, grid.name[2])][i1, i2]
+            A[i1h, i2h, i1, i2] += σ12 * invΔx1[i1] * invΔx2[i2]
+            A[i1l, i2h, i1, i2] -= σ12 * invΔx1[i1] * invΔx2[i2]
+            A[i1h, i2l, i1, i2] -= σ12 * invΔx1[i1] * invΔx2[i2]
+            A[i1l, i2l, i1, i2] += σ12 * invΔx1[i1] * invΔx2[i2]
         end
     end
-    return ydot
+    A = reshape(A.A, (n1 * n2, n1 * n2))
+    for j in 1:size(A, 2)
+        A[1, j] = 1.0
+    end
+    b = vcat(1.0, zeros(size(A, 2) - 1))
+    density = A \ b
+    density = abs(density) ./ sumabs(density)  
+    return reshape(density, (n1, n2))
 end
 
+#========================================================================================
 
+Simulate
 
-function solve(byp::AbstractAssetPricingContinuousTimeModel, grid::StateSpace)
-    F!(y, ydot) = F_Fd!(byp, grid, y, ydot)
-    solve_backward((y, ydot) -> F_Fd!(byp, grid, y, ydot), y0)
-    y, distance
+========================================================================================#
+
+function simulate(grid, a, shocks::Dict; dt = 1 / 12, x0 = nothing)
+    grid = StateGrid(grid)
+    T = size(shocks[first(keys(shocks))], 1)
+    I = size(shocks[first(keys(shocks))], 2)
+    if x0 == nothing
+        i0 = rand(Categorical(vec(stationary_distribution(grid, a))), I)
+        if N == 1
+            x0 = Dict(grid.name[1] => grid.x[1][i0])
+        elseif N == 2
+            i10 = mod(i0 - 1, length(grid.x[1])) + 1
+            i20 = div(i0 - 1, length(grid.x[1])) + 1
+            x0 = Dict(grid.name[1] => grid.x[1][i10], grid.name[2] => grid.x[2][i20])
+        end
+    end
+    # interpolate all functions
+    ai = Dict([Pair(k => interpolate(grid.x, a[k], Gridded(Linear()))) for k in keys(a)])
+    aT = Dict([Pair(k => zeros(T, I)) for k in keys(a)])
+    aT[:id] = zeros(T, I)
+    aT[:t] = zeros(T, I)
+    for k in keys(shocks)
+        aT[k] = zeros(T, I)
+    end
+    sqrtdt = sqrt(dt)
+    for id in 1:I
+        xt = tuple([x0[grid.name[i]][id] for i in 1:N]...)
+        for t in 1:T
+            for k in keys(a)
+                aT[k][t, id] = ai[k][xt...]
+            end
+            aT[:id][t, id] = id
+            aT[:t][t, id] = t
+            for k in keys(shocks)
+                aT[k][t, id] = shocks[k][t, id]
+            end
+            xt = tuple([xt[i] + _update_state(xt, grid.name[i], shocks, ai, t, id, dt, sqrtdt) for i in 1:N]...)
+        end
+    end
+    return aT
+end
+
+function _update_state(xt, name, shocks, ai, t, id, dt, sqrtdt)
+    out = ai[Symbol(:μ, name)][xt...] * dt
+    if length(keys(shocks)) == 1
+        out += ai[Symbol(:σ, name)][xt...] * shocks[first(keys(shocks))][t, id] * sqrtdt
+    else
+        for k in keys(shocks)
+            out += ai[Symbol(:σ, name, :_, k)][xt...] * shocks[k][t, id] * sqrtdt
+        end
+    end
+    return out
 end

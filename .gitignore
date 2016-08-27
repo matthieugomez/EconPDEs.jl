@@ -1,0 +1,13 @@
+src/other/*
+examples
+test
+*.bib
+*.aux
+*.bbl
+*.blg
+*.blg
+*.fdb_latexmk
+*.log
+*.out
+*.synctex.gz
+

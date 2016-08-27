@@ -1,0 +1,6 @@
+julia 0.5
+NamedTuples 2.1
+NLsolve
+Combinatorics
+Interpolations
+Distributions

@@ -1,23 +1,27 @@
-module AssetPricingContinuousTime
+module EconPDEs
 
-
+import NamedTuples: @NT, NamedTuple
 import NLsolve: nlsolve
-import Distributions: Normal
-
+import Combinatorics: with_replacement_combinations
+using Interpolations
 
 ##############################################################################
 ##
 ## Load files
 ##
 ##############################################################################
+include("nl_solve.jl")
+include("pde_solve.jl")
 include("utils.jl")
-include("BansalYaron.jl")
-include("GarleanuPanageas.jl")
+
 
 ##############################################################################
 ##
 ## Exported methods and types 
 ##
 ##############################################################################
-export solve,
+export @NT,
+nl_solve,
+pde_solve,
+simulate
 end

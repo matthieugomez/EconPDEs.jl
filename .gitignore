@@ -1,6 +1,4 @@
 src/other/*
-examples
-test
 *.bib
 *.aux
 *.bbl

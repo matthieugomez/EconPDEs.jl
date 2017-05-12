@@ -12,7 +12,7 @@ Type State Grid
 
 ========================================================================================#
 
-type StateGrid{N}
+struct StateGrid{N}
     x::NTuple{N, Vector{Float64}}
     invΔx::NTuple{N, Vector{Float64}}
     invΔxm::NTuple{N, Vector{Float64}}
@@ -67,7 +67,8 @@ Derive
 
 # Case with 1 state variable
 @generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{1}, y::AbstractArray, icar, drift = (0.0,))
-    N = div(nfields(Tsolution), 3)
+    @show nfields(Tsolution)
+    N = div(length(fieldnames(Tsolution)), 3)
     expr = Expr[]
     for k in 1:N
         push!(expr, :(y[i, $k]))
@@ -75,6 +76,7 @@ Derive
         push!(expr, :(y[min(i + 1, size(y, 1)), $k] * invΔxp[i] * invΔx[i] + y[max(i - 1, 1), $k] * invΔxm[i] * invΔx[i] - 2 * y[i, $k] * invΔxp[i] * invΔxm[i]))
     end
     out = Expr(:call, Tsolution, expr...)
+    @show out
     quote
         $(Expr(:meta, :inline))
         i = icar[1]
@@ -88,7 +90,7 @@ end
 
 # Case with 2 state variables
 @generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{2}, y::AbstractArray, icar, drift = (0.0, 0.0))
-    N = div(nfields(Tsolution), 6)
+    N = div(length(fieldnames(Tsolution)), 6)
     expr = Expr[]
     for k in 1:N
         push!(expr, :(y[i1, i2, $k]))
@@ -124,7 +126,7 @@ end
 
 # Case with 3 state variables
 @generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, drift = (0.0, 0.0, 0.0))
-    N = div(nfields(Tsolution), 10)
+    N = div(length(fieldnames(Tsolution)), 10)
     expr = Expr[]
     for k in 1:N
         push!(expr, :(y[i1, i2, i3, $k]))
@@ -239,6 +241,7 @@ Solve the PDE
 function pde_solve(apm, grid::NamedTuple, y0::NamedTuple; is_algebraic = map(x -> false, y0), kwargs...)
     Tstate = _NT(keys(grid))
     Tsolution = _NT(all_symbol(keys(y0), keys(grid)))
+    @show Tsolution
     stategrid = StateGrid(grid)
     is_algebraic = _NT(keys(y0))((fill(is_algebraic[i], size(y0[i])) for i in 1:length(y0))...)
     y, distance = nl_solve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)

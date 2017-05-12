@@ -1,4 +1,4 @@
-type CampbellCochraneModel
+struct CampbellCochraneModel
     # consumption process parameters
     μ::Float64 
     σ::Float64
@@ -22,10 +22,10 @@ end
 function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     Sbar = σ * sqrt(γ / (κs - b / γ))
-    sbar = log(Sbar)
+    sbar = log.(Sbar)
     smax =  sbar + 0.5 * (1 - Sbar^2)
     # corresponds to Grid 3 in Wachter (2005)
-    shigh = log(linspace(0.0, exp(smax), div(n, 10)))
+    shigh = log.(linspace(0.0, exp(smax), div(n, 10)))
     slow = linspace(smin, shigh[2], n - div(n, 10))
     @NT(s = vcat(slow[1:(end-1)], shigh[2:end]))
 end
@@ -74,4 +74,3 @@ end
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
 # result, distance = pde_solve(m, state, y0)
-

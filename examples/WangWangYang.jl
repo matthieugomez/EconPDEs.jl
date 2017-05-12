@@ -1,4 +1,4 @@
-type WangWangYangModel
+struct WangWangYangModel
     μ::Float64 
     σ::Float64
     r::Float64

@@ -4,79 +4,79 @@
 Stationary Distribution
 
 ========================================================================================#
+function stationary_distribution(grid::NamedTuple, a::NamedTuple)
+    if nfields(grid) == 1
+        stationary_distribution(StateGrid(grid), a[Symbol(:μ, keys(grid)[1])],  a[Symbol(:σ, keys(grid)[1])])
+    elseif nfields(grid) == 2
+        stationary_distribution(StateGrid(grid), [a[Symbol(:μ, keys(grid)[1])], a[Symbol(:μ, keys(grid)[2])]],  [a[Symbol(:σ, keys(grid)[1])], a[Symbol(:σ, keys(grid)[2])], a[Symbol(:σ, keys(grid)[1], keys(grid)[2])]])
+    end
+end
 
 # Case with 1 state variable
-function stationary_distribution(grid::StateGrid{1}, a)
+function stationary_distribution(grid::StateGrid{1}, μ::Vector, σ::Vector)
     n, = size(grid)
     invΔx, = grid.invΔx
     invΔxp, = grid.invΔxp
     invΔxm, = grid.invΔxm
     A = zeros(n, n)
     for i in 1:n
-        μ = a[Symbol(:μ, grid.name[1])][i]
-        σ2 = a[Symbol(:σ, grid.name[1])][i]^2
-        if μ >= 0
-            A[min(i + 1, size(A, 1)), i] += μ * invΔxp[i]
-            A[i, i] -= μ * invΔxp[i]
+        if μ[i] >= 0
+            A[min(i + 1, size(A, 1)), i] += μ[i] * invΔxp[i]
+            A[i, i] -= μ[i] * invΔxp[i]
         else
-            A[i, i] += μ * invΔxm[i] 
-            A[min(i - 1, 1), i] -= μ * invΔxm[i] 
+            A[i, i] += μ[i] * invΔxm[i] 
+            A[min(i - 1, 1), i] -= μ[i] * invΔxm[i] 
         end
-        A[min(i - 1, 1), i] += 0.5 * σ2 * invΔx[i] * invΔxm[i] 
-        A[i, i] -= 0.5 * σ2 * 2 * invΔxm[i] * invΔxp[i]
-        A[min(i + 1, size(A, 1)), i] += 0.5 * σ2 * invΔx[i] * invΔxp[i]
+        A[max(i - 1, 1), i] += 0.5 * σ[i]^2 * invΔx[i] * invΔxm[i] 
+        A[i, i] -= 0.5 * σ[i]^2 * 2 * invΔxm[i] * invΔxp[i]
+        A[min(i + 1, size(A, 1)), i] += 0.5 * σ[i]^2 * invΔx[i] * invΔxp[i]
     end
     for j in 1:size(A, 2)
         A[1, j] = 1.0
     end
     b = vcat(1.0, zeros(n - 1))
-    density = A.A \ b
+    density = A \ b
     @assert all(density .> -1e-5)
-    density = abs(density) ./ sumabs(density)  
+    density = abs.(density) ./ sum(abs, density)  
     return density 
 end
 
-function stationary_distribution(grid::StateGrid{2}, a)
+
+function stationary_distribution(grid::StateGrid{2}, μ::Vector, σ::Vector)
     n1, n2 = size(grid)
     A = zeros(n1, n2, n1, n2)
     invΔx1, invΔx2 = grid.invΔx
     for i2 in 1:n2
         for i1 in 1:n1
-            μ = a[Symbol(:μ, grid.name[1])][i1, i2]
-            σ2 = a[Symbol(:σ, grid.name[1], :2)][i1, i2]
-            if μ >= 0
+            if μ[1][i1, i2] >= 0
                 i1h = min(i1 + 1, size(A, 1))
                 i1l = i1
             else
                i1h = i1
                i1l = max(i1 - 1, 1)
             end
-            A[i1h, i2, i1, i2] += μ * invΔx1[i1]
-            A[i1l, i2, i1, i2] -= μ * invΔx1[i1]
-            A[max(i1 - 1, 1), i2, i1, i2] += 0.5 * σ2 * invΔx1[i1]^2
-            A[i1, i2, i1, i2] -= 0.5 * σ2 * 2 * invΔx1[i1]^2
-            A[min(i1 + 1, size(A, 1)),i2, i1, i2] += 0.5 * σ2 * invΔx1[i1]^2
-
-            μ = a[Symbol(:μ, grid.name[2])][i1, i2]
-            σ2 = a[Symbol(:σ, grid.name[2], :2)][i1, i2]
-            if μ >= 0
+            A[i1h, i2, i1, i2] += μ[1][i1, i2] * invΔx1[i1]
+            A[i1l, i2, i1, i2] -= μ[1][i1, i2] * invΔx1[i1]
+            A[max(i1 - 1, 1), i2, i1, i2] += 0.5 * σ[1][i1, i2]^2 * invΔx1[i1]^2
+            A[i1, i2, i1, i2] -= 0.5 * σ[1][i1, i2] * 2 * invΔx1[i1]^2
+            A[min(i1 + 1, size(A, 1)),i2, i1, i2] += 0.5 * σ[1][i1, i2]^2 * invΔx1[i1]^2
+            if μ[2][i1, i2] >= 0
                 i2h = min(i2 + 1, size(A, 2))
                 i2l = i2
             else
                i2h = i2
                i2l = max(i2 - 1, 1)
             end
-            A[i1, i2h, i1, i2] += μ * invΔx1[i1]
-            A[i1, i2l, i1, i2] -= μ * invΔx1[i1]
-            A[i1, max(i2 - 1, 1), i1, i2] += 0.5 * σ2 * invΔx2[i2]^2
-            A[i1, i2, i1, i2] -= 0.5 * σ2 * 2 * invΔx2[i2]^2
-            A[i1,min(i2 + 1, size(A, 2)), i1, i2] += 0.5 * σ2 * invΔx2[i2]^2
+            A[i1, i2h, i1, i2] += μ[2][i1, i2] * invΔx1[i1]
+            A[i1, i2l, i1, i2] -= μ[2][i1, i2] * invΔx1[i1]
+            A[i1, max(i2 - 1, 1), i1, i2] += 0.5 * σ[2][i1, i2]^2 * invΔx2[i2]^2
+            A[i1, i2, i1, i2] -= 0.5 * σ[2][i1, i2] * 2 * invΔx2[i2]^2
+            A[i1,min(i2 + 1, size(A, 2)), i1, i2] += 0.5 * σ[2][i1, i2]^2 * invΔx2[i2]^2
 
-            σ12 = a[Symbol(:σ, grid.name[1], :σ, grid.name[2])][i1, i2]
-            A[i1h, i2h, i1, i2] += σ12 * invΔx1[i1] * invΔx2[i2]
-            A[i1l, i2h, i1, i2] -= σ12 * invΔx1[i1] * invΔx2[i2]
-            A[i1h, i2l, i1, i2] -= σ12 * invΔx1[i1] * invΔx2[i2]
-            A[i1l, i2l, i1, i2] += σ12 * invΔx1[i1] * invΔx2[i2]
+            A[i1h, i2h, i1, i2] += σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
+            A[i1l, i2h, i1, i2] -= σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
+            A[i1h, i2l, i1, i2] -= σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
+            A[i1l, i2l, i1, i2] += σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
         end
     end
     A = reshape(A.A, (n1 * n2, n1 * n2))
@@ -85,7 +85,7 @@ function stationary_distribution(grid::StateGrid{2}, a)
     end
     b = vcat(1.0, zeros(size(A, 2) - 1))
     density = A \ b
-    density = abs(density) ./ sumabs(density)  
+    density = abs.(density) ./ sum(abs, density)  
     return reshape(density, (n1, n2))
 end
 

@@ -60,10 +60,11 @@ end
 pde_solve(f, state, y0)
 ```
 
+`pde_solve` then automatically creates and solves the finite different scheme associated with the PDE, using upwinding etc
 
 
 # Solving Non Linear Systems
-`pde_solve` internally calls `nl_solve` to solve the non linear system associated with finite difference schemes. You can also call this function directly.
+`pde_solve` internally calls `nl_solve` that is written specifically to solve non linear systems associated with finite difference schemes. `nl_solve` can also be called directly.
 
 Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `nl_solve` has the following syntax:
 

@@ -23,5 +23,6 @@ include("utils.jl")
 export @NT,
 nl_solve,
 pde_solve,
-simulate
+simulate,
+StateGrid
 end

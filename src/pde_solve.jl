@@ -49,15 +49,15 @@ function StateGrid(x)
         names
     )
 end
-Base.size{N}(grid::StateGrid{N}) = map(length, grid.x)
+Base.size(grid::StateGrid) = map(length, grid.x)
 Base.eachindex(grid::StateGrid) = CartesianRange(size(grid))
-@generated function Base.getindex{T, N}(grid::StateGrid{N}, ::Type{T}, args::CartesianIndex)
+@generated function Base.getindex(grid::StateGrid{N}, ::Type{T}, args::CartesianIndex) where {T, N}
     quote
         $(Expr(:meta, :inline))
         $(Expr(:call, T, [:(getindex(grid.x[$i], args[$i])) for i in 1:N]...))
     end
 end
-Base.getindex{N}(grid::StateGrid{N}, x::Symbol) = grid.x[find(collect(grid.name) .== x)[1]]
+Base.getindex(grid::StateGrid, x::Symbol) = grid.x[find(collect(grid.name) .== x)[1]]
 
 #========================================================================================
 
@@ -66,7 +66,7 @@ Derive
 ========================================================================================#
 
 # Case with 1 state variable
-@generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{1}, y::AbstractArray, icar, drift = (0.0,))
+@generated function derive(::Type{Tsolution}, grid::StateGrid{1}, y::AbstractArray, icar, drift = (0.0,)) where {Tsolution}
     N = div(length(fieldnames(Tsolution)), 3)
     expr = Expr[]
     for k in 1:N
@@ -87,7 +87,7 @@ Derive
 end
 
 # Case with 2 state variables
-@generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{2}, y::AbstractArray, icar, drift = (0.0, 0.0))
+@generated function derive(::Type{Tsolution}, grid::StateGrid{2}, y::AbstractArray, icar, drift = (0.0, 0.0)) where {Tsolution}
     N = div(length(fieldnames(Tsolution)), 6)
     expr = Expr[]
     for k in 1:N
@@ -123,7 +123,7 @@ end
 end
 
 # Case with 3 state variables
-@generated function derive{Tsolution}(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, drift = (0.0, 0.0, 0.0))
+@generated function derive(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, drift = (0.0, 0.0, 0.0)) where {Tsolution}
     N = div(length(fieldnames(Tsolution)), 10)
     expr = Expr[]
     for k in 1:N
@@ -184,7 +184,7 @@ Define function F!(y, ydot) to pass to nl_solve
 _NT(names::Vector{Symbol}) =  eval(Expr(:macrocall, Symbol("@NT"), (x for x in names)...))
 
 
-function hjb!{Ngrid, Tstate, Tsolution}(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y, ydot)
+function hjb!(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y, ydot) where {Ngrid, Tstate, Tsolution}
     for i in eachindex(grid)
         state = getindex(grid, Tstate, i)
         solution = derive(Tsolution, grid, y, i)
@@ -197,7 +197,7 @@ function hjb!{Ngrid, Tstate, Tsolution}(apm, grid::StateGrid{Ngrid}, ::Type{Tsta
     return ydot
 end
 
-@generated function _setindex!{N, T}(ydot, outi::NTuple{N, T}, i)
+@generated function _setindex!(ydot, outi::NTuple{N, T}, i) where {N, T}
     quote
         $(Expr(:meta, :inline))
         $(Expr(:block, [:(setindex!(ydot, outi[$k], i, $k)) for k in 1:N]...))
@@ -206,7 +206,7 @@ end
 @inline _setindex!(ydot, outi, i) = setindex!(ydot, outi, i)
 
 
-function create_dictionary{Ngrid, Tstate, Tsolution}(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y)
+function create_dictionary(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y) where {Ngrid, Tstate, Tsolution}
     i0 = start(eachindex(grid))
     state = getindex(grid, Tstate, i0)
     solution = derive(Tsolution, grid, y, i0)
@@ -214,7 +214,7 @@ function create_dictionary{Ngrid, Tstate, Tsolution}(apm, grid::StateGrid{Ngrid}
     A = nothing
     if length(x) == 3
         names = keys(x[3])
-        A = _NT(names)((Array(Float64, size(grid)) for n in names)...)
+        A = _NT(names)((Array{Float64}(size(grid)) for n in names)...)
         for i in eachindex(grid)
             state = getindex(grid, Tstate, i)
             solution = derive(Tsolution, grid, y, i)

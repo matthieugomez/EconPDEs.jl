@@ -34,11 +34,11 @@ function initialize_state(m::BansalYaronModel; μn = 30, σn = 30)
     σmax = quantile(Normal(1.0, σ), 0.999)
     σs = collect(linspace(σmin, σmax, σn))
 
-    @NT(μ = μs, σ = σs)
+    OrderedDict(:μ => μs, :σ => σs)
 end
 
 function initialize_y(m::BansalYaronModel, state)
-    @NT(p = fill(1.0, length(state.μ), length(state.σ)))
+    OrderedDict(:p => fill(1.0, length(state[:μ]), length(state[:σ])))
 end
 
 function (m::BansalYaronModel)(state, y)
@@ -73,7 +73,7 @@ function (m::BansalYaronModel)(state, y)
     pt = p * (1 / p + μc + μp - r - κσC - κσp)
     # dp = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc_Zc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
-    return pt, (μμ, μσ), @NT(p = p, μμ = μμ, σμ_Zμ = σμ_Zμ, σμ_Zσ = 0.0, μσ = μσ, σσ_Zμ = 0.0, σσ_Zσ = σσ_Zσ, μ = μ, σ = σ, σμ2 = σμ_Zμ^2, σσ2 = σσ_Zσ^2, σμσσ = 0.0)
+    return pt, (μμ, μσ), tuple(:p => p, :μμ => μμ, :σμ_Zμ => σμ_Zμ, :σμ_Zσ => 0.0, :μσ => μσ, :σσ_Zμ => 0.0, :σσ_Zσ => σσ_Zσ, :μ => μ, :σ => σ, :σμ2 => σμ_Zμ^2, :σσ2 => σσ_Zσ^2, :σμσσ => 0.0)
 end
 
 ## Long Run Risk Models

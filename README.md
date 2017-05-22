@@ -16,10 +16,10 @@ For instance, to solve the PDE corresponding to the Campbell Cochrane model:
 using EconPDEs
 
 # define state grid
-state = @NT(s = linspace(-100, -2.4, 1000))
+state = OrderedDict(:s => linspace(-100, -2.4, 1000))
 
 # define initial guess
-y0 = @NT(p = ones(state.s))
+y0 = OrderedDict(:p => ones(state[:x]))
 
 # define pde function
 # The function encoding the pde takes two arguments:

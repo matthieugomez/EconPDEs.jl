@@ -29,12 +29,12 @@ function initialize_state(m::DiTellaModel; xn = 80, νn = 10)
   distribution = Gamma(2 * κν * νbar / σνbar^2, σνbar^2 / (2 * κν))
   νmin = quantile(distribution, 0.001)
   νmax = quantile(distribution, 0.999)
-  @NT(x = linspace(0.01, 0.99, xn), ν = linspace(νmin, νmax, νn))
+  OrderedDict(:x => collect(linspace(0.01, 0.99, xn)), :ν => collect(linspace(νmin, νmax, νn)))
 end
 
 function initialize_y(m::DiTellaModel, state)
-  x = fill(1.0, length(state.x), length(state.ν))
-  @NT(pA = x, pB = x, p = x)
+  x = fill(1.0, length(state[:x]), length(state[:ν]))
+  OrderedDict(:pA => x, :pB => x, :p => x)
 end
 
 function (m::DiTellaModel)(state, y)
@@ -73,7 +73,7 @@ function (m::DiTellaModel)(state, y)
   # algebraic constraint
   out3 = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 
-  return (out1, out2, out3), (μX, μν), @NT(p = p, pA = pA, pB = pB, κ = κ, r = r, μX = μX, σX = σX)
+  return (out1, out2, out3), (μX, μν), tuple(:p => p, :pA => pA, :pB => pB, :κ => κ, :r => r, :μX => μX, :σX => σX)
 end
 
 

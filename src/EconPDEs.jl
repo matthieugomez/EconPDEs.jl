@@ -1,10 +1,10 @@
 module EconPDEs
 
-import NamedTuples: @NT, NamedTuple
 import NLsolve: nlsolve
 import Combinatorics: with_replacement_combinations
 using Interpolations
-
+using NamedTuples
+using DataStructures: OrderedDict
 ##############################################################################
 ##
 ## Load files
@@ -20,9 +20,8 @@ include("utils.jl")
 ## Exported methods and types 
 ##
 ##############################################################################
-export @NT,
-nl_solve,
+export nl_solve,
 pde_solve,
-simulate,
-StateGrid
+simulate, 
+OrderedDict
 end

@@ -53,7 +53,7 @@ try
 	state = initialize_state(m ; xn = 10, νn = 3)
 	y0 = initialize_y(m, state)
 	result, distance = pde_solve(m, state, y0)
-	@time pde_solve(m, state, y0, is_algebraic = (false, false, true))
+	@time pde_solve(m, state, y0, is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))
 	@test distance <= 1e-5
 	println("\t\033[1m\033[32mPASSED\033[0m: DiTella")
 catch e

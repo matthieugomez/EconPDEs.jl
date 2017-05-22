@@ -4,11 +4,12 @@
 Stationary Distribution
 
 ========================================================================================#
-function stationary_distribution(grid::NamedTuple, a::NamedTuple)
-    if nfields(grid) == 1
-        stationary_distribution(StateGrid(grid), a[Symbol(:μ, keys(grid)[1])],  a[Symbol(:σ, keys(grid)[1])])
-    elseif nfields(grid) == 2
-        stationary_distribution(StateGrid(grid), [a[Symbol(:μ, keys(grid)[1])], a[Symbol(:μ, keys(grid)[2])]],  [a[Symbol(:σ, keys(grid)[1])], a[Symbol(:σ, keys(grid)[2])], a[Symbol(:σ, keys(grid)[1], keys(grid)[2])]])
+function stationary_distribution(grid::OrderedDict, a::OrderedDict)
+    k = collect(keys(grid))
+    if length(k) == 1
+        stationary_distribution(StateGrid(grid), a[Symbol(:μ, k[1])],  a[Symbol(:σ, k[1])])
+    elseif length(k) == 2
+        stationary_distribution(StateGrid(grid), [a[Symbol(:μ, k[1])], a[Symbol(:μ, k[2])]],  [a[Symbol(:σ, k[1])], a[Symbol(:σ, k[2])], a[Symbol(:σ, k[1], k[2])]])
     end
 end
 

@@ -11,7 +11,6 @@ PDE solver
 Type State Grid
 
 ========================================================================================#
-
 immutable StateGrid{N}
     x::NTuple{N, Vector{Float64}}
     invΔx::NTuple{N, Vector{Float64}}
@@ -42,10 +41,9 @@ function make_Δ(x)
 end
 
 function StateGrid(x)
-    names = tuple((k for k in keys(x))...)
-    x = tuple(x...)
+    names = tuple(keys(x)...)
     StateGrid{length(x)}(
-        map(i -> map(x -> make_Δ(x)[i], x), 1:4)...,
+        map(i -> map(v -> make_Δ(v)[i], tuple(values(x)...)), 1:4)...,
         names
     )
 end
@@ -181,7 +179,7 @@ Define function F!(y, ydot) to pass to nl_solve
 # at parsing time
 # 1. creates a type by looking at expression, so something like T_NT_a_b{T1, T2}
 # 2. replace @NT by T_NT_ab
-_NT(names::Vector{Symbol}) =  eval(Expr(:macrocall, Symbol("@NT"), (x for x in names)...))
+_NT(names) =  eval(Expr(:macrocall, Symbol("@NT"), (x for x in names)...))
 
 
 function hjb!(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y, ydot) where {Ngrid, Tstate, Tsolution}
@@ -213,8 +211,8 @@ function create_dictionary(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{T
     x = apm(state, solution)
     A = nothing
     if length(x) == 3
-        names = keys(x[3])
-        A = _NT(names)((Array{Float64}(size(grid)) for n in names)...)
+        names = map(first, x[3])
+        A = OrderedDict(n => Array{Float64}(size(grid)) for n in names)
         for i in eachindex(grid)
             state = getindex(grid, Tstate, i)
             solution = derive(Tsolution, grid, y, i)
@@ -223,7 +221,7 @@ function create_dictionary(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{T
             solution = derive(Tsolution, grid, y, i, drifti)
             othersi = apm(state, solution)[3]
             for j in 1:length(names)
-                A[names[j]][i] = othersi[j]
+                A[names[j]][i] = last(othersi[j])
             end
         end
     end
@@ -235,15 +233,14 @@ end
 Solve the PDE
 
 ========================================================================================#
-
-function pde_solve(apm, grid::NamedTuple, y0::NamedTuple; is_algebraic = map(x -> false, y0), kwargs...)
+function pde_solve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k => false for k in keys(y0)), kwargs...)
     Tstate = _NT(keys(grid))
-    Tsolution = _NT(all_symbol(keys(y0), keys(grid)))
+    Tsolution = _NT(all_symbol(collect(keys(y0)), collect(keys(grid))))
     stategrid = StateGrid(grid)
-    is_algebraic = _NT(keys(y0))((fill(is_algebraic[i], size(y0[i])) for i in 1:length(y0))...)
+    is_algebraic = _NT(keys(y0))((fill(is_algebraic[k], size(y0[k])) for k in keys(y0))...)
     y, distance = nl_solve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tstate, Tsolution, y)
-    y = _deconcatenate(typeof(y0), y)
+    y = _deconcatenate(collect(keys(y0)), y)
     if a == nothing
         return y, distance
     else
@@ -261,17 +258,18 @@ function all_symbol(sols, states)
 end
 
 function _concatenate(y)
+    k1 = collect(keys(y))[1]
     if length(y) == 1
-        y[1]
+        y[k1]
     else
-        cat(ndims(y[1]) + 1, values(y)...)
+        cat(ndims(y[k1]) + 1, values(y)...)
     end
 end
-function _deconcatenate(T, y)
-    if nfields(T) == 1
-        T(y)
+function _deconcatenate(k, y)
+    if length(k) == 1
+        OrderedDict(k[1] => y)
     else
         N = ndims(y) - 1
-        T(map(i -> y[(Colon() for k in 1: N)..., i], 1:nfields(T))...)
+        OrderedDict(k[i] => y[(Colon() for _ in 1:N)..., i] for i in 1:length(k))
     end
 end

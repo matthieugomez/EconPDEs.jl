@@ -31,12 +31,12 @@ function GarleanuPanageasModel(;γA  = 1.5, ψA = 0.7, γB = 10.0, ψB = 0.05, �
 end
 
 function initialize_state(m::GarleanuPanageasModel; n = 200)
-  @NT(x = linspace(0.0, 1.0, n))
+  OrderedDict(:x => linspace(0.0, 1.0, n))
 end
 
 function initialize_y(m::GarleanuPanageasModel, state)
-    x = fill(1.0, length(state.x))
-    @NT(pA = x, pB = x, ϕ1 = x, ϕ2 = x)
+    x = fill(1.0, length(state[:x]))
+    OrderedDict(:pA => x, :pB => x, :ϕ1 => x, :ϕ2 => x)
 end
 
 function (m::GarleanuPanageasModel)(state, y)
@@ -74,7 +74,7 @@ function (m::GarleanuPanageasModel)(state, y)
   ϕ1t = ϕ1 * (B1 * ω / ϕ1 + (μ - δ - δ1) + μϕ1 + σ * σϕ1 - r - κ * (σϕ1 + σ))
   ϕ2t = ϕ2 * (B2 * ω / ϕ2 + (μ - δ - δ2) + μϕ2 + σ * σϕ2 - r - κ * (σϕ2 + σ))
 
-  return (pAt, pBt, ϕ1t, ϕ2t), μx, @NT(p = p, pA = pA, pB = pB, κ = κ, r = r, μx = μx, σx = σx)
+  return (pAt, pBt, ϕ1t, ϕ2t), μx, tuple(:p => p, :pA => pA, :pB => pB, :κ => κ, :r => r, :μx => μx, :σx => σx)
 end
 
 

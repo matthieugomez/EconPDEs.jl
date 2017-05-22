@@ -27,11 +27,11 @@ function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     # corresponds to Grid 3 in Wachter (2005)
     shigh = log.(linspace(0.0, exp(smax), div(n, 10)))
     slow = linspace(smin, shigh[2], n - div(n, 10))
-    @NT(s = vcat(slow[1:(end-1)], shigh[2:end]))
+    OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
 function initialize_y(m::CampbellCochraneModel, state)
-    @NT(p = ones(length(state.s)))
+    OrderedDict(:p => ones(length(state[:s])))
 end
 	
 function (m::CampbellCochraneModel)(state, y)
@@ -58,7 +58,7 @@ function (m::CampbellCochraneModel)(state, y)
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-    return pt, μs, @NT(p = p, κ = κ, λ = λ, r = r, σp = σp, μs = μs, σs = σs)
+    return pt, μs, tuple(:p => p, :κ => κ, :λ => λ, :r => r, :σp => σp, :μs => μs, :σs => σs)
 end
 
 

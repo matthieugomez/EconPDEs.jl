@@ -26,7 +26,7 @@ function stationary_distribution(grid::StateGrid{1}, μ::Vector, σ::Vector)
             A[i, i] -= μ[i] * invΔxp[i]
         else
             A[i, i] += μ[i] * invΔxm[i] 
-            A[min(i - 1, 1), i] -= μ[i] * invΔxm[i] 
+            A[max(i - 1, 1), i] -= μ[i] * invΔxm[i] 
         end
         A[max(i - 1, 1), i] += 0.5 * σ[i]^2 * invΔx[i] * invΔxm[i] 
         A[i, i] -= 0.5 * σ[i]^2 * 2 * invΔxm[i] * invΔxp[i]

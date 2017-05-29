@@ -212,7 +212,7 @@ function create_dictionary(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{T
     A = nothing
     if length(x) == 3
         names = map(first, x[3])
-        A = OrderedDict(n => Array{Float64}(size(grid)) for n in names)
+        A = OrderedDict{Symbol, Array{Float64, Ngrid}}(n => Array{Float64}(size(grid)) for n in names)
         for i in eachindex(grid)
             state = getindex(grid, Tstate, i)
             solution = derive(Tsolution, grid, y, i)
@@ -230,6 +230,21 @@ end
 
 #========================================================================================
 
+Solution Type
+
+========================================================================================#
+
+type PDEResult{N}
+    distance::Float64
+    solution::OrderedDict{Symbol, Array{Float64, N}}
+    fullsolution::OrderedDict{Symbol, Array{Float64, N}}
+end
+
+
+
+
+#========================================================================================
+
 Solve the PDE
 
 ========================================================================================#
@@ -241,11 +256,10 @@ function pde_solve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(
     y, distance = nl_solve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tstate, Tsolution, y)
     y = _deconcatenate(collect(keys(y0)), y)
-    if a == nothing
-        return y, distance
-    else
-        return merge(y, a), distance
+    if a != nothing
+        a = merge(y, a)
     end
+    return PDEResult(distance, y, a)
 end
 
 function all_symbol(sols, states)
@@ -267,9 +281,10 @@ function _concatenate(y)
 end
 function _deconcatenate(k, y)
     if length(k) == 1
-        OrderedDict(k[1] => y)
+        N = ndims(y)
+        OrderedDict{Symbol, Array{Float64, N}}(k[1] => y)
     else
         N = ndims(y) - 1
-        OrderedDict(k[i] => y[(Colon() for _ in 1:N)..., i] for i in 1:length(k))
+        OrderedDict{Symbol, Array{Float64, N}}(k[i] => y[(Colon() for _ in 1:N)..., i] for i in 1:length(k))
     end
 end

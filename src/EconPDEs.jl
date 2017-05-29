@@ -23,5 +23,6 @@ include("utils.jl")
 export nl_solve,
 pde_solve,
 simulate, 
-OrderedDict
+OrderedDict,
+EconPDEResult
 end

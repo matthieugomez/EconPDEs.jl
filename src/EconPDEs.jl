@@ -10,8 +10,8 @@ using DataStructures: OrderedDict
 ## Load files
 ##
 ##############################################################################
-include("nl_solve.jl")
-include("pde_solve.jl")
+include("finiteschemesolve.jl")
+include("pdesolve.jl")
 include("utils.jl")
 
 
@@ -20,9 +20,8 @@ include("utils.jl")
 ## Exported methods and types 
 ##
 ##############################################################################
-export nl_solve,
-pde_solve,
+export finiteschemesolve,
+pdesolve,
 simulate, 
-OrderedDict,
-EconPDEResult
+OrderedDict
 end

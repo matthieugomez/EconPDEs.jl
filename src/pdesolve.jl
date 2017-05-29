@@ -2,7 +2,7 @@
 
 PDE solver
 1. generates first order and second order derivatibes (using upwinding)
-2. call nl_solve on the resulting finite difference scheme
+2. call finiteschemesolve on the resulting finite difference scheme
 
 ========================================================================================#
 
@@ -171,7 +171,7 @@ end
 
 #========================================================================================
 
-Define function F!(y, ydot) to pass to nl_solve
+Define function F!(y, ydot) to pass to finiteschemesolve
 
 ========================================================================================#
 
@@ -228,18 +228,6 @@ function create_dictionary(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{T
     return A
 end
 
-#========================================================================================
-
-Solution Type
-
-========================================================================================#
-
-type PDEResult{N}
-    distance::Float64
-    solution::OrderedDict{Symbol, Array{Float64, N}}
-    fullsolution::OrderedDict{Symbol, Array{Float64, N}}
-end
-
 
 
 
@@ -248,18 +236,18 @@ end
 Solve the PDE
 
 ========================================================================================#
-function pde_solve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k => false for k in keys(y0)), kwargs...)
+function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k => false for k in keys(y0)), kwargs...)
     Tstate = _NT(keys(grid))
     Tsolution = _NT(all_symbol(collect(keys(y0)), collect(keys(grid))))
     stategrid = StateGrid(grid)
     is_algebraic = _NT(keys(y0))((fill(is_algebraic[k], size(y0[k])) for k in keys(y0))...)
-    y, distance = nl_solve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
+    y, distance = finiteschemesolve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tstate, Tsolution, y)
-    y = _deconcatenate(collect(keys(y0)), y)
     if a != nothing
         a = merge(y, a)
     end
-    return PDEResult(distance, y, a)
+    y = _deconcatenate(collect(keys(y0)), y)
+    return y, a, distance
 end
 
 function all_symbol(sols, states)

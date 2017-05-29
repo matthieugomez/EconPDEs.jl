@@ -80,4 +80,4 @@ end
 # m = DiTellaModel()
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
-# result, distance = pde_solve(m, state, y0)
+# result, distance = pdesolve(m, state, y0)

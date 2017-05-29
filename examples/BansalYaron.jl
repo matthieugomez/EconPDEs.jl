@@ -81,10 +81,10 @@ end
 #m = BansalYaronModel()
 #state = initialize_state(m)
 #y0 = initialize_y(m, state)
-#result, distance = pde_solve(m, state, y0)
+#result, distance = pdesolve(m, state, y0)
 
 ### Bansal, Kiku, Yaron (2009) calibration
 #m = BansalYaronModel(μbar = 0.018, νc = 0.025, κμ = 0.3, κσ = 0.012, νμ = 0.0114, νσ = 0.189, ρ = 0.0132, γ = 7.5, ψ = 1.5#)
 #state = initialize_state(m)
 #y0 = initialize_y(m, state)
-#result, distance = pde_solve(m, state, y0)
+#result, distance = pdesolve(m, state, y0)

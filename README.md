@@ -8,7 +8,7 @@ Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 This package proposes a new, fast, and robust algorithm to solve PDEs associated with economic models (i.e. HJBs or market pricing equations). I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). 
 
 # Solving  PDEs
-The function `pde_solve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
+The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
 For instance, to solve the PDE corresponding to the Campbell Cochrane model:
 
@@ -57,16 +57,16 @@ function f(state, y)
 end
 
 # solve PDE
-pde_solve(f, state, y0)
+pdesolve(f, state, y0)
 ```
 
-`pde_solve` then automatically creates and solves the finite different scheme associated with the PDE, using upwinding etc
+`pdesolve` then automatically creates and solves the finite different scheme associated with the PDE, using upwinding etc
 
 
 # Solving Non Linear Systems
-`pde_solve` internally calls `nl_solve` that is written specifically to solve non linear systems associated with finite difference schemes. `nl_solve` can also be called directly.
+`pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.
 
-Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `nl_solve` has the following syntax:
+Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `finiteschemesolve` has the following syntax:
 
  - The first argument is a function `F!(y, out)` which transforms `out = F(y)` in place.
  - The second argument is an array of arbitrary dimension for the initial guess for `y`

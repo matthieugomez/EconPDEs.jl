@@ -243,10 +243,10 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
     is_algebraic = _NT(keys(y0))((fill(is_algebraic[k], size(y0[k])) for k in keys(y0))...)
     y, distance = finiteschemesolve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tstate, Tsolution, y)
+    y = _deconcatenate(collect(keys(y0)), y)
     if a != nothing
         a = merge(y, a)
     end
-    y = _deconcatenate(collect(keys(y0)), y)
     return y, a, distance
 end
 

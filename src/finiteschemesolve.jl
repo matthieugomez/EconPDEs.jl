@@ -31,7 +31,7 @@ function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost
 end
 
 # Solve for steady state
-function nl_solve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
     if Δ == Inf
         ypost, distance = implicit_time_step(F!, y0, Δ ; verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist)
     else

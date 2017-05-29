@@ -7,14 +7,15 @@ Stationary Distribution
 function stationary_distribution(grid::OrderedDict, a::OrderedDict)
     k = collect(keys(grid))
     if length(k) == 1
-        stationary_distribution(StateGrid(grid), a[Symbol(:μ, k[1])],  a[Symbol(:σ, k[1])])
+        stationary_distribution(grid, a[Symbol(:μ, k[1])],  a[Symbol(:σ, k[1])])
     elseif length(k) == 2
-        stationary_distribution(StateGrid(grid), [a[Symbol(:μ, k[1])], a[Symbol(:μ, k[2])]],  [a[Symbol(:σ, k[1])], a[Symbol(:σ, k[2])], a[Symbol(:σ, k[1], k[2])]])
+        stationary_distribution(grid, [a[Symbol(:μ, k[1])], a[Symbol(:μ, k[2])]],  [a[Symbol(:σ, k[1])], a[Symbol(:σ, k[2])], a[Symbol(:σ, k[1], k[2])]])
     end
 end
 
 # Case with 1 state variable
-function stationary_distribution(grid::StateGrid{1}, μ::Vector, σ::Vector)
+function stationary_distribution(grid, μ::Vector, σ::Vector)
+    grid = StateGrid(grid)
     n, = size(grid)
     invΔx, = grid.invΔx
     invΔxp, = grid.invΔxp
@@ -43,7 +44,8 @@ function stationary_distribution(grid::StateGrid{1}, μ::Vector, σ::Vector)
 end
 
 
-function stationary_distribution(grid::StateGrid{2}, μ::Vector, σ::Vector)
+function stationary_distribution(grid, μ::Array, σ::Array)
+    grid = StateGrid(grid)
     n1, n2 = size(grid)
     A = zeros(n1, n2, n1, n2)
     invΔx1, invΔx2 = grid.invΔx

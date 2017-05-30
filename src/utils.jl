@@ -14,7 +14,7 @@ function stationary_distribution(grid::OrderedDict, a::OrderedDict)
 end
 
 # Case with 1 state variable
-function stationary_distribution(grid, μ::Vector, σ::Vector)
+function stationary_distribution(grid, μ::Vector{T}, σ::Vector{T}) where {T <: Number}
     grid = StateGrid(grid)
     n, = size(grid)
     invΔx, = grid.invΔx
@@ -43,8 +43,8 @@ function stationary_distribution(grid, μ::Vector, σ::Vector)
     return density 
 end
 
-
-function stationary_distribution(grid, μ::Array, σ::Array)
+# Case with 2 state variables
+function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ::Vector{Array{T, 2}}) where {T}
     grid = StateGrid(grid)
     n1, n2 = size(grid)
     A = zeros(n1, n2, n1, n2)
@@ -98,23 +98,23 @@ Simulate
 
 ========================================================================================#
 
-function simulate(grid, a, shocks::Dict; dt = 1 / 12, x0 = nothing)
+function simulate(grid, a, shocks::OrderedDict; dt = 1 / 12, x0 = nothing)
     grid = StateGrid(grid)
     T = size(shocks[first(keys(shocks))], 1)
     I = size(shocks[first(keys(shocks))], 2)
     if x0 == nothing
         i0 = rand(Categorical(vec(stationary_distribution(grid, a))), I)
         if N == 1
-            x0 = Dict(grid.name[1] => grid.x[1][i0])
+            x0 = OrderedDict(grid.name[1] => grid.x[1][i0])
         elseif N == 2
             i10 = mod(i0 - 1, length(grid.x[1])) + 1
             i20 = div(i0 - 1, length(grid.x[1])) + 1
-            x0 = Dict(grid.name[1] => grid.x[1][i10], grid.name[2] => grid.x[2][i20])
+            x0 = OrderedDict(grid.name[1] => grid.x[1][i10], grid.name[2] => grid.x[2][i20])
         end
     end
     # interpolate all functions
-    ai = Dict([Pair(k => interpolate(grid.x, a[k], Gridded(Linear()))) for k in keys(a)])
-    aT = Dict([Pair(k => zeros(T, I)) for k in keys(a)])
+    ai = OrderedDict([Pair(k => interpolate(grid.x, a[k], Gridded(Linear()))) for k in keys(a)])
+    aT = OrderedDict([Pair(k => zeros(T, I)) for k in keys(a)])
     aT[:id] = zeros(T, I)
     aT[:t] = zeros(T, I)
     for k in keys(shocks)

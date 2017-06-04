@@ -1,4 +1,4 @@
-struct CampbellCochraneModel
+mutable struct CampbellCochraneModel
     # consumption process parameters
     μ::Float64 
     σ::Float64

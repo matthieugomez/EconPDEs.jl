@@ -75,5 +75,3 @@ catch e
 	showerror(STDOUT, e, backtrace())
 	rethrow(e)
 end
-
-

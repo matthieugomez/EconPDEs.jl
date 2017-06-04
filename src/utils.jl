@@ -4,24 +4,33 @@
 Stationary Distribution
 
 ========================================================================================#
-function stationary_distribution(grid::OrderedDict, a::OrderedDict)
-    k = collect(keys(grid))
-    if length(k) == 1
-        stationary_distribution(grid, a[Symbol(:μ, k[1])],  a[Symbol(:σ, k[1])])
-    elseif length(k) == 2
-        stationary_distribution(grid, [a[Symbol(:μ, k[1])], a[Symbol(:μ, k[2])]],  [a[Symbol(:σ, k[1])], a[Symbol(:σ, k[2])], a[Symbol(:σ, k[1], k[2])]])
-    end
-end
+
+# Let's prove that for A matrix with off diagonal non negative + sum of columns = 0, there exists g non negative vector such that Ag = 0
+# Proof: A  has off-diagonal element non negative, therefore can be written as r(I - B) with B non negative matrix.  Sum of A columns are 0, implies sum of B columns are 1. We can apply math of markov chain: there exists g non negative vector such that Bg = I, i.e. Ag = 0. Note that -A is actually said to be a "singular M matrix"
+
+# Let's prove that for for A matrix with off diagonal non negative + sum of columns = 0, there exists g non negative vector such that  (δI - A) g = δψ.  where ψ is psotivie elementwise
+# Proof We know from paragraph above that zero is the highest eigenvalue for A thereofre δI - A is invertible and it is a Z matrix therefore it is a M matrix. Therefore we know that (δI - a)^{-1} has all elements positive  and therefore ψ has all element non negative implies g has all element non negative.
+# Note that this also proof the case without death rate by using limit argument.
+
+# Note that this set of conditions are the same as barles souganadas conditions for convergence of finite scheme. Scheme monoticity ensures off diagonal elements are psotivie or equal tto zero. Scheme consistency implies sum of A columbs are 0.
+
+
+
+#now there are still two issues
+#1. Does not satisfy walras law. Or mathematically does not satisfy IPP ∑ μ.g = ∑ a.Ag. In the case drift is positive, there is a remaning term μ_NdG(a_N) To satisfy it, do amax super super high (intuitively, x high enough so that cutting behavior at the top does not matter for aggregate as g(x)x -> 0)
+#2. A g can be negative when updating forward. Use implicit scheme
 
 # Case with 1 state variable
-function stationary_distribution(grid, μ::Vector{T}, σ::Vector{T}) where {T <: Number}
-    grid = StateGrid(grid)
-    n, = size(grid)
-    invΔx, = grid.invΔx
-    invΔxp, = grid.invΔxp
-    invΔxm, = grid.invΔxm
+function clean!(density)
+    scale!(density, 1/sum(density))
+end
+
+function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
+    x, invΔx, invΔxm, invΔxp = make_Δ(grid)
+    n = length(x)
     A = zeros(n, n)
     for i in 1:n
+        # ensures that sum of columns is always 0
         if μ[i] >= 0
             A[min(i + 1, size(A, 1)), i] += μ[i] * invΔxp[i]
             A[i, i] -= μ[i] * invΔxp[i]
@@ -29,57 +38,78 @@ function stationary_distribution(grid, μ::Vector{T}, σ::Vector{T}) where {T <:
             A[i, i] += μ[i] * invΔxm[i] 
             A[max(i - 1, 1), i] -= μ[i] * invΔxm[i] 
         end
-        A[max(i - 1, 1), i] += 0.5 * σ[i]^2 * invΔx[i] * invΔxm[i] 
-        A[i, i] -= 0.5 * σ[i]^2 * 2 * invΔxm[i] * invΔxp[i]
-        A[min(i + 1, size(A, 1)), i] += 0.5 * σ[i]^2 * invΔx[i] * invΔxp[i]
+        A[max(i - 1, 1), i] += 0.5 * σ2[i] * invΔx[i] * invΔxm[i] 
+        A[i, i] -= 0.5 * σ2[i] * 2 * invΔxm[i] * invΔxp[i]
+        A[min(i + 1, size(A, 1)), i] += 0.5 * σ2[i] * invΔx[i] * invΔxp[i]
     end
-    for j in 1:size(A, 2)
+    return A
+end
+
+
+function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
+    A = computeA(grid, μ, σ2)
+    n = size(A, 2)
+    for j in 1:n
         A[1, j] = 1.0
     end
     b = vcat(1.0, zeros(n - 1))
     density = A \ b
-    @assert all(density .> -1e-5)
-    density = abs.(density) ./ sum(abs, density)  
-    return density 
+    @assert all(density .> 0)
+    @assert sum(density) ≈ 1.0
+    clean!(density) 
 end
 
+function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}, δ, ψ) where {T <: Number}
+    A = computeA(grid, μ, σ2)
+    density = (δ .* eye(A) .- A) \ (δ .* ψ)
+    @assert all(density .> 0)
+    @assert sum(density) ≈ 1.0
+    clean!(density)
+end
+
+
+
+
 # Case with 2 state variables
-function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ::Vector{Array{T, 2}}) where {T}
-    grid = StateGrid(grid)
-    n1, n2 = size(grid)
-    A = zeros(n1, n2, n1, n2)
-    invΔx1, invΔx2 = grid.invΔx
+function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ2::Vector{Array{T, 2}}) where {T}
+    x1, invΔx1, invΔx1m, invΔx1p = make_Δ(grid[1])
+    x2, invΔx2, invΔx2m, invΔx2p = make_Δ(grid[2])
     for i2 in 1:n2
         for i1 in 1:n1
             if μ[1][i1, i2] >= 0
                 i1h = min(i1 + 1, size(A, 1))
                 i1l = i1
+                invΔx1i = invΔx1p[i1]
             else
                i1h = i1
                i1l = max(i1 - 1, 1)
+               invΔx1i = invΔx1m[i1]
             end
-            A[i1h, i2, i1, i2] += μ[1][i1, i2] * invΔx1[i1]
-            A[i1l, i2, i1, i2] -= μ[1][i1, i2] * invΔx1[i1]
-            A[max(i1 - 1, 1), i2, i1, i2] += 0.5 * σ[1][i1, i2]^2 * invΔx1[i1]^2
-            A[i1, i2, i1, i2] -= 0.5 * σ[1][i1, i2] * 2 * invΔx1[i1]^2
-            A[min(i1 + 1, size(A, 1)),i2, i1, i2] += 0.5 * σ[1][i1, i2]^2 * invΔx1[i1]^2
+            A[i1h, i2, i1, i2] += μ[1][i1, i2] * invΔx1i
+            A[i1l, i2, i1, i2] -= μ[1][i1, i2] * invΔx1i
+            A[max(i1 - 1, 1), i2, i1, i2] += 0.5 * σ2[1][i1, i2] * invΔx1[i1] * invΔx1m[i1] 
+            A[i1, i2, i1, i2] -= 0.5 * σ[1][i1, i2] * 2 * invΔx1m[i1] * invΔx1p[i1]
+            A[min(i1 + 1, size(A, 1)),i2, i1, i2] += 0.5 * σ2[1][i1, i2] * invΔx1[i1] * invΔx1p[i1]
             if μ[2][i1, i2] >= 0
                 i2h = min(i2 + 1, size(A, 2))
                 i2l = i2
+                invΔx2i = invΔx2p[i1]
             else
                i2h = i2
                i2l = max(i2 - 1, 1)
+               invΔx2i = invΔx2m[i2]
             end
-            A[i1, i2h, i1, i2] += μ[2][i1, i2] * invΔx1[i1]
-            A[i1, i2l, i1, i2] -= μ[2][i1, i2] * invΔx1[i1]
-            A[i1, max(i2 - 1, 1), i1, i2] += 0.5 * σ[2][i1, i2]^2 * invΔx2[i2]^2
-            A[i1, i2, i1, i2] -= 0.5 * σ[2][i1, i2] * 2 * invΔx2[i2]^2
-            A[i1,min(i2 + 1, size(A, 2)), i1, i2] += 0.5 * σ[2][i1, i2]^2 * invΔx2[i2]^2
+            A[i1, i2h, i1, i2] += μ[2][i1, i2] * invΔx2i
+            A[i1, i2l, i1, i2] -= μ[2][i1, i2] * invΔx2i
+            A[i1, max(i2 - 1, 1), i1, i2] += 0.5 * σ2[2][i1, i2] * invΔx2[i2] * invΔx2m[i2] 
+            A[i1, i2, i1, i2] -= 0.5 * σ[2][i1, i2] * 2 * invΔx2m[i2] * invΔx2p[i2]
+            A[i1,min(i2 + 1, size(A, 2)), i1, i2] += 0.5 * σ2[2][i1, i2] * invΔx2[i2] * invΔx2p[i2]
 
-            A[i1h, i2h, i1, i2] += σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
-            A[i1l, i2h, i1, i2] -= σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
-            A[i1h, i2l, i1, i2] -= σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
-            A[i1l, i2l, i1, i2] += σ[3][i1, i2]^2 * invΔx1[i1] * invΔx2[i2]
+            #this way only adds bad sign in stuff already filled (at least when sigma2[3] ⫺ 0). works as long as this expression smaller than the drift
+            A[i1h, i2h, i1, i2] += σ2[3][i1, i2] * invΔx1i * invΔx2i
+            A[i1l, i2h, i1, i2] -= σ2[3][i1, i2] * invΔx1i * invΔx2i
+            A[i1h, i2l, i1, i2] -= σ2[3][i1, i2] * invΔx1i * invΔx2i
+            A[i1l, i2l, i1, i2] += σ2[3][i1, i2] * invΔx1i * invΔx2i
         end
     end
     A = reshape(A.A, (n1 * n2, n1 * n2))
@@ -92,6 +122,17 @@ function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ::Vector{Array
     return reshape(density, (n1, n2))
 end
 
+
+
+
+function stationary_distribution(grid::OrderedDict, a::OrderedDict)
+    k = collect(keys(grid))
+    if length(k) == 1
+        stationary_distribution(collect(values(grid))[1], a[Symbol(:μ, k[1])],  a[Symbol(:σ, k[1])].^2)
+    elseif length(k) == 2
+        stationary_distribution(collect(values(grid)), [a[Symbol(:μ, k[1])], a[Symbol(:μ, k[2])]],  [a[Symbol(:σ, k[1])].^2, a[Symbol(:σ, k[2])].^2, a[Symbol(:σ, k[1], k[2])]])
+    end
+end
 #========================================================================================
 
 Simulate

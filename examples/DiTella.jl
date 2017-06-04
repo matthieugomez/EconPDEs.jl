@@ -1,6 +1,6 @@
 using Distributions
 
-struct DiTellaModel
+mutable struct DiTellaModel
   # Utility Function
   γ::Float64 
   ψ::Float64

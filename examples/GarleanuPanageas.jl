@@ -1,4 +1,4 @@
-struct GarleanuPanageasModel
+mutable struct GarleanuPanageasModel
 
   # utility function
   γA::Float64 

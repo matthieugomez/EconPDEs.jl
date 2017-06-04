@@ -1,6 +1,6 @@
 using Distributions
 
-struct BansalYaronModel
+mutable struct BansalYaronModel
     # consumption process parameters
     μbar::Float64 
     νc::Float64

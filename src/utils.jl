@@ -20,9 +20,15 @@ Stationary Distribution
 #1. Does not satisfy walras law. Or mathematically does not satisfy IPP ∑ μ.g = ∑ a.Ag. In the case drift is positive, there is a remaning term μ_NdG(a_N) To satisfy it, do amax super super high (intuitively, x high enough so that cutting behavior at the top does not matter for aggregate as g(x)x -> 0)
 #2. A g can be negative when updating forward. Use implicit scheme
 
-# Case with 1 state variable
 function clean!(density)
-    scale!(density, 1/sum(density))
+    if any(density .< -eps())
+        warn("Density has some elements negative")
+    end
+    if !(sum(density) ≈ 1.0)
+        warn("Density does not sum to one")
+    end
+    density .= max.(density, 0.0) ./ sum(max.(density, 0.0))
+    return density
 end
 
 function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
@@ -32,7 +38,7 @@ function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
     for i in 1:n
         # ensures that sum of columns is always 0
         if μ[i] >= 0
-            A[min(i + 1, size(A, 1)), i] += μ[i] * invΔxp[i]
+            A[min(i + 1, n), i] += μ[i] * invΔxp[i]
             A[i, i] -= μ[i] * invΔxp[i]
         else
             A[i, i] += μ[i] * invΔxm[i] 
@@ -40,8 +46,11 @@ function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
         end
         A[max(i - 1, 1), i] += 0.5 * σ2[i] * invΔx[i] * invΔxm[i] 
         A[i, i] -= 0.5 * σ2[i] * 2 * invΔxm[i] * invΔxp[i]
-        A[min(i + 1, size(A, 1)), i] += 0.5 * σ2[i] * invΔx[i] * invΔxp[i]
+        A[min(i + 1, n), i] += 0.5 * σ2[i] * invΔx[i] * invΔxp[i]
     end
+    #@assert all(A - Diagonal(A) .>= 0.0)
+    #@assert all(diag(A) .<= 0.0)
+    #@show sum(A, 1)
     return A
 end
 
@@ -53,21 +62,15 @@ function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}) where {T <
         A[1, j] = 1.0
     end
     b = vcat(1.0, zeros(n - 1))
-    density = A \ b
-    @assert all(density .> 0)
-    @assert sum(density) ≈ 1.0
+    density = sparse(A) \ b
     clean!(density) 
 end
 
 function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}, δ, ψ) where {T <: Number}
     A = computeA(grid, μ, σ2)
-    density = (δ .* eye(A) .- A) \ (δ .* ψ)
-    @assert all(density .> 0)
-    @assert sum(density) ≈ 1.0
+    density = sparse(δ * I - A) \ (δ * ψ)
     clean!(density)
 end
-
-
 
 
 # Case with 2 state variables
@@ -117,9 +120,8 @@ function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ2::Vector{Arra
         A[1, j] = 1.0
     end
     b = vcat(1.0, zeros(size(A, 2) - 1))
-    density = A \ b
-    density = abs.(density) ./ sum(abs, density)  
-    return reshape(density, (n1, n2))
+    density = sparse(A) \ b
+    return clean!(reshape(density, (n1, n2)))
 end
 
 

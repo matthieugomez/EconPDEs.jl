@@ -26,7 +26,7 @@ y0 = OrderedDict(:p => ones(1000))
 # 1. state variable 
 # 2. current solution y
 # It returns a tuple composed of
-# 1. Value of PDE at current solution and current state
+# 1. Value of PDE at current solution and current state (note that the current solution and its derivatives can be accessed as fields of y)
 # 2. drift of state variable (used for upwinding)
 function f(state, y)
 	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κs = 0.13 ; Sbar = 0.5883

@@ -39,7 +39,9 @@ end
 pdesolve(f, state, y0)
 ```
 
-Other examples (including PDE two state variables or systems of multiple PDEs) can be found in the `examples` folder. The `examples` folder contains code to solve
+More complicated PDES (includining PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
+
+The `examples` folder contains code to solve
 - Campbell Cochrane (1999) and Wachter (2005) Habit Model
 - Bansal Yaron (2004) Long Run Risk Model
 - Garleanu Panageas (2015) Heterogeneous Agent Models

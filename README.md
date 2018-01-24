@@ -12,7 +12,7 @@ The function `pdesolve` takes three arguments: (i) a function encoding the pde (
 
 For instance, to solve the PDE corresponding to the Campbell Cochrane model:
 ![](img/campbell.png)
-![](img/campbell2.png)
+![](img/campbell2.png | width=100)
 
 ```julia
 using EconPDEs, OrderedDict

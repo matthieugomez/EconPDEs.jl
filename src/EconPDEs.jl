@@ -5,6 +5,7 @@ import Combinatorics: with_replacement_combinations
 using Interpolations
 using NamedTuples
 using DataStructures: OrderedDict
+using BandedMatrices
 ##############################################################################
 ##
 ## Load files

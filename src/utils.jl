@@ -5,19 +5,11 @@ Stationary Distribution
 
 ========================================================================================#
 
-# Let's prove that for A matrix with off diagonal non negative + sum of columns = 0, there exists g non negative vector such that Ag = 0
-# Proof: A  has off-diagonal element non negative, therefore can be written as r(I - B) with B non negative matrix.  Sum of A columns are 0, implies sum of B columns are 1. We can apply math of markov chain: there exists g non negative vector such that Bg = I, i.e. Ag = 0. Note that -A is actually said to be a "singular M matrix"
-
-# Let's prove that for for A matrix with off diagonal non negative + sum of columns = 0, there exists g non negative vector such that  (δI - A) g = δψ.  where ψ is psotivie elementwise
-# Proof We know from paragraph above that zero is the highest eigenvalue for A thereofre δI - A is invertible and it is a Z matrix therefore it is a M matrix. Therefore we know that (δI - a)^{-1} has all elements positive  and therefore ψ has all element non negative implies g has all element non negative.
-# Note that this also proof the case without death rate by using limit argument.
-
-# Note that this set of conditions are the same as barles souganadas conditions for convergence of finite scheme. Scheme monoticity ensures off diagonal elements are psotivie or equal tto zero. Scheme consistency implies sum of A columbs are 0.
-
-
 
 #now there are still two issues
-#1. Does not satisfy walras law. Or mathematically does not satisfy IPP ∑ μ.g = ∑ a.Ag. In the case drift is positive, there is a remaning term μ_NdG(a_N) To satisfy it, do amax super super high (intuitively, x high enough so that cutting behavior at the top does not matter for aggregate as g(x)x -> 0)
+#1. Does not satisfy walras law. Or mathematically does not satisfy IPP ∑ μ.g = ∑ a.Ag. 
+# 1.1. First part due to drift if not positive at left boundary or not negative ar right boundary In the case drift is positive, there is a remaning term μ_NdG(a_N) To satisfy it, do amax super super high (intuitively, x high enough so that cutting behavior at the top does not matter for aggregate as g(x)x -> 0)
+#1.2 Second part is due to volatility. Note that it requires to put invΔx[i] for central derivative, which is different with the formula in Moll notes
 #2. A g can be negative when updating forward. Use implicit scheme
 
 function clean!(density)
@@ -34,7 +26,7 @@ end
 function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
     x, invΔx, invΔxm, invΔxp = make_Δ(grid)
     n = length(x)
-    A = zeros(n, n)
+    A = bzeros(n, n, 1, 1)
     for i in 1:n
         # ensures that sum of columns is always 0
         if μ[i] >= 0
@@ -50,13 +42,16 @@ function computeA(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
     end
     #@assert all(A - Diagonal(A) .>= 0.0)
     #@assert all(diag(A) .<= 0.0)
-    #@show sum(A, 1)
+    # conservation of mass
+    # @show sum(A, 1)
+    # conservation of mean
+    #@show invΔx[i] * invΔxm[i] * x[i-1] - 2 * invΔxm[i] * invΔxp[i] * x[i] + invΔx[i] * invΔxp[i] * x[i+1]
     return A
 end
 
 
 function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}) where {T <: Number}
-    A = computeA(grid, μ, σ2)
+    A = full(computeA(grid, μ, σ2))
     n = size(A, 2)
     for j in 1:n
         A[1, j] = 1.0
@@ -68,7 +63,7 @@ end
 
 function stationary_distribution(grid, μ::Vector{T}, σ2::Vector{T}, δ, ψ) where {T <: Number}
     A = computeA(grid, μ, σ2)
-    density = sparse(δ * I - A) \ (δ * ψ)
+    density = (beye(n, 1, 1) - A) \ (δ * ψ)
     clean!(density)
 end
 
@@ -76,7 +71,10 @@ end
 # Case with 2 state variables
 function stationary_distribution(grid, μ::Vector{Array{T, 2}}, σ2::Vector{Array{T, 2}}) where {T}
     x1, invΔx1, invΔx1m, invΔx1p = make_Δ(grid[1])
+    n1 = length(x1)
     x2, invΔx2, invΔx2m, invΔx2p = make_Δ(grid[2])
+    n2 = length(x2)
+    A = zeros(n1 * n2, n1 * n2)
     for i2 in 1:n2
         for i1 in 1:n1
             if μ[1][i1, i2] >= 0

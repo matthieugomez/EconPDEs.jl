@@ -22,6 +22,7 @@ end
 function make_Δ(x)
     n = length(x)
     Δxm = zeros(x)
+    Δxm[1] = x[2] - x[1]
     for i in 2:n
         Δxm[i] = x[i] - x[i-1]
     end
@@ -29,14 +30,8 @@ function make_Δ(x)
     for i in 1:(n-1)
         Δxp[i] = x[i+1] - x[i]
     end
-    Δx = zeros(x)
-    Δx[1] = Δxp[1]
-    Δxm[1] = Δxp[1]
-    Δx[end] = Δxm[end]
-    Δxp[end] = Δxm[end]
-    for i in 2:(n-1)
-        Δx[i] = 0.5 * (Δxm[i] + Δxp[i])
-    end
+    Δxp[end] = x[n] - x[n-1]
+    Δx = (Δxm .+ Δxp) / 2
     return x, 1./Δx, 1./Δxm, 1./Δxp
 end
 

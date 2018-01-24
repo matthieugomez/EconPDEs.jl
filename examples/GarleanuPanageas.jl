@@ -81,4 +81,4 @@ end
 # m = GarleanuPanageasModel()
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
-# result, distance = pdesolve(m, state, y0)
+# y, result, distance = pdesolve(m, state, y0)

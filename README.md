@@ -11,56 +11,35 @@ This package proposes a new, fast, and robust algorithm to solve PDEs associated
 The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
 For instance, to solve the PDE corresponding to the Campbell Cochrane model:
+![](img/campbell.png)
+![](img/campbell.png2)
 
 ```julia
-using EconPDEs
-
+using EconPDEs, OrderedDict
 # define state grid
 state = OrderedDict(:s => linspace(-100, -2.4, 1000))
 
 # define initial guess
-y0 = OrderedDict(:p => ones(state[:x]))
+y0 = OrderedDict(:p => ones(1000))
 
-# define pde function
-# The function encoding the pde takes two arguments:
+# define pde function that specifies PDE to solve. The function takes two arguments:
 # 1. state variable 
 # 2. current solution y
+# It returns a tuple composed of
+# 1. Value of PDE at current solution and current state
+# 2. drift of state variable (used for upwinding)
 function f(state, y)
-	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κs = 0.13
-	s = state.s
-	p, ps, pss = y.p, y.ps, y.pss
-	# Note that "y" contains the derivatives as fields. 
-	# The field names correspond to the names given in the initial guess and in the state grid
-	
-	# drift and volatility of state variable s
-	Sbar = σ * sqrt(γ / κs)
-	sbar = log(Sbar)
-	λ = 1 / Sbar * sqrt(1 - 2 * (s - sbar)) - 1
-	μs = - κs * (s - sbar)
-	σs = λ * σ
-
-	# market price of risk κ
-	κ = γ * (σ + σs)
-
-	# risk free rate  r
-	r = ρ + γ * μ - γ * κs / 2
-
-	# drift and volatility of p
-	σp = ps / p * σs
-	μp = ps / p * μs + 0.5 * pss / p * σs^2
-
-	# The function must return a tuple of two terms.
-	# 1. A tuple corresponding to the value of the system of PDEs at this grid point.
-	# 2. A tuple corresponding to the drift of state variables at this grid point (used for upwinding).
-	out = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-	return out, μs
+	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κs = 0.13 ; Sbar = 0.5883
+	λ = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
+	out = 1 + μ * y.p  - κs * (state.s - log(Sbar)) * y.ps  + 0.5 * λ^2 * σ^2 * y.pss + λ * σ^2 * y.ps - (ρ + γ * μ - γ * κs / 2) * y.p - γ * σ^2 * (1 + λ) * (y.p + λ * y.ps) 
+	return out, - κs * (state.s - log(Sbar))
 end
 
 # solve PDE
 pdesolve(f, state, y0)
 ```
 
-`pdesolve` then automatically creates and solves the finite different scheme associated with the PDE, using upwinding etc
+Other examples (including PDE with two state variables) can be found in the `examples` folder.
 
 
 # Solving Non Linear Systems

@@ -20,7 +20,7 @@ end
 include("../examples/BansalYaron.jl")
 try
 	m = BansalYaronModel()
-	state = initialize_state(m; μn = 5, σn = 5)
+	state = initialize_state(m; μn = 5, vn = 5)
 	y0 = initialize_y(m, state)
 	y, a, distance = pdesolve(m, state, y0)
 	@test distance <= 1e-5

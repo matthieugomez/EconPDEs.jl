@@ -11,8 +11,8 @@ This package proposes a new, fast, and robust algorithm to solve PDEs associated
 The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
 For instance, to solve the PDE corresponding to the Campbell Cochrane model:
-![](img/campbell.png)
-![](img/campbell2.png | width=100)
+<img src="img/campbell.png">
+<img src="img/campbell2.png", width="100">
 
 ```julia
 using EconPDEs, OrderedDict

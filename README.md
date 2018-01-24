@@ -39,7 +39,12 @@ end
 pdesolve(f, state, y0)
 ```
 
-Other examples (including PDE two state variables or systems of multiple PDEs) can be found in the `examples` folder.
+Other examples (including PDE two state variables or systems of multiple PDEs) can be found in the `examples` folder. The `examples` folder contains code to solve
+- Campbell Cochrane (1999) and Wachter (2005) Habit Model
+- Bansal Yaron (2004) Long Run Risk Model
+- Garleanu Panageas (2015) Heterogeneous Agent Models
+- Wang Wang Yang (2016) Portfolio Problem with Labor Income
+- Di Tella (2017) Model of Balance Sheet Recessions
 
 
 # Solving Non Linear Systems

@@ -39,7 +39,7 @@ end
 pdesolve(f, state, y0)
 ```
 
-Other examples (including PDE with two state variables) can be found in the `examples` folder.
+Other examples (including PDE two state variables or systems of multiple PDEs) can be found in the `examples` folder.
 
 
 # Solving Non Linear Systems

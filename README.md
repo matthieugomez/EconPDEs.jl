@@ -20,7 +20,7 @@ using EconPDEs, OrderedDict
 state = OrderedDict(:s => linspace(-100, -2.4, 1000))
 
 # define initial guess
-y0 = OrderedDict(:p => ones(1000))
+y0 = OrderedDict(:V => ones(1000))
 
 # define pde function that specifies PDE to solve. The function takes two arguments:
 # 1. state variable 
@@ -29,10 +29,10 @@ y0 = OrderedDict(:p => ones(1000))
 # 1. Value of PDE at current solution and current state (note that the current solution and its derivatives can be accessed as fields of y)
 # 2. drift of state variable (used for upwinding)
 function f(state, y)
-	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κs = 0.13 ; Sbar = 0.5883
-	λ = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
-	out = 1 + μ * y.p  - κs * (state.s - log(Sbar)) * y.ps  + 0.5 * λ^2 * σ^2 * y.pss + λ * σ^2 * y.ps - (ρ + γ * μ - γ * κs / 2) * y.p - γ * σ^2 * (1 + λ) * (y.p + λ * y.ps) 
-	return out, - κs * (state.s - log(Sbar))
+	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
+	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
+	out = 1 + μ * y.V  - κ * (state.s - log(Sbar)) * y.Vs  + 1 / 2 * λs^2 * σ^2 * y.Vss + λs * σ^2 * y.Vs - (ρ + γ * μ - γ * κ / 2) * y.V - γ * σ^2 * (1 + λs) * (y.V + λs * y.Vs) 
+	return out, - κ * (state.s - log(Sbar))
 end
 
 # solve PDE

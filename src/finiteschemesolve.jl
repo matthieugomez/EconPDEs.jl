@@ -24,7 +24,7 @@ end
 function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = true, maxdist = 1e-9)
     ysize = size(ypost)
     ypost = reshape(ypost, prod(ysize))
-    result = nlsolve((y, ydot) -> helper!(F!, y, ydot, ypost, Δ, is_algebraic, ysize), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
+    result = nlsolve((ydot, y) -> helper!(F!, y, ydot, ypost, Δ, is_algebraic, ysize), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     y = reshape(result.zero, ysize...)
     distance = result.residual_norm
     return y, distance

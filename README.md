@@ -5,9 +5,9 @@
 Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
-This package proposes a new, fast, and robust algorithm to solve non linear elliptic PDEs. These PDEs have a particular structure and they should be solved with a particular algorithm. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). Non linear elliptic PDEs arise naturally in economic models, though Hamilon-Jacobi-Bellman Equations or market pricing equations.
+This package proposes a new, fast, and robust algorithm to solve non linear elliptic PDEs. These PDEs have a particular structure and they should be solved with a particular algorithm. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
 
-This package focuses exclusively on PDEs that arise in economic models. Because of its focus, it is a much better solver for this type of PDES than [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
+Non linear elliptic PDEs arise naturally in economic models, though Hamilon-Jacobi-Bellman Equations or market pricing equations. This package focuses exclusively on solving this type of PDEs. Because of its focus, it is a much better solver for this type of PDES than [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 

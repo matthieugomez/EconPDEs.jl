@@ -9,7 +9,7 @@ This package proposes a new, fast, and robust algorithm to solve non linear elli
 
 Non linear elliptic PDEs arise naturally in economic models. For instance, Hamilon-Jacobi-Bellman Equations or market pricing equations are non linear elliptic PDEs. 
 
-Since this package focuses exclusively on solving non linear elliptic PDEs, it is a much better solver for this type of PDES than [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
+Since this package focuses exclusively on solving PDEs that arise in economic models, it is a much better solver for this type of PDES than [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 

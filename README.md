@@ -5,7 +5,8 @@
 Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
-This package proposes a new, fast, and robust algorithm to solve PDEs associated with economic models (i.e. HJBs or market pricing equations). I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). 
+This package proposes a new, fast, and robust algorithm to solve non linear elliptic PDEs. These PDEs have a particular structure and they should be solved with a particular solution method. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). 
+These PDEs arise naturally in economic models, though Hamilon-Jacobi-Bellman Equations or market pricing equations.
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 

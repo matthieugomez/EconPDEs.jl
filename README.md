@@ -5,7 +5,7 @@
 Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
-This package proposes a new, fast, and robust algorithm to solve PDEs that arise in economic models (in particular Hamilton-Jacobi-Bellman equations). These PDEs have a particular structure and they should be solved with a particular algorithm. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
+This package proposes a new, fast, and robust algorithm to solve PDEs that arise in economic models (i.e. non linear elliptic PDEs, such as  Hamilton-Jacobi-Bellman equations). These PDEs have a particular structure and they should be solved with a particular algorithm. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
 
 This solver is much more robust for economics PDEs than the solver in [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
 

@@ -77,6 +77,9 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             end
         end
     end
+    if distance > maxdist
+        warn("Iteration did not converge")
+    end
     return ypost, distance
 end
 

@@ -42,6 +42,10 @@ end
 function (m::GarleanuPanageasModel)(state, y)
   γA = m.γA ; ψA = m.ψA ; γB = m.γB ; ψB = m.ψB ; ρ = m.ρ ; δ = m.δ ; νA = m.νA ; μ = m.μ ; σ = m.σ; B1 = m.B1 ; δ1 = m.δ1 ; B2 = m.B2 ; δ2 = m.δ2 ; ω = m.ω
   x = state.x
+  # pA is wealth / consumption ratio of agent A
+  # pB is wealth / consumption ratio of agent B
+  # ϕ1 is value of claim that promises B_1ωexp(-(δ+δ1)(s-t))C_s/C_t for s ≥ t
+  # ϕ2 is value of claim that promises B_2ωexp(-(δ+δ2)(s-t))C_s/C_t for s ≥ t
   pA = y.pA ; pAx = y.pAx ; pAxx = y.pAxx ; pB = y.pB ; pBx = y.pBx ; pBxx = y.pBxx ; ϕ1 = y.ϕ1 ; ϕ1x = y.ϕ1x ; ϕ1xx = y.ϕ1xx ; ϕ2 = y.ϕ2 ; ϕ2x = y.ϕ2x ; ϕ2xx = y.ϕ2xx
 
   # volatility of X, pA, pB, ϕ1, ϕ2, CA, CB and market price of risk κ
@@ -57,6 +61,7 @@ function (m::GarleanuPanageasModel)(state, y)
   σCB = κ / γB + (1 - γB * ψB) / (γB * (ψB - 1)) * σpB
 
   # drift of X, pA, pB, ϕ1, ϕ2, CA, CB and interest rate r
+  # A.16 Equation in Garleanu Panageas has a typo
   mcA = κ^2 * (1 + ψA) / (2 * γA) + (1 - ψA * γA) / (γA * (ψA - 1)) * κ * σpA - (1 - γA * ψA) / (2 * γA * (ψA - 1)) * σpA^2
   mcB = κ^2 * (1 + ψB) / (2 * γB) + (1 - ψB * γB) / (γB * (ψB - 1)) * κ * σpB - (1 - γB * ψB) / (2 * γB * (ψB - 1)) * σpB^2
   r =  ρ + 1 / (ψA * x  + ψB * (1 - x))  * (μ - x * mcA - (1 - x) * mcB - δ * ((νA / pA + (1 - νA) / pB) * (ϕ1 + ϕ2) - 1))

@@ -8,4 +8,4 @@ src/other/*
 *.log
 *.out
 *.synctex.gz
-
+examples/runbenchmark.jl

@@ -17,7 +17,8 @@ For instance, to solve the PDE corresponding to the Campbell Cochrane model:
 <img src="img/campbell2.png" width="300">
 
 ```julia
-using EconPDEs, OrderedDict
+Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
+using EconPDEs
 # define state grid
 state = OrderedDict(:s => linspace(-100, -2.4, 1000))
 

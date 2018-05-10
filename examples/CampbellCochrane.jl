@@ -64,7 +64,7 @@ end
 
 # # Habit Model
 # ## Campbell Cochrane (1999)
-# m = CampbellCochrane()
+# m = CampbellCochraneModel()
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
 # result, distance = pdesolve(m, state, y0)

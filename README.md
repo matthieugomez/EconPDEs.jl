@@ -6,15 +6,15 @@ Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
 This package can be used to solve ODEs/PDEs that arise in economic models:
-- ODEs/PDEs corresponding to HJB equation (i.e. differential equation for value function in term of state variables)
-- ODEs/PDEs corresponding to asset pricing model (i.e. differential equation for price dividend ratio in term of state variables)
+- ODEs/PDEs corresponding to HJB equations (i.e. differential equations for value function in term of state variables)
+- ODEs/PDEs corresponding to asset pricing models (i.e. differential equations for price dividend ratio in term of state variables)
 
 This package proposes a new, fast, and robust algorithm to solve these ODEs / PDEs. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
-For instance, to solve the PDE corresponding to the Campbell Cochrane model:
+For instance, to solve the PDE giving the price-dividend ratio in the Campbell Cochrane model:
 <img src="img/campbell.png">
 <img src="img/campbell2.png" width="300">
 

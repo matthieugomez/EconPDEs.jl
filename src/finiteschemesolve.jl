@@ -78,7 +78,7 @@ end
 
 
 
-# Solve for steady state
+# Try with DifferentialEquations.jl
 function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
         ypost = y0
         ydot = zeros(y0)
@@ -111,7 +111,6 @@ function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0
         end
         return ypost, distance
 end
-
 
 
 function finiteschemesolve3(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)

@@ -5,19 +5,16 @@
 Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
-This package proposes a new, fast, and robust algorithm to solve PDEs that arise in economic models (i.e. non linear elliptic PDEs, such as  Hamilton-Jacobi-Bellman equations). These PDEs have a particular structure and they should be solved with a particular algorithm. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
-
-This solver is much more robust for economics PDEs than the solver in [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl), a general PDE solver available in Julia.
+This package proposes a new, fast, and robust algorithm to solve ODEs / PDEs that arise in economic models (such as  Hamilton-Jacobi-Bellman equations). These ODEs / PDEs have a particular structure and they should be solved with a particular algorithm (rather than the ones in [DifferentialEquations.jl](https://github.com/JuliaDiffEq/DifferentialEquations.jl)). I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
 
 # Solving  PDEs
-The function `pdesolve` takes three arguments: (i) a function encoding the pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
+The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
 For instance, to solve the PDE corresponding to the Campbell Cochrane model:
 <img src="img/campbell.png">
 <img src="img/campbell2.png" width="300">
 
 ```julia
-Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
 using EconPDEs
 # define state grid
 state = OrderedDict(:s => linspace(-100, -2.4, 1000))
@@ -42,7 +39,7 @@ end
 pdesolve(f, state, y0)
 ```
 
-More complicated PDES (includining PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
+More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
 The `examples` folder contains code to solve
 - Campbell Cochrane (1999) and Wachter (2005) Habit Model
@@ -57,7 +54,7 @@ The `examples` folder contains code to solve
 
 Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `finiteschemesolve` has the following syntax:
 
- - The first argument is a function `F!(y, out)` which transforms `out = F(y)` in place.
+ - The first argument is a function `F!(out, out)` which transforms `out = F(y)` in place.
  - The second argument is an array of arbitrary dimension for the initial guess for `y`
  - The option `is_algebraic` (defaults to an array of `false`) is an array indicating the eventual algebraic equations (typically market clearing conditions).
 

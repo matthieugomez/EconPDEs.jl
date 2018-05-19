@@ -6,6 +6,9 @@ using Interpolations
 using NamedTuples
 using DataStructures: OrderedDict
 using BandedMatrices
+#using DifferentialEquations
+#using LSODA
+#using SteadyStateDiffEq
 ##############################################################################
 ##
 ## Load files

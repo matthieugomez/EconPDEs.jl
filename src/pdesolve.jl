@@ -166,7 +166,7 @@ end
 
 #========================================================================================
 
-Define function F!(y, ydot) to pass to finiteschemesolve
+Define function F!(ydot, y) to pass to finiteschemesolve
 
 ========================================================================================#
 
@@ -177,7 +177,7 @@ Define function F!(y, ydot) to pass to finiteschemesolve
 _NT(names) =  eval(Expr(:macrocall, Symbol("@NT"), (x for x in names)...))
 
 
-function hjb!(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, y, ydot) where {Ngrid, Tstate, Tsolution}
+function hjb!(apm, grid::StateGrid{Ngrid}, ::Type{Tstate}, ::Type{Tsolution}, ydot, y) where {Ngrid, Tstate, Tsolution}
     for i in eachindex(grid)
         state = getindex(grid, Tstate, i)
         solution = derive(Tsolution, grid, y, i)
@@ -236,7 +236,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
     Tsolution = _NT(all_symbol(collect(keys(y0)), collect(keys(grid))))
     stategrid = StateGrid(grid)
     is_algebraic = _NT(keys(y0))((fill(is_algebraic[k], size(y0[k])) for k in keys(y0))...)
-    y, distance = finiteschemesolve((y, ydot) -> hjb!(apm, stategrid, Tstate, Tsolution, y, ydot), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
+    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tstate, Tsolution, ydot, y), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tstate, Tsolution, y)
     y = _deconcatenate(collect(keys(y0)), y)
     if a != nothing

@@ -54,7 +54,7 @@ The `examples` folder contains code to solve
 
 Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `finiteschemesolve` has the following syntax:
 
- - The first argument is a function `F!(out, out)` which transforms `out = F(y)` in place.
+ - The first argument is a function `F!(out, y)` which writes `F(y)` in `out` in place.
  - The second argument is an array of arbitrary dimension for the initial guess for `y`
  - The option `is_algebraic` (defaults to an array of `false`) is an array indicating the eventual algebraic equations (typically market clearing conditions).
 

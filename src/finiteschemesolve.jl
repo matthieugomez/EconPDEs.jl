@@ -17,13 +17,13 @@ function helper!(F!, ydot, y, ypost, Δ, is_algebraic)
 end
 
 # Implicit time step
-function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = true, maxdist = 1e-9)
+function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
     result = nlsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     return result.zero, result.residual_norm
 end
 
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
     if Δ == Inf
         ypost, distance = implicit_time_step(F!, y0, Δ; verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist)
     else
@@ -79,7 +79,7 @@ end
 
 
 # Try with DifferentialEquations.jl
-function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
+function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
         ypost = y0
         ydot = zeros(y0)
         coef = 1.0
@@ -113,7 +113,7 @@ function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0
 end
 
 
-function finiteschemesolve3(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = true, maxdist = 1e-9, scale = 2.0)
+function finiteschemesolve3(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
         ypost = y0
         ydot = zeros(y0)
         F!(ydot, ypost)

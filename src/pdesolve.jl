@@ -230,9 +230,9 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
     Tsolution = Type{tuple(keys(y0)...)}
     stategrid = StateGrid(grid)
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y), _concatenate(y0); is_algebraic = _concatenate(is_algebraic), kwargs...)
+    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y), _Matrix(y0); is_algebraic = _Matrix(is_algebraic), kwargs...)
     a = create_dictionary(apm, stategrid, Tsolution, y)
-    y = _deconcatenate(collect(keys(y0)), y)
+    y = _Dict(collect(keys(y0)), y)
     if a != nothing
         a = merge(y, a)
     end
@@ -242,7 +242,7 @@ end
 
 # throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")
 
-function _concatenate(y)
+function _Matrix(y)
     k1 = collect(keys(y))[1]
     if length(y) == 1
         y[k1]
@@ -250,7 +250,7 @@ function _concatenate(y)
         cat(values(y)..., dims = ndims(y[k1]) + 1)
     end
 end
-function _deconcatenate(k, y)
+function _Dict(k, y)
     if length(k) == 1
         N = ndims(y)
         OrderedDict{Symbol, Array{Float64, N}}(k[1] => y)

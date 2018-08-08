@@ -28,11 +28,11 @@ y0 = OrderedDict(:V => ones(1000))
 
 # define pde function that specifies PDE to solve. The function takes two arguments:
 # 1. state variable `state`, a named tuple. 
-# The value of the state can be accessed with `state.x` where `x` denotes the name of the state variable.
+# The state can be accessed with `state.x` where `x` denotes the name of the state variable.
 # 2. current solution `sol`, a named tuple. 
-#  The value of the current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
-# The value of its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable that was specified when defining the state grid .
-# The value of the second derivative can be accessed with `sol.yxx`,
+# The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
+# Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
+# Its second derivative can be accessed with `sol.yxx`,
 
 
 # It returns a named tuple that must include 

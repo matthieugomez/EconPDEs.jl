@@ -33,6 +33,7 @@ y0 = OrderedDict(:V => ones(1000))
 # The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
 # Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
 # Its second derivative can be accessed with `sol.yxx`,
+#
 # It returns a named tuple that must include 
 # 1. value of PDE at current solution and current state 
 # specified with fieldname `yt` where `y` denotes the name of initial guess.
@@ -59,9 +60,9 @@ The `examples` folder contains code to solve
 - Di Tella (2017) Model of Balance Sheet Recessions
 
 # Boundary Conditions
-The package does not allow to specify boundary conditions. The package assumes that either:
-1. the volatility of state variable converges to zero at the boundaries (this typically happens in models where state variable is bounded, as in heterogeneous agent models) 
-2. boundaries are reflecting (this typically happens in models where state variable is unbounded, as in long run risk models with time varying drift).
+The package assumes that either:
+1. the volatility of state variable converges to zero at the boundaries (this typically happens in models where the state variable is bounded, as in heterogeneous agent models) 
+2. boundaries are reflecting (this is the right boundary condition in models where the state variable is unbounded, as in long run risk models with time varying drift).
 
 # Solving Non Linear Systems
 `pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.

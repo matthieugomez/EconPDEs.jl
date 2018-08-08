@@ -73,7 +73,7 @@ function (m::DiTellaModel)(state, y)
   # algebraic constraint
   pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 
-  return (pAt = pAt, pBt = pBt, pt = pt, μX = μX, μν = νν, p = p, pA = pA, pB = pB, κ = κ, r = r, σX = σX)
+  return (pAt, pBt, pt), (μX, μν), (μX = μX, μν = μν, p = p, pA = pA, pB = pB, κ = κ, r = r, σX = σX)
 end
 
 

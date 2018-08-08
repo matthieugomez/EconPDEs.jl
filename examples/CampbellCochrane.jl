@@ -58,7 +58,7 @@ function (m::CampbellCochraneModel)(state, y)
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-    return (pt = pt, p = p, κ = κ, λ = λ, r = r, σp = σp, μs = μs, σs = σs)
+    return (pt,), (μs, ), (p = p, κ = κ, λ = λ, r = r, σp = σp, μs = μs, σs = σs)
 end
 
 

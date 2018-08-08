@@ -79,7 +79,7 @@ function (m::GarleanuPanageasModel)(state, y)
   ϕ1t = ϕ1 * (B1 * ω / ϕ1 + (μ - δ - δ1) + μϕ1 + σ * σϕ1 - r - κ * (σϕ1 + σ))
   ϕ2t = ϕ2 * (B2 * ω / ϕ2 + (μ - δ - δ2) + μϕ2 + σ * σϕ2 - r - κ * (σϕ2 + σ))
 
-  return (pAt = pAt, pBt = pBt, ϕ1t = ϕ1t, ϕ2t = ϕ2t, μx = μx, p = p, pA = pA, pB = pB, κ = κ, r = r, σx = σx)
+  return (pAt, pBt, ϕ1t, ϕ2t), (μx, ), (μx = μx, p = p, pA = pA, pB = pB, κ = κ, r = r, σx = σx)
 end
 
 

@@ -1,7 +1,8 @@
 module EconPDEs
 using LinearAlgebra
 import NLsolve: nlsolve
-using DataStructures
+using Reexport
+@reexport using DataStructures
 using ForwardDiff
 using Interpolations
 #using BandedMatrices

@@ -181,24 +181,20 @@ Define function F!(ydot, y) to pass to finiteschemesolve
 function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y) where {Ngrid, Tstate}
     for i in eachindex(grid)
         solution = derive(Tsolution, grid, y, i)
-        outi = apm(grid[i], solution)
+        outi = apm(grid[i], solution)[2]
         #upwind
-        solution = derive(Tsolution, grid, y, i, get_drift(outi, grid))
-        outi = apm(grid[i], solution)
-        _setindex!(ydot, outi, i, Tsolution)
+        solution = derive(Tsolution, grid, y, i, outi)
+        outi = apm(grid[i], solution)[1]
+        _setindex!(ydot, outi, i)
     end
     return ydot
 end
 
-@generated function get_drift(outi, grid::StateGrid{Ngrid, Tstate}) where {Ngrid, Tstate}
-    Expr(:tuple, [Expr(:(.), :outi, QuoteNode(Symbol(:μ, Tstate[k]))) for k in 1:length(Tstate)]...)
-end
 
-@generated function _setindex!(ydot, outi::NamedTuple{N, T}, i, ::Type{Tsolution}) where {N, T, Tsolution}
-    expr = Expr(:block, [:(setindex!(ydot, $(Expr(:(.), :outi, QuoteNode(Symbol(Tsolution.parameters[1][k], :t)))), i, $k)) for k in 1:length(Tsolution.parameters[1])]...)
+@generated function _setindex!(ydot, outi::NTuple{N, T}, i) where {N, T}
     quote
-        $(Expr(:meta, :inline))
-        $expr
+         $(Expr(:meta, :inline))
+         $(Expr(:block, [:(setindex!(ydot, outi[$k], i, $k)) for k in 1:N]...))
     end
 end
 
@@ -206,15 +202,15 @@ function create_dictionary(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution
     i0 = iterate(eachindex(grid))[1]
     state = grid[i0]
     solution = derive(Tsolution, grid, y, i0)
-    x = apm(state, solution)
+    x = apm(state, solution)[3]
     A = OrderedDict{Symbol, Array{Float64, Ngrid}}(n => Array{Float64}(undef, size(grid)) for n in keys(x))
     for i in eachindex(grid)
         state = grid[i]
         solution = derive(Tsolution, grid, y, i)
-        outi = apm(state, solution)
+        outi = apm(state, solution)[2]
         # upwind
-        solution = derive(Tsolution, grid, y, i, get_drift(outi, grid))
-        outi = apm(state, solution)
+        solution = derive(Tsolution, grid, y, i, outi)
+        outi = apm(state, solution)[3]
         for (n, v) in pairs(outi)
             A[n][i] = v
         end

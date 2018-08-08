@@ -70,7 +70,7 @@ function (m::BansalYaronModel)(state, y)
     #pt = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
     pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
-    return (pt = pt, μμ = μμ, μv = μv, p = p, r = r, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, σμ = σμ, σμ_Zv = 0.0, σv_Zμ = 0.0, σv = σv, μ = μ, v = v, σμ2 = σμ^2, σv2 = σv^2, σμσv = 0.0)
+    return (pt,), (μμ, μv), (p = p, r = r, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, σμ = σμ, σμ_Zv = 0.0, σv_Zμ = 0.0, σv = σv, μ = μ, v = v, σμ2 = σμ^2, σv2 = σv^2, σμσv = 0.0, μμ = μμ, μv = μv)
 end
 
 ## Long Run Risk Models

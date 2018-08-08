@@ -34,16 +34,14 @@ y0 = OrderedDict(:V => ones(1000))
 # Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
 # Its second derivative can be accessed with `sol.yxx`,
 #
-# It returns a named tuple that must include 
-# 1. value of PDE at current solution and current state 
-# specified with fieldname `yt` where `y` denotes the name of initial guess.
-#. 2. drift of state variable, used for upwinding 
-# specified with fieldname `μx` where `x` denotes the name of state variable
+# It returns two outputs
+# 1. a tuple with the value of PDE at current solution and current state 
+# 2. a tuple with drift of state variable, used for upwinding 
 function f(state, sol)
 	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
 	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
 	Vt = 1 + μ * sol.V  - κ * (state.s - log(Sbar)) * sol.Vs  + 1 / 2 * λs^2 * σ^2 * sol.Vss + λs * σ^2 * sol.Vs - (ρ + γ * μ - γ * κ / 2) * sol.V - γ * σ^2 * (1 + λs) * (sol.V + λs * sol.Vs) 
-	(Vt = Vt, μs = - κ * (state.s - log(Sbar)))
+	(Vt,), (μs,)
 end
 
 # solve PDE

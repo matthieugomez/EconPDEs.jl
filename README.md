@@ -27,11 +27,18 @@ state = OrderedDict(:s => range(-100, stop = -2.4, length = 1000))
 y0 = OrderedDict(:V => ones(1000))
 
 # define pde function that specifies PDE to solve. The function takes two arguments:
-# 1. state variable `state`, a named tuple. Access the value of the state with `state.x` where `x` denotes the name of state variable that was specified when defining the state grid.
-# 2. current solution `sol`, a named tuple. Access the value of the guess at the current state with `sol.y`, the value of its derivative with `sol.yx`, and the value of its second derivative with `sol.yxx` where `y` denotes the name of initial guess that was specified when defining it and `x` denotes the name of state variable that was specified when defining the state grid .
+# 1. state variable `state`, a named tuple. 
+# The value of the state can be accessed with `state.x` where `x` denotes the name of state variable that was specified when defining the state grid.
+# 2. current solution `sol`, a named tuple. 
+#  The value of the current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
+# The value of its derivative can be accessed with `sol.yx`, and the value of its second derivative can be accessed with `sol.yxx`,
+where `x` denotes the name of state variable that was specified when defining the state grid .
+
 # It returns a named tuple that must include 
-# 1. value of PDE at current solution and current state (with name of the form `yt` where `y` denotes the name of initial guess  that was specified when defining it.)
-#. 2. drift of state variable, used for upwinding (name of the form `μx` where `x` denotes the name of state variable that was specified when defining the state grid.)
+# 1. value of PDE at current solution and current state 
+# (with name of the form `yt` where `y` denotes the name of initial guess  that was specified when defining it.)
+#. 2. drift of state variable, used for upwinding 
+# (name of the form `μx` where `x` denotes the name of state variable that was specified when defining the state grid.)
 function f(state, sol)
 	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
 	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1

@@ -33,8 +33,6 @@ y0 = OrderedDict(:V => ones(1000))
 # The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
 # Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
 # Its second derivative can be accessed with `sol.yxx`,
-
-
 # It returns a named tuple that must include 
 # 1. value of PDE at current solution and current state 
 # specified with fieldname `yt` where `y` denotes the name of initial guess.

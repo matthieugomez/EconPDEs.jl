@@ -1,11 +1,11 @@
 module EconPDEs
-
+using LinearAlgebra
 import NLsolve: nlsolve
-import Combinatorics: with_replacement_combinations
+using DataStructures
+using ForwardDiff
 using Interpolations
-using NamedTuples
-using DataStructures: OrderedDict
-using BandedMatrices
+#using BandedMatrices
+#using ReverseDiff
 #using DifferentialEquations
 #using LSODA
 #using SteadyStateDiffEq
@@ -26,6 +26,6 @@ include("utils.jl")
 ##############################################################################
 export finiteschemesolve,
 pdesolve,
-simulate, 
+simulate,
 OrderedDict
 end

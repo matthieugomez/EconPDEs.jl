@@ -1,4 +1,4 @@
-using EconPDEs, Base.Test
+using EconPDEs, Test
 
 
 println("Running tests:")
@@ -13,7 +13,7 @@ try
 	println("\t\033[1m\033[32mPASSED\033[0m: CampbellCochrane")
 catch e
 	println("\t\033[1m\033[31mFAILED\033[0m: CampbellCochrane")
-	showerror(STDOUT, e, backtrace())
+	showerror(stdout, e, backtrace())
 	rethrow(e)
 end
 
@@ -27,7 +27,7 @@ try
 	println("\t\033[1m\033[32mPASSED\033[0m: BansalYaron")
 catch e
 	println("\t\033[1m\033[31mFAILED\033[0m: BansalYaron")
-	showerror(STDOUT, e, backtrace())
+	showerror(stdout, e, backtrace())
 	rethrow(e)
 end
 

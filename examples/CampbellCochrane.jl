@@ -25,8 +25,8 @@ function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     sbar = log.(Sbar)
     smax =  sbar + 0.5 * (1 - Sbar^2)
     # corresponds to Grid 3 in Wachter (2005)
-    shigh = log.(linspace(0.0, exp(smax), div(n, 10)))
-    slow = linspace(smin, shigh[2], n - div(n, 10))
+    shigh = log.(range(0.0, stop = exp(smax), length = div(n, 10)))
+    slow = range(smin, stop = shigh[2], length = n - div(n, 10))
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
@@ -58,7 +58,7 @@ function (m::CampbellCochraneModel)(state, y)
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-    return pt, μs, tuple(:p => p, :κ => κ, :λ => λ, :r => r, :σp => σp, :μs => μs, :σs => σs)
+    return (pt = pt, p = p, κ = κ, λ = λ, r = r, σp = σp, μs = μs, σs = σs)
 end
 
 

@@ -29,7 +29,7 @@ function initialize_state(m::DiTellaModel; xn = 80, νn = 10)
   distribution = Gamma(2 * κν * νbar / σνbar^2, σνbar^2 / (2 * κν))
   νmin = quantile(distribution, 0.001)
   νmax = quantile(distribution, 0.999)
-  OrderedDict(:x => collect(linspace(0.01, 0.99, xn)), :ν => collect(linspace(νmin, νmax, νn)))
+  OrderedDict(:x => collect(range(0.01, stop = 0.99, length = xn)), :ν => collect(range(νmin, stop = νmax, length = νn)))
 end
 
 function initialize_y(m::DiTellaModel, state)
@@ -67,13 +67,13 @@ function (m::DiTellaModel)(state, y)
   r = (1 - i) / p + g + μp + σ * σp - κ * (σ + σp) - γ / x * (ϕ * ν)^2
 
   # PDE
-  out1 = pA * (1 / pA  + (ψ - 1) * τ / (1 - γ) * ((pA / pB)^((1 - γ) / (1 - ψ)) - 1) - ψ * ρ + (ψ - 1) * (r + κ * σA + κν * νA) + μpA - (ψ - 1) * γ / 2 * (σA^2 + νA^2) + (2 - ψ - γ) / (2 * (ψ - 1)) * σpA^2 + (1 - γ) * σpA * σA)
-  out2 = pB * (1 / pB - ψ * ρ + (ψ - 1) * (r + κ * σB) + μpB - (ψ - 1) * γ / 2 * σB^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpB^2 + (1 - γ) * σpB * σB)
+  pAt = pA * (1 / pA  + (ψ - 1) * τ / (1 - γ) * ((pA / pB)^((1 - γ) / (1 - ψ)) - 1) - ψ * ρ + (ψ - 1) * (r + κ * σA + κν * νA) + μpA - (ψ - 1) * γ / 2 * (σA^2 + νA^2) + (2 - ψ - γ) / (2 * (ψ - 1)) * σpA^2 + (1 - γ) * σpA * σA)
+  pBt = pB * (1 / pB - ψ * ρ + (ψ - 1) * (r + κ * σB) + μpB - (ψ - 1) * γ / 2 * σB^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpB^2 + (1 - γ) * σpB * σB)
 
   # algebraic constraint
-  out3 = p * ((1 - i) / p - x / pA - (1 - x) / pB)
+  pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 
-  return (out1, out2, out3), (μX, μν), tuple(:p => p, :pA => pA, :pB => pB, :κ => κ, :r => r, :μX => μX, :σX => σX)
+  return (pAt = pAt, pBt = pBt, pt = pt, μX = μX, μν = νν, p = p, pA = pA, pB = pB, κ = κ, r = r, σX = σX)
 end
 
 

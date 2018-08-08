@@ -58,6 +58,10 @@ The `examples` folder contains code to solve
 - Wang Wang Yang (2016) Portfolio Problem with Labor Income
 - Di Tella (2017) Model of Balance Sheet Recessions
 
+# Boundary Conditions
+The package does not allow to specify boundary conditions. The package assumes that either:
+1. the volatility of state variable converges to zero at the boundaries (this typically happens in models where state variable is bounded, as in heterogeneous agent models) 
+2. boundaries are reflecting (this typically happens in models where state variable is unbounded, as in long run risk models with time varying drift).
 
 # Solving Non Linear Systems
 `pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.

@@ -11,7 +11,7 @@ PDE solver
 Type State Grid
 
 ========================================================================================#
-immutable StateGrid{N}
+struct StateGrid{N}
     x::NTuple{N, Vector{Float64}}
     invΔx::NTuple{N, Vector{Float64}}
     invΔxm::NTuple{N, Vector{Float64}}

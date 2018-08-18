@@ -1,5 +1,5 @@
 module EconPDEs
-import LinearAlgebra: norm
+using LinearAlgebra
 import NLsolve: nlsolve
 using Reexport
 @reexport using DataStructures

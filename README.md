@@ -2,7 +2,7 @@
 
 # Install
 ```julia
-Pkg.clone("https://github.com/matthieugomez/EconPDEs.jl")
+Pkg.add("https://github.com/matthieugomez/EconPDEs.jl")
 ```
 
 This package can be used to solve ODEs/PDEs that arise in economic models:

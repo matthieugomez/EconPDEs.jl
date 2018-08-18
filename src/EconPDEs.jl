@@ -1,15 +1,11 @@
 module EconPDEs
-using LinearAlgebra
+import LinearAlgebra: norm
 import NLsolve: nlsolve
 using Reexport
 @reexport using DataStructures
 using ForwardDiff
 using Interpolations
-#using BandedMatrices
-#using ReverseDiff
-#using DifferentialEquations
-#using LSODA
-#using SteadyStateDiffEq
+
 ##############################################################################
 ##
 ## Load files

@@ -12,7 +12,7 @@ function WangWangYangModel(;μ = 0.01, σ = 0.1, r = 0.05, ρ = 0.055, γ = 4, �
 end
 
 function initialize_state(m::WangWangYangModel; n = 100)
-    OrderedDict(:w => collect(linspace(0.0, 30.0, n)))
+    OrderedDict(:w => collect(range(0.0, stop = 30.0, length = n)))
 end
 
 function initialize_y(m::WangWangYangModel, state)
@@ -37,7 +37,7 @@ function (m::WangWangYangModel)(state, y)
     c = m * p * pw^(-ψ)
     pt = ((m * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
     μw = (r - μ + σ^2) * w + 1 - c
-    return pt, (μw,), tuple(:w => w, :p => p, :pw => pw, :pww => pww, :μw => μw, :c => c)
+    return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
 end
 
 

@@ -1,1 +1,6 @@
-y, result, distance = pdesolve(m, state, y0)
+include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/WangWangYang.jl")
+m = WangWangYangModel()
+state = initialize_state(m)
+y0 = initialize_y(m, state)
+pdesolve(m, state, y0)
+@time pdesolve(m, state, y0)

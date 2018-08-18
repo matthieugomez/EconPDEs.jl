@@ -28,10 +28,10 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         ypost, distance = implicit_time_step(F!, y0, Δ; verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist)
     else
         ypost = y0
-        ydot = zeros(y0)
+        ydot = zero(y0)
         coef = 1.0
         F!(ydot, ypost)
-        distance = vecnorm(ydot) / length(ydot)
+        distance = norm(ydot) / length(ydot)
         if isnan(distance)
             throw("F! returns NaN with the initial value")
         end
@@ -41,7 +41,7 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             iter += 1
             y, nldistance = implicit_time_step(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist)
             F!(ydot, y)
-            distance, olddistance = vecnorm(ydot) / length(ydot), distance
+            distance, olddistance = norm(ydot) / length(ydot), distance
             if isnan(distance)
                 distance = Inf
             end
@@ -74,61 +74,4 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     end
     return ypost, distance
 end
-
-
-
-
-# Try with DifferentialEquations.jl
-function finiteschemesolve2(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
-        ypost = y0
-        ydot = zeros(y0)
-        coef = 1.0
-        F!(ydot, ypost)
-        distance = vecnorm(ydot) / length(ydot)
-        if isnan(distance)
-            throw("F! returns NaN with the initial value")
-        end
-        olddistance = distance
-        iter = 0
-        Δ = 1.0
-        while (iter <= iterations) & (distance > maxdist)
-            iter += 1
-            problem = ODEProblem((ydot, y, p, t) -> (F!(ydot, y)), ypost, (0.0, Δ))
-            alg =  CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1)
-            sol = solve(problem, alg, save_everystep = false, dt = Δ, callback = TerminateSteadyState(maxdist, maxdist))
-            y = sol.u[end]
-            F!(ydot, y)
-            distance, olddistance = vecnorm(ydot) / length(ydot), distance
-            if verbose
-                @show iter, Δ, distance
-            end
-            if distance < olddistance
-                coef = scale * coef
-            else
-                coef = 1.0
-            end
-            Δ = Δ * coef * olddistance / distance
-        end
-        return ypost, distance
-end
-
-
-function finiteschemesolve3(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 25, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
-        ypost = y0
-        ydot = zeros(y0)
-        F!(ydot, ypost)
-        distance = vecnorm(ydot) / length(ydot)
-        if isnan(distance)
-            throw("F! returns NaN with the initial value")
-        end
-        problem = ODEProblem((ydot, y, p, t) -> F!(ydot, y), ypost, (0.0, Inf))
-        alg = DynamicSS(CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1), abstol = maxdist)
-        sol = solve(problem, alg, save_everystep = false, save_start = false, dt = 1.0)
-        y = sol.u[end]
-        F!(ydot, y)
-        distance = vecnorm(ydot) / length(ydot)
-        return y, distance
-end
-
-
 

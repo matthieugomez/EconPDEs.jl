@@ -1,8 +1,6 @@
-julia 0.6
-NamedTuples 2.1
-NLsolve 1.1.1
-Combinatorics
-Interpolations
-Distributions
+julia 0.7
+NLsolve
+Reexport
 DataStructures
-BandedMatrices
+ForwardDiff
+Interpolations

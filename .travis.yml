@@ -1,12 +1,13 @@
 language: julia
 julia:
-- 0.6
-script:
-- if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-- julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("EconPDEs"); Pkg.test("EconPDEs"; coverage=true)'
-after_success:
-- julia -e 'cd(Pkg.dir("EconPDEs")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+- 0.7
+- 1.0
+- nightly
+matrix:
+  allow_failures:
+    - julia: nightly
+after_success:    
+- julia -e 'using Pkg; cd(Pkg.dir("EconPDEs")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
 notifications:
   email: false
-  on_success: never 
   on_failure: change

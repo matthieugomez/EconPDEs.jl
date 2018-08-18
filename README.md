@@ -21,22 +21,27 @@ For instance, to solve the PDE giving the price-dividend ratio in the Campbell C
 ```julia
 using EconPDEs
 # define state grid
-state = OrderedDict(:s => linspace(-100, -2.4, 1000))
+state = OrderedDict(:s => range(-100, stop = -2.4, length = 1000))
 
 # define initial guess
 y0 = OrderedDict(:V => ones(1000))
 
 # define pde function that specifies PDE to solve. The function takes two arguments:
-# 1. state variable 
-# 2. current solution y
-# It returns a tuple composed of
-# 1. Value of PDE at current solution and current state (note that the current solution and its derivatives can be accessed as fields of y)
-# 2. drift of state variable (used for upwinding)
-function f(state, y)
+# 1. state variable `state`, a named tuple. 
+# The state can be accessed with `state.x` where `x` denotes the name of the state variable.
+# 2. current solution `sol`, a named tuple. 
+# The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
+# Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
+# Its second derivative can be accessed with `sol.yxx`,
+#
+# It returns two outputs
+# 1. a tuple with the value of PDE at current solution and current state 
+# 2. a tuple with drift of state variable, used for upwinding 
+function f(state, sol)
 	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
 	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
-	out = 1 + μ * y.V  - κ * (state.s - log(Sbar)) * y.Vs  + 1 / 2 * λs^2 * σ^2 * y.Vss + λs * σ^2 * y.Vs - (ρ + γ * μ - γ * κ / 2) * y.V - γ * σ^2 * (1 + λs) * (y.V + λs * y.Vs) 
-	return out, - κ * (state.s - log(Sbar))
+	Vt = 1 + μ * sol.V  - κ * (state.s - log(Sbar)) * sol.Vs  + 1 / 2 * λs^2 * σ^2 * sol.Vss + λs * σ^2 * sol.Vs - (ρ + γ * μ - γ * κ / 2) * sol.V - γ * σ^2 * (1 + λs) * (sol.V + λs * sol.Vs) 
+	(Vt,), (μs,)
 end
 
 # solve PDE
@@ -52,6 +57,10 @@ The `examples` folder contains code to solve
 - Wang Wang Yang (2016) Portfolio Problem with Labor Income
 - Di Tella (2017) Model of Balance Sheet Recessions
 
+# Boundary Conditions
+The package assumes that either:
+1. the volatility of state variable converges to zero at the boundaries (this typically happens in models where the state variable is bounded, as in heterogeneous agent models) 
+2. boundaries are reflecting (this is the right boundary condition in models where the state variable is unbounded, as in long run risk models with time varying drift).
 
 # Solving Non Linear Systems
 `pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.

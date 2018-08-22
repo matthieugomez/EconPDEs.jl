@@ -1,9 +1,5 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
-# Install
-```julia
-Pkg.add("https://github.com/matthieugomez/EconPDEs.jl")
-```
 
 This package can be used to solve ODEs/PDEs that arise in economic models:
 - ODEs/PDEs corresponding to HJB equations (i.e. differential equations for value function in term of state variables)
@@ -11,6 +7,11 @@ This package can be used to solve ODEs/PDEs that arise in economic models:
 
 This package proposes a new, fast, and robust algorithm to solve these ODEs / PDEs. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
 
+To install the package
+```julia
+using Pkg
+Pkg.add("EconPDEs")
+```
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 

@@ -19,7 +19,7 @@ function clean!(density)
     if !(sum(density) ≈ 1.0)
         warn("Density does not sum to one")
     end
-    density .= max.(density, 0.0) ./ sum(max.(density, 0.0))
+    density .= max.(density, Ref(0.0)) ./ sum(max.(density, Ref(0.0)))
     return density
 end
 

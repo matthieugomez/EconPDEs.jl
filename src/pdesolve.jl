@@ -231,12 +231,14 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
     stategrid = StateGrid(grid)
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y), _Matrix(y0); is_algebraic = _Matrix(is_algebraic), kwargs...)
-    a = create_dictionary(apm, stategrid, Tsolution, y)
-    y = _Dict(collect(keys(y0)), y)
-    if a != nothing
-        a = merge(y, a)
+    dy = _Dict(collect(keys(y0)), y)
+    try
+        a = create_dictionary(apm, stategrid, Tsolution, y)
+        merge(dy, a)
+        return y, a, distance
+    else
+        return y, distance
     end
-    return y, a, distance
 end
 
 

@@ -41,8 +41,8 @@ y0 = OrderedDict(:V => ones(1000))
 function f(state, sol)
 	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
 	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
-	Vt = 1 + μ * sol.V  - κ * (state.s - log(Sbar)) * sol.Vs  + 1 / 2 * λs^2 * σ^2 * sol.Vss + λs * σ^2 * sol.Vs - (ρ + γ * μ - γ * κ / 2) * sol.V - γ * σ^2 * (1 + λs) * (sol.V + λs * sol.Vs) 
-	(Vt,), (μs,)
+	Vt = 1 + μ * sol.V  + κ * (log(Sbar)- state.s) * sol.Vs  + 1 / 2 * λs^2 * σ^2 * sol.Vss + λs * σ^2 * sol.Vs - (ρ + γ * μ - γ * κ / 2) * sol.V - γ * σ^2 * (1 + λs) * (sol.V + λs * sol.Vs) 
+	(Vt,), (κ * (log(Sbar)- state.s),)
 end
 
 # solve PDE
@@ -52,16 +52,22 @@ pdesolve(f, state, y0)
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
 The `examples` folder contains code to solve
-- Campbell Cochrane (1999) and Wachter (2005) Habit Model
-- Bansal Yaron (2004) Long Run Risk Model
-- Garleanu Panageas (2015) Heterogeneous Agent Models
-- Wang Wang Yang (2016) Portfolio Problem with Labor Income
-- Di Tella (2017) Model of Balance Sheet Recessions
+- Asset Pricing Models
+	- Campbell Cochrane (1999) and Wachter (2005) Habit Model
+	- Bansal Yaron (2004) Long Run Risk Model
+	- Garleanu Panageas (2015) Heterogeneous Agent Models
+	- Di Tella (2017) Model of Balance Sheet Recessions
+- Consumption Saving Models
+    - AchdouHanLasryLionsMollModel(2018) Consumption Saving Problem with Stochastic Labor Income
+    - Wang Wang Yang (2016) Portfolio Problem with Stochastic Labor Income
+
 
 # Boundary Conditions
-The package assumes that either:
-1. the volatility of state variable converges to zero at the boundaries (this typically happens in models where the state variable is bounded, as in heterogeneous agent models) 
-2. boundaries are reflecting (this is the right boundary condition in models where the state variable is unbounded, as in long run risk models with time varying drift).
+The second derivative is generated using central difference. At the grid boundary, it requires the value of the function outside the grid.  The package assumes that the value of the function outside the grid is the value of the function at the grid boundary.
+
+This corresponds to either one of these two boundary conditions:
+1. the volatility of the state variable converges to zero at the boundaries. This typically happens in models where the state variable is bounded.
+2. boundaries are reflecting. This typically happens in models where the state variable is unbounded.
 
 # Solving Non Linear Systems
 `pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.

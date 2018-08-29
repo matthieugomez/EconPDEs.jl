@@ -1,11 +1,4 @@
-src/other/*
+..sublime2Terminal.jl
+src/other/
 *.bib
-*.aux
-*.bbl
-*.blg
-*.blg
-*.fdb_latexmk
-*.log
-*.out
-*.synctex.gz
 examples/runbenchmark.jl

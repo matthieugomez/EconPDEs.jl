@@ -235,9 +235,9 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
     try
         a = create_dictionary(apm, stategrid, Tsolution, y)
         merge(dy, a)
-        return y, a, distance
+        return dy, a, distance
     catch
-        return y, nothing, distance
+        return dy, nothing, distance
     end
 end
 

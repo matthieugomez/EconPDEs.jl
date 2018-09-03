@@ -20,7 +20,7 @@ function AchdouHanLasryLionsMollModel(;κy = 0.018, ybar = 1.0, σy = 0.05, abar
 end
 
 
-function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 10, an = 50, amax = 100.0)
+function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 10, an = 30, amax = 100.0)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy ; abar = m.abar ; ρ = m.ρ ; γ = m.γ
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
@@ -50,7 +50,6 @@ function (m::AchdouHanLasryLionsMollModel)(state, value)
         c = y + r * abar
         μa = 0.0
     end
-
     vt = c^(1 - γ) / (1 - γ) + va * μa + vy * μy + 0.5 * vyy * σy^2 - ρ * v
     return (vt,), (μy, μa), (c = c, va = va, vy = vy, y = y, a = a, μa = μa)
 end

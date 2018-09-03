@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package can be used to solve ODEs/PDEs that arise in economic models:
+This package includes the function `pdesolve` that allows to solve the ODEs/PDEs that arise in economic models:
 - ODEs/PDEs corresponding to HJB equations (i.e. differential equations for value function in term of state variables)
 - ODEs/PDEs corresponding to asset pricing models (i.e. differential equations for price dividend ratio in term of state variables)
 

@@ -67,7 +67,7 @@ At the state boundary, the first derivative of the value function is constructed
 1. the volatility of the state variable is zero at the boundary of the state space (case of bounded state variable). In this case, the second derivative simply disappears from the PDE at the boundary.
 2. Boundaries are reflecting (case of unbounded state variable solved on a finite grid). 
 
-These boundaries conditions encompass most of PDEs in economics. For more information about boundary conditions, see [Viscosity Solution for Dummies](http://www.princeton.edu/~moll/viscosity_slides.pdf)
+These boundaries conditions encompass most PDEs in economics. For more information about boundary conditions, see [Viscosity Solution for Dummies](http://www.princeton.edu/~moll/viscosity_slides.pdf)
 
 
 

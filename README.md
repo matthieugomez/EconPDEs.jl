@@ -63,7 +63,7 @@ The `examples` folder contains code to solve
 
 
 # Boundary Conditions
-At the state boundary,  I construct the first derivative of the value function  using upwinding and the second derivative assuming that the value of the function outside the grid is the value of the function at the grid boundary. This approach is valid if either:
+At the state boundary,  I construct the second derivative using central difference. I assume that the value of the function outside the grid is the value of the function at the grid boundary. This approach is valid if either:
 1. the volatility of the state variable is zero at the boundary of the state space (case of bounded state variable). In this case, the second derivative simply disappears from the PDE at the boundary.
 2. Boundaries are reflecting (case of unbounded state variable solved on a finite grid). 
 

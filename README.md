@@ -63,11 +63,15 @@ The `examples` folder contains code to solve
 
 
 # Boundary Conditions
-The second derivative is generated using central difference. At the grid boundary, it requires the value of the function outside the grid.  The package assumes that the value of the function outside the grid is the value of the function at the grid boundary.
+At the state boundary, the first derivative is constructed using upwinding. The second derivative is constructed by assuming that the value of the function outside the grid is the value of the function at the grid boundary.
 
-This corresponds to either one of these two boundary conditions:
-1. the volatility of the state variable converges to zero at the boundaries. This typically happens in models where the state variable is bounded.
-2. boundaries are reflecting. This typically happens in models where the state variable is unbounded.
+This approach is valid approach if either:
+1. the volatility of the state variable is zero at the boundary of the state space (case of bounded state variable). In this case, the second derivative simply disappears from the PDE at the boundary.
+2. Boundaries are reflecting (case of unbounded state variable solved on a finite grid). 
+
+These boundaries conditions encompass most of PDEs in economics. For more information about boundary conditions, see [Viscosity Solution for Dummies](http://www.princeton.edu/~moll/viscosity_slides.pdf)
+
+
 
 # Solving Non Linear Systems
 `pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.

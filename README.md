@@ -58,8 +58,8 @@ The `examples` folder contains code to solve
 	- Garleanu Panageas (2015) Heterogeneous Agent Models
 	- Di Tella (2017) Model of Balance Sheet Recessions
 - Consumption Saving Models
-    - AchdouHanLasryLionsMollModel(2018) Consumption Saving Problem with Stochastic Labor Income
-    - Wang Wang Yang (2016) Portfolio Problem with Stochastic Labor Income
+    - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
+    - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income
 
 
 # Boundary Conditions

@@ -229,6 +229,12 @@ Solve the PDE
 function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k => false for k in keys(y0)), kwargs...)
     Tsolution = Type{tuple(keys(y0)...)}
     stategrid = StateGrid(grid)
+    l = prod(size(stategrid))
+    for e in values(y0)
+        if length(e) != l
+            throw("The length of initial solution $(length(e)) does not equal the length of the state space $l")
+        end
+    end
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y), _Matrix(y0); is_algebraic = _Matrix(is_algebraic), kwargs...)
     dy = _Dict(collect(keys(y0)), y)

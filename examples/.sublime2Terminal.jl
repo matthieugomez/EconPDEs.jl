@@ -1,52 +1,72 @@
-using EconPDEs
+using EconPDEs, Distributions
 
-mutable struct WangWangYangModel
-    μ::Float64 
-    σ::Float64
+mutable struct AchdouHanLasryLionsMollModel
+    # income process parameters
+    κy::Float64 
+    ybar::Float64
+    σy::Float64
+
     r::Float64
+
+    # utility parameters
     ρ::Float64  
-    γ::Float64 
-    ψ::Float64
+    γ::Float64
+
+    amin::Float64
+    amax::Float64 
 end
 
-function WangWangYangModel(;μ = 0.015, σ = 0.1, r = 0.035, ρ = 0.04, γ = 3, ψ = 1.1)
-    WangWangYangModel(μ, σ, r, ρ, γ, ψ)
+function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 50.0)
+    AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-function initialize_state(m::WangWangYangModel; n = 300)
-    OrderedDict(:w => collect(range(0.0, stop = 500.0, length = n)))
+
+function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 20, an = 50)
+    κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
+
+    distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
+    ymin = quantile(distribution, 0.001)
+    ymax = quantile(distribution, 0.999)
+    ys = collect(range(ymin, stop = ymax, length = yn))
+    as = collect(range(amin, stop = amax, length = an))
+    OrderedDict(:y => ys, :a => as)
 end
 
-function initialize_y(m::WangWangYangModel, state)
-    OrderedDict(:p => 1 .+ state[:w])
+function initialize_y(m::AchdouHanLasryLionsMollModel, state)
+    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in state[:y], a in state[:a]])
 end
-	
-function (m::WangWangYangModel)(state, y)
-    μ = m.μ ;  σ = m.σ ;  r = m.r ;  ρ = m.ρ ;  γ = m.γ ;  ψ = m.ψ 
-    w = state.w
-    p, pw, pww = y.p, y.pw, y.pww
-    # financial friction: check consumption < 1 when w = 0
-    pt = 0.0
-    if w == 0.0
-        m = r + ψ * (ρ - r)
-        c = m * p * pw^(-ψ)
-        if c >= 1.0
-            pw =  (m * p)^(1 / ψ)
-        end
+
+function (m::AchdouHanLasryLionsMollModel)(state, value)
+    κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
+    y, a = state.y, state.a
+    v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
+    μy = κy * (ybar - y)
+    va = max(va, eps())
+    
+    # There is no second derivative with respect to a. Therefore, a simple way to impose boundary conditions is to specify them directly
+    c = va^(-1 / γ)
+    μa = y + r * a - c
+    if (a ≈ amin) && (μa <= 0.0)
+        va = (y + r * amin)^(-γ)
+        c = y + r * amin
+        μa = 0.0
     end
-    m = r + ψ * (ρ - r)
-    c = m * p * pw^(-ψ)
-    pt = ((m * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
-    μw = (r - μ + σ^2) * w + 1 - c
-    return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
+    # does not matter if individuals dissave at the top, which is true for the set of parameters
+    if (a ≈ amax) && (μa >= 0.0)
+        va = (((ρ - r) / γ + r) * a)^(-γ)
+        c = ((ρ - r) / γ + r) * a
+        μa = y + (r - ρ) / γ * a
+    end
+
+    vt = c^(1 - γ) / (1 - γ) + va * μa + vy * μy + 0.5 * vyy * σy^2 - ρ * v
+    return (vt,), (μy, μa), (c = c, va = va, vy = vy, y = y, a = a, μa = μa)
 end
 
-m = WangWangYangModel()
+
+
+m = AchdouHanLasryLionsMollModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
-y2, result2, distance = pdesolve(m, state, y0, bc = OrderedDict(:pw => (3.0, 1.0)))
-
-
-# boundary condition  for derivative value at lower boundary is not used. Note that at the frontier, we have w = 0 so second derivative drops out. 
-# what I am imposing right now is a condition about value of p at boundary tijme = 0 (since pww disappears and pw is a function of p, the PDE at w = 0 is just a condition on p) and vlaue of pw at upward boundary.
-# Note that I do not really satisfy  y2[:p][end] - state[:w][end] - 1 / (m.r - m.μ) but I  think it is true in the limit
+y, result, distance = pdesolve(m, state, y0)
+using Plots
+surface(state[:a], state[:y], result[:μa])

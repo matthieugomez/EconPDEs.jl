@@ -57,15 +57,15 @@ Derive
 ========================================================================================#
 
 # Case with 1 state variable
-@generated function derive(::Type{Tsolution}, grid::StateGrid{1, Tstate}, y::AbstractArray, icar, drift = (0.0,)) where {Tsolution, Tstate}
+@generated function derive(::Type{Tsolution}, grid::StateGrid{1, Tstate}, y::AbstractArray, icar, bc, drift = (0.0,)) where {Tsolution, Tstate}
     N = length(Tsolution.parameters[1])
     statename = Tstate[1]
     expr = Expr[]
     for k in 1:N
         solname = Tsolution.parameters[1][k]
         push!(expr, Expr(:(=), solname, :(y[i, $k])))
-        push!(expr, Expr(:(=), Symbol(solname, statename), :(μx >= 0.0 ? (y[min(i + 1, size(y, 1)), $k] - y[i, $k]) * invΔxp[i] : (y[i, $k] - y[max(i - 1, 1), $k]) * invΔxm[i])))
-        push!(expr, Expr(:(=), Symbol(solname, statename, statename), :(y[min(i + 1, size(y, 1)), $k] * invΔxp[i] * invΔx[i] + y[max(i - 1, 1), $k] * invΔxm[i] * invΔx[i] - 2 * y[i, $k] * invΔxp[i] * invΔxm[i])))
+        push!(expr, Expr(:(=), Symbol(solname, statename), :((μx >= 0.0) ? ((i < size(y, 1)) ? (y[i+1, $k] - y[i, $k]) * invΔxp[i] : bc[end, $k]) : ((i > 1) ? (y[i, $k] - y[i-1, $k]) * invΔxm[i] : bc[1, $k]))))
+        push!(expr, Expr(:(=), Symbol(solname, statename, statename), :((1 < i < size(y, 1)) ? (y[i + 1, $k] * invΔxp[i] * invΔx[i] + y[i - 1, $k] * invΔxm[i] * invΔx[i] - 2 * y[i, $k] * invΔxp[i] * invΔxm[i]) : ((i == 1) ? (y[2, $k] * invΔxp[1] * invΔx[1] + (y[1, $k] - bc[1, $k] / invΔxp[1]) * invΔxm[1] * invΔx[1] - 2 * y[1, $k] * invΔxp[1] * invΔxm[1]) : ((y[end, $k] + bc[end, $k] / invΔxm[end]) * invΔxp[end] * invΔx[end] + y[end - 1, $k] * invΔxm[end] * invΔx[end] - 2 * y[end, $k] * invΔxp[end] * invΔxm[end])))))
     end
     out = Expr(:tuple, expr...)
     quote
@@ -80,7 +80,7 @@ Derive
 end
 
 # Case with 2 state variables
-@generated function derive(::Type{Tsolution}, grid::StateGrid{2, Tstate}, y::AbstractArray, icar, drift = (0.0, 0.0)) where {Tsolution, Tstate}
+@generated function derive(::Type{Tsolution}, grid::StateGrid{2, Tstate}, y::AbstractArray, icar, bc, drift = (0.0, 0.0)) where {Tsolution, Tstate}
     N = length(Tsolution.parameters[1])
     statename1 = Tstate[1]
     statename2 = Tstate[2]
@@ -119,7 +119,7 @@ end
 end
 
 # Case with 3 state variables
-@generated function derive(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, drift = (0.0, 0.0, 0.0)) where {Tsolution}
+@generated function derive(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, bc, drift = (0.0, 0.0, 0.0)) where {Tsolution}
     N = length(Tsolution.parameters[1])
     statename1 = Tstate[1]
     statename2 = Tstate[2]
@@ -178,12 +178,12 @@ Define function F!(ydot, y) to pass to finiteschemesolve
 ========================================================================================#
 
 
-function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y) where {Ngrid, Tstate}
+function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where {Ngrid, Tstate}
     for i in eachindex(grid)
-        solution = derive(Tsolution, grid, y, i)
+        solution = derive(Tsolution, grid, y, i, bc)
         outi = apm(grid[i], solution)[2]
         #upwind
-        solution = derive(Tsolution, grid, y, i, outi)
+        solution = derive(Tsolution, grid, y, i, bc, outi)
         outi = apm(grid[i], solution)[1]
         _setindex!(ydot, outi, i)
     end
@@ -198,18 +198,18 @@ end
     end
 end
 
-function create_dictionary(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y) where {Ngrid, Tstate, Tsolution}
+function create_dictionary(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y, bc) where {Ngrid, Tstate, Tsolution}
     i0 = iterate(eachindex(grid))[1]
     state = grid[i0]
-    solution = derive(Tsolution, grid, y, i0)
+    solution = derive(Tsolution, grid, y, i0, bc)
     x = apm(state, solution)[3]
     A = OrderedDict{Symbol, Array{Float64, Ngrid}}(n => Array{Float64}(undef, size(grid)) for n in keys(x))
     for i in eachindex(grid)
         state = grid[i]
-        solution = derive(Tsolution, grid, y, i)
+        solution = derive(Tsolution, grid, y, i, bc)
         outi = apm(state, solution)[2]
         # upwind
-        solution = derive(Tsolution, grid, y, i, outi)
+        solution = derive(Tsolution, grid, y, i, bc, outi)
         outi = apm(state, solution)[3]
         for (n, v) in pairs(outi)
             A[n][i] = v
@@ -226,7 +226,7 @@ end
 Solve the PDE
 
 ========================================================================================#
-function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k => false for k in keys(y0)), kwargs...)
+function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = OrderedDict(), kwargs...)
     Tsolution = Type{tuple(keys(y0)...)}
     stategrid = StateGrid(grid)
     l = prod(size(stategrid))
@@ -235,11 +235,25 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Dict(k
             throw("The length of initial solution $(length(e)) does not equal the length of the state space $l")
         end
     end
+    y0_M = _Matrix(y0)
+    bc_m = zero(y0_M)
+    if !isempty(bc)
+        k = 0
+        for yname in keys(y0)
+            k += 1
+            if length(keys(grid)) == 1
+                for gridname in keys(grid)
+                    bc_m[1, k] = bc[Symbol(yname, gridname)][1]
+                    bc_m[end, k] = bc[Symbol(yname, gridname)][2]
+                end
+            end
+        end
+    end
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y), _Matrix(y0); is_algebraic = _Matrix(is_algebraic), kwargs...)
+    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_m), y0_M; is_algebraic = _Matrix(is_algebraic), kwargs...)
     dy = _Dict(collect(keys(y0)), y)
     try
-        a = create_dictionary(apm, stategrid, Tsolution, y)
+        a = create_dictionary(apm, stategrid, Tsolution, y, bc_m)
         merge(dy, a)
         return dy, a, distance
     catch
@@ -249,6 +263,7 @@ end
 
 
 # throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")
+
 
 function _Matrix(y)
     k1 = collect(keys(y))[1]

@@ -1,11 +1,11 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package includes the function `pdesolve` that allows to solve the ODEs/PDEs that arise in economic models:
+This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models:
 - ODEs/PDEs corresponding to HJB equations (i.e. differential equations for value function in term of state variables)
-- ODEs/PDEs corresponding to asset pricing models (i.e. differential equations for price dividend ratio in term of state variables)
+- ODEs/PDEs corresponding to market pricing equations (i.e. differential equations for price- dividend ratio in term of state variables)
 
-This package proposes a new, fast, and robust algorithm to solve these ODEs / PDEs. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time steps. 
+This package proposes a new, fast, and robust algorithm to solve these ODEs / PDEs. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time stepping.
 
 To install the package
 ```julia
@@ -60,14 +60,15 @@ The `examples` folder contains code to solve
 - Consumption Saving Models
     - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
     - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income
-
+- Investment Model
+	- Bolton Chen Wang (2009) A Unified Theory of Tobin's q, Corporate Investment, Financing, and Risk Management
 
 # Boundary Conditions
-At the state boundary,  I construct the second derivative using central difference,  assuming that the value of the function outside the grid is the value of the function at the grid boundary. This approach is valid if either:
-1. the volatility of the state variable is zero at the boundary of the state space (case of bounded state variable). In this case, the second derivative simply disappears from the PDE at the boundary.
-2. Boundaries are reflecting (case of unbounded state variable solved on a finite grid). 
+In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
 
-These boundaries conditions encompass most PDEs in economics. For more information about boundary conditions, see [Viscosity Solution for Dummies](http://www.princeton.edu/~moll/viscosity_slides.pdf)
+In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (this typically happens when solving PDE on finite state space even though in the model the state space is unbounded).
+
+In some rare cases, however, one may require different boundary conditions for the derivative of the value function at the boundaries.  See the `BoltonChenWang`  model for an example specifying different boundary conditions.
 
 
 

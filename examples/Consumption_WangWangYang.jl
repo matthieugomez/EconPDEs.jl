@@ -27,6 +27,15 @@ function (m::WangWangYangModel)(state, y)
     p, pw, pww = y.p, y.pw, y.pww
     m = r + ψ * (ρ - r)
     c = m * p * pw^(-ψ)
+    # financial friction: check consumption < 1 when w = 0. Turns out that does not matter.
+    # I think that one way to undertstand this is that, since second derivative drops out at the bottom, there is already a boundary condition given by relationship between first and second derivative.
+    if w == 0.0
+       m = r + ψ * (ρ - r)
+       c = m * p * pw^(-ψ)
+       if c >= 1.0
+           pw = (m * p)^(1 / ψ)
+       end
+    end
     pt = ((m * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
     μw = (r - μ + σ^2) * w + 1 - c
     return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
@@ -36,9 +45,3 @@ m = WangWangYangModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
 y, result, distance = pdesolve(m, state, y0, bc = OrderedDict(:pw => (3.0, 1.0)))
-
-
-# becuase second derivative drops out at the bottom, no need for boundary condition at the bottom, only at the top
-# that's weird cause I don't even have to use the fact that firctions at the bottom?
-# also I don't have that derivative equals what I wnat
-result[:pw][1] - ((m.r + m.ψ * (m.ρ - m.r)) * result[:p][1])^(1 / m.ψ)

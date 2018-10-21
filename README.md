@@ -12,6 +12,23 @@ To install the package
 using Pkg
 Pkg.add("EconPDEs")
 ```
+
+# Examples
+
+The `examples` folder shows how to use the solver to solve a variety of macro - finance models:
+- Asset Pricing Models
+	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
+	- Long Run Risk Model (Bansal Yaron (2004))
+	- Disaster Model (Wachter (2013))
+	- Garleanu Panageas (2015) Heterogeneous Agent Models
+	- Di Tella (2017) Model of Balance Sheet Recessions
+- Consumption Saving Models
+    - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
+    - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income with one or two assets
+- Investment Model
+	- Bolton Chen Wang (2009) A Unified Theory of Tobin's q, Corporate Investment, Financing, and Risk Management
+
+
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
@@ -49,22 +66,10 @@ pdesolve(f, state, y0)
 
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
-The `examples` folder contains code to solve
-- Asset Pricing Models
-	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
-	- Long Run Risk Model (Bansal Yaron (2004))
-	- Disaster Model (Wachter (2013))
-	- Garleanu Panageas (2015) Heterogeneous Agent Models
-	- Di Tella (2017) Model of Balance Sheet Recessions
-- Consumption Saving Models
-    - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
-    - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income
-- Investment Model
-	- Bolton Chen Wang (2009) A Unified Theory of Tobin's q, Corporate Investment, Financing, and Risk Management
 
 # Boundary Conditions
 In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
 
 In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution)
 
-To specify different boundary conditions, see an example in the `BoltonChenWang` model in the `examples` folder.
+To specify different boundary conditions, see examples in the consumption-saving models or in the investment model in the `BoltonChenWang` model.

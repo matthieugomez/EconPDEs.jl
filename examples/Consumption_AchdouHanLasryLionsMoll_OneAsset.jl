@@ -16,12 +16,11 @@ mutable struct AchdouHanLasryLionsMollModel
     amax::Float64 
 end
 
-function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 50.0)
+function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 20.0)
     AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-
-function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 20, an = 50)
+function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
@@ -52,6 +51,7 @@ function (m::AchdouHanLasryLionsMollModel)(state, value)
         μa = 0.0
     end
     # does not matter if individuals dissave at the top, which is true for the set of parameters
+    # alternatively one could impose that consumption is such that wealth never grows, similarly to the minimum condition
     if (a ≈ amax) && (μa >= 0.0)
         va = (((ρ - r) / γ + r) * a)^(-γ)
         c = ((ρ - r) / γ + r) * a
@@ -64,9 +64,9 @@ end
 
 
 
-m = AchdouHanLasryLionsMollModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-y, result, distance = pdesolve(m, state, y0)
-using Plots
-surface(state[:a], state[:y], result[:μa])
+# m = AchdouHanLasryLionsMollModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y, result, distance = pdesolve(m, state, y0)
+# using Plots
+# surface(state[:a], state[:y], result[:μa])

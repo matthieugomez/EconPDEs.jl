@@ -92,7 +92,7 @@ catch e
 end
 
 
-include("../examples/Consumption_AchdouHanLasryLionsMoll.jl")
+include("../examples/Consumption_AchdouHanLasryLionsMoll_OneAsset.jl")
 try
 	m = AchdouHanLasryLionsMollModel()
 	state = initialize_state(m; yn = 3, an = 5)
@@ -105,6 +105,21 @@ catch e
 	showerror(stdout, e, backtrace())
 	rethrow(e)
 end
+
+include("../examples/Consumption_AchdouHanLasryLionsMoll_TwoAssets.jl")
+try
+	m = AchdouHanLasryLionsMoll_TwoAssetsModel()
+	state = initialize_state(m; yn = 3, an = 5)
+	y0 = initialize_y(m, state)
+	y, a, distance = pdesolve(m, state, y0)
+	@test distance <= 1e-5
+	println("\t\033[1m\033[32mPASSED\033[0m: AchdouHanLasryLionsMoll Two Assets")
+catch e
+	println("\t\033[1m\033[31mFAILED\033[0m: AchdouHanLasryLionsMoll Two Assets")
+	showerror(stdout, e, backtrace())
+	rethrow(e)
+end
+
 
 include("../examples/Investment_BoltonChenWang.jl")
 try

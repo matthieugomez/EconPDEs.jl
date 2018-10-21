@@ -1,6 +1,6 @@
 using EconPDEs, Distributions
 
-mutable struct AchdouHanLasryLionsMollModel_TwoAssets
+mutable struct AchdouHanLasryLionsMoll_TwoAssetsModel
     # income process parameters
     κy::Float64 
     ybar::Float64
@@ -18,11 +18,11 @@ mutable struct AchdouHanLasryLionsMollModel_TwoAssets
     amax::Float64 
 end
 
-function AchdouHanLasryLionsMollModel_TwoAssets(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, μR = 0.06, σR = 0.15, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 20.0)
-    AchdouHanLasryLionsMollModel_TwoAssets(κy, ybar, σy, r, μR, σR, ρ, γ, amin, amax)
+function AchdouHanLasryLionsMoll_TwoAssetsModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, μR = 0.06, σR = 0.15, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 20.0)
+    AchdouHanLasryLionsMoll_TwoAssetsModel(κy, ybar, σy, r, μR, σR, ρ, γ, amin, amax)
 end
 
-function initialize_state(m::AchdouHanLasryLionsMollModel_TwoAssets; yn = 5, an = 50)
+function initialize_state(m::AchdouHanLasryLionsMoll_TwoAssetsModel; yn = 5, an = 50)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
@@ -33,11 +33,11 @@ function initialize_state(m::AchdouHanLasryLionsMollModel_TwoAssets; yn = 5, an 
     OrderedDict(:y => ys, :a => as)
 end
 
-function initialize_y(m::AchdouHanLasryLionsMollModel_TwoAssets, state)
+function initialize_y(m::AchdouHanLasryLionsMoll_TwoAssetsModel, state)
     OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in state[:y], a in state[:a]])
 end
 
-function (m::AchdouHanLasryLionsMollModel_TwoAssets)(state, value)
+function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state, value)
     κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; μR = m.μR ; σR = m.σR ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
     y, a = state.y, state.a
     v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
@@ -70,9 +70,9 @@ end
 
 
 
-m = AchdouHanLasryLionsMollModel_TwoAssets()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-y, result, distance = pdesolve(m, state, y0)
-using Plots
-surface(state[:a], state[:y], result[:μa])
+# m = AchdouHanLasryLionsMoll_TwoAssetsModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y, result, distance = pdesolve(m, state, y0)
+# using Plots
+# surface(state[:a], state[:y], result[:μa])

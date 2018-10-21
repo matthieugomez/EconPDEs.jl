@@ -20,12 +20,11 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
 	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
 	- Long Run Risk Model (Bansal Yaron (2004))
 	- Disaster Model (Wachter (2013))
-	- Garleanu Panageas (2015) Heterogeneous Agent Models
-	- Di Tella (2017) Model of Balance Sheet Recessions
-- Consumption Saving Models
+	- Heterogeneous Agent Models (Garleanu Panageas (2015), Di Tella (2017))
+- Consumption with Borrowing Constraint
     - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
-    - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income with one or two assets
-- Investment Model
+    - Achdou Han Lasry Lions Moll (2018) Consumption Saving Problem with Stochastic Labor Income with One or Two assets
+- Investment with Borrowing Constraint
 	- Bolton Chen Wang (2009) A Unified Theory of Tobin's q, Corporate Investment, Financing, and Risk Management
 
 

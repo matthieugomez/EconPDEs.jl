@@ -15,7 +15,7 @@ Pkg.add("EconPDEs")
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
-For instance, to solve the PDE giving the price-dividend ratio in the Campbell Cochrane model:
+For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model:
 <img src="img/by.png">
 
 ```julia
@@ -64,6 +64,6 @@ The `examples` folder contains code to solve
 # Boundary Conditions
 In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
 
-In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting. This is typically the case for models in which the state space is theorically unbounded.
+In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution)
 
-In some rare cases, however, one may want to solve a PDE with different boundary conditions.  For an example specifying different boundary conditions, see the `BoltonChenWang` model. in the `examples` folder.
+To specify different boundary conditions, see an example in the `BoltonChenWang` model. in the `examples` folder.

@@ -1,4 +1,4 @@
-using EconPDEs, LeastSquaresOptim
+using EconPDEs
 
 struct BoltonChenWangModel
   r::Float64
@@ -16,12 +16,12 @@ function BoltonChenWangModel(r = 0.06, δ = 0.10, A = 0.18, σ = 0.09, θ = 1.5,
   BoltonChenWang(r, δ, A, σ, θ, λ, l , γ, ϕ)
 end
 
-function initialize_state(m::BoltonChenWangModel; wn = 100)
-  OrderedDict(:w => collect(range(0.0, stop = 0.3, length = wn)))
+function initialize_state(m::BoltonChenWangModel; n = 100)
+  OrderedDict(:w => collect(range(0.0, stop = 0.3, length = n)))
 end
 
 function initialize_y(m::BoltonChenWangModel, state)
-    OrderedDict(:v =>  1.0 .+ state[:w])
+    OrderedDict(:v =>  1 .+ state[:w])
 end
 
 function (m::BoltonChenWangModel)(state, y)
@@ -34,9 +34,7 @@ function (m::BoltonChenWangModel)(state, y)
   return (vt,), (μw, ), (v = v, vw = vw, vww = vww, w = w)
 end
 
-m = BoltonChenWangModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
+
 
 
 # This function iterates on the boundary conditions about the derivative of the value function until the solution satisfies the conditions given in Bolton Chen Wang (2009).
@@ -55,7 +53,12 @@ function f(m, x, state, y0)
   out[4] = m.r * u1[wi] - (i - m.δ) * (u1[wi] - w[wi]) - ((m.r - m.λ) * w[wi] + m.A - i - m.θ * i^2 / 2)
   return out
 end
-newsol = optimize(x -> f(m, x, state, y0), [1.0,  1.0], Dogleg())
-y, result, distance = pdesolve(m, state, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
+# using LeastSquaresOptim
+# m = BoltonChenWangModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y, result, distance = pdesolve(m, state, y0, bc = OrderedDict(:vw => (1.5, 1.0)))
+# newsol = optimize(x -> f(m, x, state, y0), [1.0,  1.0], Dogleg())
+# y, result, distance = pdesolve(m, state, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
 
 

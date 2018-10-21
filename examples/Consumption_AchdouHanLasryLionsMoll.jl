@@ -1,4 +1,4 @@
-using Distributions
+using EconPDEs, Distributions
 
 mutable struct AchdouHanLasryLionsMollModel
     # income process parameters
@@ -56,9 +56,9 @@ end
 
 
 
-m = AchdouHanLasryLionsMollModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-result, a, distance = pdesolve(m, state, y0)
-using Plots
-surface(state[:a], state[:y], a[:μa])
+# m = AchdouHanLasryLionsMollModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# result, a, distance = pdesolve(m, state, y0)
+# using Plots
+# surface(state[:a], state[:y], a[:μa])

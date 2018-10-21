@@ -51,8 +51,9 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 
 The `examples` folder contains code to solve
 - Asset Pricing Models
-	- Campbell Cochrane (1999) and Wachter (2005) Habit Model
-	- Bansal Yaron (2004) Long Run Risk Model
+	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
+	- Long Run Risk Model (Bansal Yaron (2004))
+	- Disaster Model (Wachter (2013))
 	- Garleanu Panageas (2015) Heterogeneous Agent Models
 	- Di Tella (2017) Model of Balance Sheet Recessions
 - Consumption Saving Models
@@ -66,4 +67,4 @@ In case the volatility of the state variable is zero at the boundaries of the st
 
 In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution)
 
-To specify different boundary conditions, see an example in the `BoltonChenWang` model. in the `examples` folder.
+To specify different boundary conditions, see an example in the `BoltonChenWang` model in the `examples` folder.

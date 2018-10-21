@@ -1,6 +1,6 @@
 using Distributions
 
-mutable struct BansalYaronModel
+mutable struct LongRunRiskModel
     # consumption process parameters
     μbar::Float64 
     vbar::Float64
@@ -15,12 +15,12 @@ mutable struct BansalYaronModel
     ψ::Float64
 end
 
-function BansalYaronModel(;μbar = 0.018, vbar = 0.00073, κμ = 0.252, νμ = 0.528, κv = 0.156, νv = 0.00354, ρ = 0.024, γ = 7.5, ψ = 1.5)
-    BansalYaronModel(μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ)
+function LongRunRiskModel(;μbar = 0.018, vbar = 0.00073, κμ = 0.252, νμ = 0.528, κv = 0.156, νv = 0.00354, ρ = 0.024, γ = 7.5, ψ = 1.5)
+    LongRunRiskModel(μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ)
 end
 
 
-function initialize_state(m::BansalYaronModel; μn = 30, vn = 30)
+function initialize_state(m::LongRunRiskModel; μn = 30, vn = 30)
     μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
 
     σ = sqrt(νμ^2 * vbar / (2 * κμ))
@@ -33,15 +33,15 @@ function initialize_state(m::BansalYaronModel; μn = 30, vn = 30)
     vmin = quantile(Gamma(α, β), 0.001)
     vmax = quantile(Gamma(α, β), 0.999)
     vs = collect(range(vmin, stop = vmax, length = vn))
-    
     OrderedDict(:μ => μs, :v => vs)
 end
 
-function initialize_y(m::BansalYaronModel, state)
+function initialize_y(m::LongRunRiskModel, state)
     OrderedDict(:p => fill(1.0, length(state[:μ]), length(state[:v])))
 end
 
-function (m::BansalYaronModel)(state, y)
+
+function (m::LongRunRiskModel)(state, y)
     μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
     μ, v = state.μ, state.v
     p, pμ, pv, pμμ, pμv, pvv = y.p, y.pμ, y.pv, y.pμμ, y.pμv, y.pvv
@@ -75,7 +75,7 @@ end
 
 ## Long Run Risk Models
 ### Bansal Yaron (2004)
-#m = BansalYaronModel()
-#state = initialize_state(m)
-#y0 = initialize_y(m, state)
-#y, result, distance = pdesolve(m, state, y0)
+# m = LongRunRiskModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y, result, distance = pdesolve(m, state, y0)

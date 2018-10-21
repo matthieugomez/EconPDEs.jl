@@ -1,4 +1,4 @@
-mutable struct CampbellCochraneModel
+mutable struct HabitModel
     # consumption process parameters
     μ::Float64 
     σ::Float64
@@ -12,14 +12,14 @@ mutable struct CampbellCochraneModel
     b::Float64
 end
 
-function CampbellCochraneModel(;μ = 0.0189, σ = 0.015, γ = 2.0, ρ = 0.116, κs = 0.138, b = 0.0)
+function HabitModel(;μ = 0.0189, σ = 0.015, γ = 2.0, ρ = 0.116, κs = 0.138, b = 0.0)
     # I choose persistence so that monthly simulation of the model matches processes in CC (1999)
     # ρ = 12 * (1 - 0.89^(1/12))
     # κs = 12 * (1 - 0.87^(1/12))
-    CampbellCochraneModel(μ, σ, γ, ρ, κs, b)
+    HabitModel(μ, σ, γ, ρ, κs, b)
 end
 
-function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
+function initialize_state(m::HabitModel; smin = -300.0, n = 1000)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     Sbar = σ * sqrt(γ / (κs - b / γ))
     sbar = log.(Sbar)
@@ -30,11 +30,11 @@ function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
-function initialize_y(m::CampbellCochraneModel, state)
+function initialize_y(m::HabitModel, state)
     OrderedDict(:p => ones(length(state[:s])))
 end
 	
-function (m::CampbellCochraneModel)(state, y)
+function (m::HabitModel)(state, y)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     s = state.s
     p, ps, pss = y.p, y.ps, y.pss
@@ -64,13 +64,13 @@ end
 
 # # Habit Model
 # ## Campbell Cochrane (1999)
-# m = CampbellCochraneModel()
+# m = HabitModel()
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
 # result, distance = pdesolve(m, state, y0)
 
 # ## Wachter (2005) calibration
-# m = CampbellCochraneModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011 * 4)
+# m = HabitModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011 * 4)
 # state = initialize_state(m)
 # y0 = initialize_y(m, state)
 # result, distance = pdesolve(m, state, y0)

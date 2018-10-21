@@ -16,13 +16,12 @@ Pkg.add("EconPDEs")
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 
 For instance, to solve the PDE giving the price-dividend ratio in the Campbell Cochrane model:
-<img src="img/campbell.png">
-<img src="img/campbell2.png" width="300">
+<img src="img/by.png">
 
 ```julia
 using EconPDEs
 # define state grid
-state = OrderedDict(:s => range(-100, stop = -2.4, length = 1000))
+state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 1000))
 
 # define initial guess
 y0 = OrderedDict(:V => ones(1000))
@@ -39,10 +38,9 @@ y0 = OrderedDict(:V => ones(1000))
 # 1. a tuple with the value of PDE at current solution and current state 
 # 2. a tuple with drift of state variable, used for upwinding 
 function f(state, sol)
-	μ = 0.0189 ; σ = 0.015 ; γ = 2.0 ; ρ = 0.116 ; κ = 0.13 ; Sbar = 0.5883
-	λs = 1 / Sbar * sqrt(1 - 2 * (state.s - log(Sbar))) - 1
-	Vt = 1 + μ * sol.V  + κ * (log(Sbar)- state.s) * sol.Vs  + 1 / 2 * λs^2 * σ^2 * sol.Vss + λs * σ^2 * sol.Vs - (ρ + γ * μ - γ * κ / 2) * sol.V - γ * σ^2 * (1 + λs) * (sol.V + λs * sol.Vs) 
-	(Vt,), (κ * (log(Sbar)- state.s),)
+	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
+	Vt = 1 / sol.V - ρ + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) + θμ * (μbar - state.μ) * sol.Vμ / sol.V + 0.5 * νμ^2 * ϑ * sol.Vμμ / sol.V + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * sol.Vμ^2/sol.V^2
+	(Vt,), (θμ * (μbar - state.μ),)
 end
 
 # solve PDE
@@ -69,21 +67,3 @@ In case the volatility of the state variable is zero at the boundaries of the st
 In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting. This is typically the case for models in which the state space is theorically unbounded.
 
 In some rare cases, however, one may want to solve a PDE with different boundary conditions.  For an example specifying different boundary conditions, see the `BoltonChenWang` model. in the `examples` folder.
-
-
-# Solving Non Linear Systems
-`pdesolve` internally calls `finiteschemesolve` that is written specifically to solve non linear systems associated with finite difference schemes. `finiteschemesolve` can also be called directly.
-
-Denote `F` the finite difference scheme corresponding to a PDE. The goal is to find `y` such that `F(y) = 0`.  The function `finiteschemesolve` has the following syntax:
-
- - The first argument is a function `F!(out, y)` which writes `F(y)` in `out` in place.
- - The second argument is an array of arbitrary dimension for the initial guess for `y`
- - The option `is_algebraic` (defaults to an array of `false`) is an array indicating the eventual algebraic equations (typically market clearing conditions).
-
- Some options control the algorithm:
- - The option `Δ` (default to 1.0) specifies the initial time step. 
- - The option `inner_iterations` (default to `10`) specifies the number of inner Newton-Raphson iterations. 
- - The option `autodiff` (default to `true`) specifies that the Jacobian is evaluated using automatic differentiation.
-
-
-

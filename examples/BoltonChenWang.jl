@@ -39,7 +39,8 @@ state = initialize_state(m)
 y0 = initialize_y(m, state)
 
 
-# This function iterates on the boundary conditions on the derivative of the value function until the solution satisfies the conditions given in Bolton Chen Wang (2009).
+# This function iterates on the boundary conditions about the derivative of the value function until the solution satisfies the conditions given in Bolton Chen Wang (2009).
+
 function f(m, x, state, y0)
   y, result, distance = pdesolve(m, state, y0; bc = OrderedDict(:vw => (x[1], x[2])))
   y0[:v] = y[:v]

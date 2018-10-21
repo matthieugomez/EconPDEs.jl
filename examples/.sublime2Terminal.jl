@@ -1,64 +1,52 @@
-using EconPDEs, Distributions
+using EconPDEs
 
-mutable struct AchdouHanLasryLionsMollModel
-    # income process parameters
-    κy::Float64 
-    ybar::Float64
-    σy::Float64
-
-    abar::Float64
-
+mutable struct WangWangYangModel
+    μ::Float64 
+    σ::Float64
     r::Float64
-
-    # utility parameters
     ρ::Float64  
     γ::Float64 
+    ψ::Float64
 end
 
-function AchdouHanLasryLionsMollModel(;κy = 0.018, ybar = 1.0, σy = 0.05, abar = 0.0, r = 0.01, ρ = 0.024, γ = 7.5)
-    AchdouHanLasryLionsMollModel(κy, ybar, σy, abar, r, ρ, γ)
+function WangWangYangModel(;μ = 0.015, σ = 0.1, r = 0.035, ρ = 0.04, γ = 3, ψ = 1.1)
+    WangWangYangModel(μ, σ, r, ρ, γ, ψ)
 end
 
-
-function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 10, an = 30, amax = 100.0)
-    κy = m.κy ; ybar = m.ybar ; σy = m.σy ; abar = m.abar ; ρ = m.ρ ; γ = m.γ
-
-    distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
-    ymin = quantile(distribution, 0.001)
-    ymax = quantile(distribution, 0.999)
-    ys = collect(range(ymin, stop = ymax, length = yn))
-
-    as = collect(range(abar, stop = amax, length = an))
-
-    OrderedDict(:y => ys, :a => as)
+function initialize_state(m::WangWangYangModel; n = 300)
+    OrderedDict(:w => collect(range(0.0, stop = 500.0, length = n)))
 end
 
-function initialize_y(m::AchdouHanLasryLionsMollModel, state)
-    OrderedDict(:v => [(y + a)^(1-m.γ)/(1-m.γ) for y in state[:y], a in state[:a]])
+function initialize_y(m::WangWangYangModel, state)
+    OrderedDict(:p => 1 .+ state[:w])
 end
-
-function (m::AchdouHanLasryLionsMollModel)(state, value)
-    κy = m.κy ; σy = m.σy ; ybar = m.ybar ; abar = m.abar ; r = m.r ; ρ = m.ρ ; γ = m.γ
-    y, a = state.y, state.a
-    v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
-    μy = κy * (ybar - y)
-    va = max(1e-10, va)
-    c = va^(-1 / γ)
-    μa = y + r * a - c
-    if (a == abar) & (μa <= 0)
-        va = (y + r * abar)^(-γ)
-        c = y + r * abar
-        μa = 0.0
+	
+function (m::WangWangYangModel)(state, y)
+    μ = m.μ ;  σ = m.σ ;  r = m.r ;  ρ = m.ρ ;  γ = m.γ ;  ψ = m.ψ 
+    w = state.w
+    p, pw, pww = y.p, y.pw, y.pww
+    # financial friction: check consumption < 1 when w = 0
+    pt = 0.0
+    if w == 0.0
+        m = r + ψ * (ρ - r)
+        c = m * p * pw^(-ψ)
+        if c >= 1.0
+            pw =  (m * p)^(1 / ψ)
+        end
     end
-    vt = c^(1 - γ) / (1 - γ) + va * μa + vy * μy + 0.5 * vyy * σy^2 - ρ * v
-    return (vt,), (μy, μa), (c = c, va = va, vy = vy, y = y, a = a, μa = μa)
+    m = r + ψ * (ρ - r)
+    c = m * p * pw^(-ψ)
+    pt = ((m * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
+    μw = (r - μ + σ^2) * w + 1 - c
+    return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
 end
 
-
-
-m = AchdouHanLasryLionsMollModel()
+m = WangWangYangModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
-result, a, distance = pdesolve(m, state, y0)
-#using Plots
-#surface(state[:a], state[:y], a[:μa])
+y2, result2, distance = pdesolve(m, state, y0, bc = OrderedDict(:pw => (3.0, 1.0)))
+
+
+# boundary condition  for derivative value at lower boundary is not used. Note that at the frontier, we have w = 0 so second derivative drops out. 
+# what I am imposing right now is a condition about value of p at boundary tijme = 0 (since pww disappears and pw is a function of p, the PDE at w = 0 is just a condition on p) and vlaue of pw at upward boundary.
+# Note that I do not really satisfy  y2[:p][end] - state[:w][end] - 1 / (m.r - m.μ) but I  think it is true in the limit

@@ -66,10 +66,9 @@ The `examples` folder contains code to solve
 # Boundary Conditions
 In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
 
-In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (this typically happens when solving PDE on finite state space even though in the model the state space is unbounded).
+In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting. This is typically the case for models in which the state space is theorically unbounded.
 
-In some rare cases, however, one may require different boundary conditions for the derivative of the value function at the boundaries.  See the `BoltonChenWang`  model for an example specifying different boundary conditions.
-
+In some rare cases, however, one may want to solve a PDE with different boundary conditions.  For an example specifying different boundary conditions, see the `BoltonChenWang` model. in the `examples` folder.
 
 
 # Solving Non Linear Systems

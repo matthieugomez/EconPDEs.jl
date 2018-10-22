@@ -50,9 +50,9 @@ function (m::WangWangYangModel)(state, y)
     return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
 end
 
-m = WangWangYangModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-y0, result0, distance0 = pdesolve(m, state, y0)
-# Important: check marginal value of wealth converges to 1.0
-result0[:pw]
+# m = WangWangYangModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y0, result0, distance0 = pdesolve(m, state, y0)
+# # Important: check marginal value of wealth converges to 1.0
+# result0[:pw]

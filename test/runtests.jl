@@ -3,7 +3,7 @@ using EconPDEs, Test
 
 println("Running tests:")
 
-include("../examples/Habit.jl")
+include("../examples/Asset Pricing/Habit.jl")
 try
 	m = HabitModel()
 	state = initialize_state(m; n = 1000)
@@ -17,7 +17,7 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/LongRunRisk.jl")
+include("../examples/Asset Pricing/LongRunRisk.jl")
 try
 	m = LongRunRiskModel()
 	state = initialize_state(m; μn = 5, vn = 5)
@@ -32,7 +32,7 @@ catch e
 end
 
 
-include("../examples/Disaster.jl")
+include("../examples/Asset Pricing/Disaster.jl")
 try
 	m = DisasterModel()
 	state = initialize_state(m; n = 5)
@@ -47,7 +47,7 @@ catch e
 end
 
 
-include("../examples/Heterogeneous_GarleanuPanageas.jl")
+include("../examples/Asset Pricing/GarleanuPanageas.jl")
 try
 	m = GarleanuPanageasModel()
 	state = initialize_state(m; n = 10)
@@ -62,7 +62,7 @@ catch e
 end
 
 
-include("../examples/Heterogeneous_DiTella.jl")
+include("../examples/Asset Pricing/DiTella.jl")
 try
 	m = DiTellaModel()
 	state = initialize_state(m ; xn = 10, νn = 3)
@@ -77,7 +77,7 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/Consumption_WangWangYang.jl")
+include("../examples/Consumption Problem/WangWangYang.jl")
 try
 	m = WangWangYangModel()
 	state = initialize_state(m; n = 10)
@@ -92,7 +92,7 @@ catch e
 end
 
 
-include("../examples/Consumption_AchdouHanLasryLionsMoll_OneAsset.jl")
+include("../examples/Consumption Problem/AchdouHanLasryLionsMoll_OneAsset.jl")
 try
 	m = AchdouHanLasryLionsMollModel()
 	state = initialize_state(m; yn = 3, an = 5)
@@ -106,10 +106,10 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/Consumption_AchdouHanLasryLionsMoll_TwoAssets.jl")
+include("../examples/Consumption Problem/AchdouHanLasryLionsMoll_TwoAssets.jl")
 try
-	m = AchdouHanLasryLionsMoll_TwoAssetsModel()
-	state = initialize_state(m; yn = 3, an = 5)
+	m = AchdouHanLasryLionsMoll_TwoAssetsModel(amax = 10.0)
+	state = initialize_state(m; yn = 3, an = 10)
 	y0 = initialize_y(m, state)
 	y, a, distance = pdesolve(m, state, y0)
 	@test distance <= 1e-5
@@ -121,7 +121,7 @@ catch e
 end
 
 
-include("../examples/Investment_BoltonChenWang.jl")
+include("../examples/Investment Problem/BoltonChenWang.jl")
 try
 	m = BoltonChenWangModel()
 	state = initialize_state(m; n = 10)

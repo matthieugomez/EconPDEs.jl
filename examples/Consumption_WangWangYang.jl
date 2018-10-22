@@ -28,7 +28,7 @@ function (m::WangWangYangModel)(state, y)
     p, pw, pww = y.p, y.pw, y.pww
     c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
     μw = (r - μ + σ^2) * w + 1 - c
-    # Turns out that this branch is unecessary. One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition, which is given by relationship between first and second derivative.
+    # This branch is unecessary. One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition, which is given by relationship between first and second derivative.
     if w ≈ 0.0 && μw <= 0.0
        pw = ((r + ψ * (ρ - r)) * p)^(1 / ψ)
        c = (r + ψ * (ρ - r)) * p * pw^(-ψ)

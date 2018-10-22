@@ -1,7 +1,8 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models.
+This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. 
+
 To install the package
 ```julia
 using Pkg
@@ -22,6 +23,9 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
 - Investment with Borrowing Constraint
 	- Bolton Chen Wang (2009) Optimal liquidity management with cash constraints
 
+
+The function reduces the boilerplate in constructing finite difference schemes, upwinding, etc.
+Specifying and solving a model takes less than 20 lines of codes. 
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
@@ -44,7 +48,6 @@ y0 = OrderedDict(:V => ones(1000))
 # The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
 # Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
 # Its second derivative can be accessed with `sol.yxx`,
-#
 # It returns two outputs
 # 1. a tuple with the value of PDE at current solution and current state 
 # 2. a tuple with drift of state variable, used for upwinding 

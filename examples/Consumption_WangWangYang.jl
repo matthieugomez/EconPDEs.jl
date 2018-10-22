@@ -7,14 +7,15 @@ mutable struct WangWangYangModel
     ρ::Float64  
     γ::Float64 
     ψ::Float64
+    wmax::Float64
 end
 
-function WangWangYangModel(;μ = 0.015, σ = 0.1, r = 0.035, ρ = 0.04, γ = 3, ψ = 1.1)
-    WangWangYangModel(μ, σ, r, ρ, γ, ψ)
+function WangWangYangModel(;μ = 0.015, σ = 0.1, r = 0.035, ρ = 0.04, γ = 3, ψ = 1.1, wmax = 1000.0)
+    WangWangYangModel(μ, σ, r, ρ, γ, ψ, wmax)
 end
 
-function initialize_state(m::WangWangYangModel; n = 100)
-    OrderedDict(:w => collect(range(0.0, stop = 1_000.0, length = n)))
+function initialize_state(m::WangWangYangModel; n = 500)
+    OrderedDict(:w => collect(range(0.0, stop = m.wmax, length = n)))
 end
 
 function initialize_y(m::WangWangYangModel, state)
@@ -22,26 +23,38 @@ function initialize_y(m::WangWangYangModel, state)
 end
     
 function (m::WangWangYangModel)(state, y)
-    μ = m.μ ;  σ = m.σ ;  r = m.r ;  ρ = m.ρ ;  γ = m.γ ;  ψ = m.ψ 
+    μ = m.μ ;  σ = m.σ ;  r = m.r ;  ρ = m.ρ ;  γ = m.γ ;  ψ = m.ψ  ; wmax = m.wmax
     w = state.w
     p, pw, pww = y.p, y.pw, y.pww
-    m = r + ψ * (ρ - r)
-    c = m * p * pw^(-ψ)
-    # financial friction: check consumption < 1 when w = 0. Turns out that does not matter.
-    # I think that one way to undertstand this is that, since second derivative drops out at the bottom, there is already a boundary condition given by relationship between first and second derivative.
-    if w == 0.0
-       m = r + ψ * (ρ - r)
-       c = m * p * pw^(-ψ)
-       if c >= 1.0
-           pw = (m * p)^(1 / ψ)
-       end
-    end
-    pt = ((m * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
+    c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
     μw = (r - μ + σ^2) * w + 1 - c
+    # financial friction: check consumption < 1 when w = 0. Turns out that does not matter.
+    # One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition given by relationship between first and second derivative.
+    if w ≈ 0.0 && μw <= 0.0
+       pw = ((r + ψ * (ρ - r)) * p)^(1 / ψ)
+       c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
+       μw = (r - μ + σ^2) * w + 1 - c
+    end
+    # not used either
+    if w ≈ wmax && μw >= 0.0
+        pw = 1.0
+        pww = 0.0
+        c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
+        μw = (r - μ + σ^2) * w + 1 - c
+    end
+    # This is the only one used. since first derivative is upwinding, I can directly impose value of second derivative
+    if w ≈ wmax
+        pww = 0.0
+    end
+    pt = (((r + ψ * (ρ - r)) * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p)
+    μw = 1 + (r - μ + σ^2) * w - c
     return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
 end
 
 m = WangWangYangModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
-y, result, distance = pdesolve(m, state, y0, bc = OrderedDict(:pw => (3.0, 1.0)))
+y0, result0, distance0 = pdesolve(m, state, y0)
+# Important: marginal value of wealth converges to 1.0
+result0[:pw]
+# it's not obvious why I need to impose first derivative is 1.0 using bc. In consumption/ saving of Moll etc, I do not need to add boundary condition.

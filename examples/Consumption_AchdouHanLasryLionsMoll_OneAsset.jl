@@ -16,7 +16,7 @@ mutable struct AchdouHanLasryLionsMollModel
     amax::Float64 
 end
 
-function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 20.0)
+function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 500.0)
     AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
@@ -59,14 +59,21 @@ function (m::AchdouHanLasryLionsMollModel)(state, value)
     end
 
     vt = c^(1 - γ) / (1 - γ) + va * μa + vy * μy + 0.5 * vyy * σy^2 - ρ * v
-    return (vt,), (μy, μa), (c = c, va = va, vy = vy, y = y, a = a, μa = μa)
+    return (vt,), (μy, μa), (v = v, c = c, va = va, vy = vy, y = y, a = a, μa = μa, vaa = vaa)
 end
 
 
 
-# m = AchdouHanLasryLionsMollModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y, result, distance = pdesolve(m, state, y0)
-# using Plots
-# surface(state[:a], state[:y], result[:μa])
+m = AchdouHanLasryLionsMollModel()
+state = initialize_state(m)
+y0 = initialize_y(m, state)
+y, result, distance = pdesolve(m, state, y0)
+
+
+# Important: marginal value of wealth converges to 1.0
+b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
+pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
+
+
+using Plots
+surface(state[:a], state[:y], result[:μa])

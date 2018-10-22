@@ -238,7 +238,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
                 bc_m[1, :,  k] = bc[Symbol(yname, keys_grid[1])][1]
                 bc_m[end, :, k] = bc[Symbol(yname, keys_grid[1])][2]
                 bc_m[:, 1,  k] = bc[Symbol(yname, keys_grid[2])][1]
-                bc_m[:, 1,  k] = bc[Symbol(yname, keys_grid[2])][2]
+                bc_m[:, end,  k] = bc[Symbol(yname, keys_grid[2])][2]
             end
         end
     end

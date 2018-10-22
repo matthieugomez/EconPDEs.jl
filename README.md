@@ -1,9 +1,10 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. Specifying and solving a model takes less than 20 lines of codes.
+This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide robust and simple-to-use framework to solve PDEs. 
 
-The function is based on finite difference schemes, upwinding, and non linear time stepping. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). 
+The function is robust because it is based on a combination of upwinding and non-linear time stepping (see more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf)). It is simple-to-use because the user does not need to explicitly code the finite-difference scheme: specifying and solving a PDE can be done in less than 10 lines of codes.
+
 # Examples
 
 The `examples` folder shows how to use the solver to solve a variety of macro - finance models:
@@ -19,8 +20,7 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
 	- Bolton Chen Wang (2009) Optimal liquidity management with cash constraints
 
 
-# Solving  PDEs
-The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
+# First PDE
 
 For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model:
 <img src="img/by.png">
@@ -49,7 +49,7 @@ function f(state, sol)
 	(Vt,), (θμ * (μbar - state.μ),)
 end
 
-# solve PDE
+# the function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
 pdesolve(f, state, y0)
 ```
 

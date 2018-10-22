@@ -1,12 +1,7 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models:
-- ODEs/PDEs corresponding to HJB equations (i.e. differential equations for value function in term of state variables)
-- ODEs/PDEs corresponding to market pricing equations (i.e. differential equations for price- dividend ratio in term of state variables)
-
-This package proposes a new, fast, and robust algorithm to solve these ODEs / PDEs. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). It is based on finite difference schemes, upwinding, and non linear time stepping.
-
+This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models.
 To install the package
 ```julia
 using Pkg
@@ -69,6 +64,6 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 # Boundary Conditions
 In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
 
-In all other cases, I assume that the derivative of the value function is zero at the boundaries. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution)
+If the second derivative is needed at the boundary, I construct it assuming that the first derivative is zero outside the boundary. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution). One can easily specify different second derivatives at the boundary (see examples in consumpion-saving models).
 
-To specify different boundary conditions, see examples in the consumption-saving models or in the investment model in the `BoltonChenWang` model.
+To specify different boundary conditions, see the investment model in the `BoltonChenWang` model.

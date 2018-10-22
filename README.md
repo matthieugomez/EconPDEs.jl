@@ -1,9 +1,9 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide robust and simple-to-use framework to solve PDEs. 
+This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. 
 
-The function is robust because it is based on a combination of upwinding and non-linear time stepping (see more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf)). It is simple-to-use because the user does not need to explicitly code the finite-difference scheme: specifying and solving a PDE can be done in less than 10 lines of codes.
+The function is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf)). It is simple-to-use: the user does not need to explicitly code the finite-difference scheme. Specifying and solving a PDE can be done in less than 10 lines of codes.
 
 # Examples
 
@@ -45,7 +45,8 @@ y0 = OrderedDict(:V => ones(1000))
 # 2. a tuple with drift of state variable, used for upwinding 
 function f(state, sol)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
-	Vt = 1 / sol.V - ρ + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) + θμ * (μbar - state.μ) * sol.Vμ / sol.V + 0.5 * νμ^2 * ϑ * sol.Vμμ / sol.V + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * sol.Vμ^2/sol.V^2
+	Vt = 1 / sol.V - ρ + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) + θμ * (μbar - state.μ) * sol.Vμ / sol.V +
+	0.5 * νμ^2 * ϑ * sol.Vμμ / sol.V + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * sol.Vμ^2/sol.V^2
 	(Vt,), (θμ * (μbar - state.μ),)
 end
 

@@ -74,14 +74,13 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state, value)
 end
 
 
-m = AchdouHanLasryLionsMoll_TwoAssetsModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-y, result, distance = pdesolve(m, state, y0)
-
-# Important: check marginal value of wealth converges to 1.0
-# This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. This is interesting. Maybe it means there should be a better way to have bordering condition at top
-b = ((m.r + (m.ρ - m.r)/m.γ - (1-m.γ) / (2 * m.γ) * (m.μR - m.r)^2 / (m.γ * m.σR^2)))^(1/(1 - 1/m.γ))
-pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
-plot(state[:a], pw[1, :])
+# m = AchdouHanLasryLionsMoll_TwoAssetsModel()
+# state = initialize_state(m)
+# y0 = initialize_y(m, state)
+# y, result, distance = pdesolve(m, state, y0)
+# 
+# # Important: check marginal value of wealth converges to 1.0
+# # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. This is interesting. Maybe it means there should be a better way to have bordering condition at # top
+# b = ((m.r + (m.ρ - m.r)/m.γ - (1-m.γ) / (2 * m.γ) * (m.μR - m.r)^2 / (m.γ * m.σR^2)))^(1/(1 - 1/m.γ))
+# pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
 

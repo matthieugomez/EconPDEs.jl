@@ -63,16 +63,13 @@ end
 
 
 
-m = AchdouHanLasryLionsMollModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-y, result, distance = pdesolve(m, state, y0)
-
-
-# Important: marginal value of wealth converges to 1.0
-b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
-pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
-
-
-using Plots
-surface(state[:a], state[:y], result[:μa])
+#m = AchdouHanLasryLionsMollModel()
+#state = initialize_state(m)
+#y0 = initialize_y(m, state)
+#y, result, distance = pdesolve(m, state, y0)
+#
+#
+## Important: marginal value of wealth converges to 1.0
+#b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
+#pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
+#

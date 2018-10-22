@@ -28,21 +28,20 @@ function (m::WangWangYangModel)(state, y)
     p, pw, pww = y.p, y.pw, y.pww
     c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
     μw = (r - μ + σ^2) * w + 1 - c
-    # financial friction: check consumption < 1 when w = 0. Turns out that does not matter.
-    # One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition given by relationship between first and second derivative.
+    # Turns out that this branch is unecessary. One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition, which is given by relationship between first and second derivative.
     if w ≈ 0.0 && μw <= 0.0
        pw = ((r + ψ * (ρ - r)) * p)^(1 / ψ)
        c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
        μw = (r - μ + σ^2) * w + 1 - c
     end
-    # not used either
+    # this branch is unnecessary when individuals dissave at the top (default)
     if w ≈ wmax && μw >= 0.0
         pw = 1.0
         pww = 0.0
         c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
         μw = (r - μ + σ^2) * w + 1 - c
     end
-    # This is the only one used. since first derivative is upwinding, I can directly impose value of second derivative
+    # Since first derivative is upwinded, I can directly impose value of second derivative
     if w ≈ wmax
         pww = 0.0
     end
@@ -55,6 +54,5 @@ m = WangWangYangModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
 y0, result0, distance0 = pdesolve(m, state, y0)
-# Important: marginal value of wealth converges to 1.0
+# Important: check marginal value of wealth converges to 1.0
 result0[:pw]
-# it's not obvious why I need to impose first derivative is 1.0 using bc. In consumption/ saving of Moll etc, I do not need to add boundary condition.

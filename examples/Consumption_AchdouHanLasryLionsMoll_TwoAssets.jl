@@ -49,18 +49,18 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state, value)
     k = clamp(k, 0.0, a - amin)
     μa = y + r * a + (μR - r) * k - c
     σa = k * σR
+    # There is no second derivative at 0 so just specify first order derivative
     if (a ≈ amin) && (μa <= 0.0)
         va = (y + r * amin)^(-γ)
         k = 0.0
         c = y + r * amin
         μa = 0.0
     end
-    # The following condition does not matter if individuals dissave at the top, which is true for the set of parameters
-    # alternatively one could impose that consumption is such that wealth never grows, similarly to the minimum condition
+    # this branch is unnecessary when individuals dissave at the top (default)
     if (a ≈ amax) && (μa >= 0.0)
         va = ((ρ - r) / γ + r - (1-γ) / (2 * γ) * (μR - r)^2 / (γ * σR^2))^(-γ) * a^(-γ)
     end
-    # this is important
+    # Since first derivative is upwinded, I can directly impose value of second derivative
     if (a ≈ amax)
         vaa = - m.γ * va / a
     end

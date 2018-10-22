@@ -62,8 +62,13 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 
 
 # Boundary Conditions
-In case the volatility of the state variable is zero at the boundaries of the state space, there is no need for supplementary boundary conditions.
+When solving a PDE using a finite scheme approach, boundary conditions can be seen as ways to (i) construct the second derivative at the boundary (ii) construct the first derivative at the boundary if the drift of the state variable makes it go outside the boundary. By default, this package assumes that the boundary condition is that the derivative of the value function outside the boundary is zero. This default boundary condition cover three cases that cover most of macro - finance PDEs:
 
-If the second derivative is needed at the boundary, I construct it assuming that the first derivative is zero outside the boundary. This is the right boundary condition if boundaries are reflecting (i.e. models in which the state space is theorically unbounded, but needs to be bounded for numerical solution). One can easily specify different second derivatives at the boundary (see examples in consumpion-saving models).
+- In case the state variable is unbounded in the model, but must be bounded for the numerical solution, the right boundary condition is that first derivative is null at the border (i.e. reflecting boundaries). This is the default boundary condition. (see Habit, Long Run Risk, and Disaster models in the example folder).
 
-To specify different boundary conditions, see the investment model in the `BoltonChenWang` model.
+- In case the volatility of the state variable is zero at the boundaries of the state space, one does not need to construct the second derivative at the boundary because it does not appear in the PDE at the boundary. This typically happens in heterogeneous agent models where the state variable is bounded 0 and 1. (see GarleanuPanageas and DiTella models in the example folder).
+
+- In case the boundary of the state variable is due to financial frictions (for instance borrowing constraint), the right boundary condition is that the value of the first derivative at the border makes the agent want to stay on the grid. Pragmatically, when writing the PDE, one can hardcode the value of the first derivative at the boundary in case the drift of the state variable makes it go outside the boundary (see WangWangYang model or AchdouHanLasryLionsMoll in the example folder)
+
+
+In some rare cases,  the boundary condition does not fall into one of these three cases. When this happens, one can specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).

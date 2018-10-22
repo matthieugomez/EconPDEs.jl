@@ -42,7 +42,7 @@ function (m::AchdouHanLasryLionsMollModel)(state, value)
     μy = κy * (ybar - y)
     va = max(va, eps())
     
-    # There is no second derivative with respect to a. Therefore, a simple way to impose boundary conditions is to specify them directly
+    # There is no second derivative at 0 so just specify first order derivative
     c = va^(-1 / γ)
     μa = y + r * a - c
     if (a ≈ amin) && (μa <= 0.0)
@@ -50,8 +50,7 @@ function (m::AchdouHanLasryLionsMollModel)(state, value)
         c = y + r * amin
         μa = 0.0
     end
-    # does not matter if individuals dissave at the top, which is true for the set of parameters
-    # alternatively one could impose that consumption is such that wealth never grows, similarly to the minimum condition
+    # this branch is unnecessary when individuals dissave at the top (default)
     if (a ≈ amax) && (μa >= 0.0)
         va = (((ρ - r) / γ + r) * a)^(-γ)
         c = ((ρ - r) / γ + r) * a

@@ -1,14 +1,9 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package includes the function `pdesolve` that allows to solve (system of) ODEs/PDEs that arise in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. 
+This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. Specifying and solving a model takes less than 20 lines of codes.
 
-To install the package
-```julia
-using Pkg
-Pkg.add("EconPDEs")
-```
-
+The function is based on finite difference schemes, upwinding, and non linear time stepping. I discuss in details this algorithm [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf). 
 # Examples
 
 The `examples` folder shows how to use the solver to solve a variety of macro - finance models:
@@ -22,9 +17,6 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
     - Achdou Han Lasry Lions Moll (2018) Optimal consumption and savings with stochastic income and One or Two assets
 - Investment with Borrowing Constraint
 	- Bolton Chen Wang (2009) Optimal liquidity management with cash constraints
-
-
-Specifying and solving a model takes less than 20 lines of codes. This is because the function automatically constructs the finite difference schemes, takes care of upwinding, etc.
 
 
 # Solving  PDEs
@@ -74,3 +66,12 @@ When solving a PDE using a finite scheme approach, boundary conditions can be se
 - In case the boundary of the state variable is due to financial frictions (for instance borrowing constraint), the right boundary condition is that the value of the first derivative at the border makes the agent want to stay on the grid. This means that, when writing the PDE, one must hardcode the value of the first derivative at the boundary in case the drift of the state variable makes it go outside the boundary. One may also need to input the second derivative at the upper boundary of wealth (see WangWangYang model or AchdouHanLasryLionsMoll in the example folder)
 
 In some rare cases,  the boundary condition does not fall into one of these three cases. When this happens, one can specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
+
+# Installation
+
+To install the package
+```julia
+using Pkg
+Pkg.add("EconPDEs")
+```
+

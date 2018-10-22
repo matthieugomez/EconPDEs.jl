@@ -3,7 +3,9 @@
 
 This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models. It provide a fast, robust and simple-to-use framework to solve PDEs. 
 
-The function is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf)). It is simple-to-use: the user does not need to explicitly code the finite-difference scheme. Specifying and solving a PDE can be done in less than 10 lines of codes.
+- The function is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))
+- It is simple-to-use: the finite-difference scheme does not need to be explicitly coded. Specifying and solving a PDE can be done in less than 10 lines of codes.
+- It is fast: the algorithm has a quadratic rate of convergence around the true solution.
 
 # Examples
 

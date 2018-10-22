@@ -32,7 +32,7 @@ Denote $Y$  the solution and denote $F(Y)$ the finite difference scheme correspo
 The existing literature in economics solves for $Y$ using using one of the two methods:
 
 	\begin{enumerate}
-		\item Non linear solver. The method solves for the non linear system $F (Y ) = 0$. A Newton-Raphson update takes the form
+		\item Non-linear solver. The method solves for the non-linear system $F (Y ) = 0$. A Newton-Raphson update takes the form
 		\begin{align}\label{1}
 			0 &= F(y_{t}) + J_{F}(y_t) (y_{t+1} - y_t)
 		\end{align}
@@ -42,20 +42,20 @@ The existing literature in economics solves for $Y$ using using one of the two m
 		\begin{align}\label{2}
 			0&= F(y_t) - \frac{1}{\Delta} (y_{t+1} -y_{t})
 		\end{align}
-		The issue with this method is that explicit time steps usually don't converge (i.e. time iterations are exploding).
+		This method tends to be slow, and does not always converge, depending on the ODE chosen.
 	\end{enumerate}
 	I propose to solve for $Y$ using a fully implicit Euler method.  Updates now take the form 
 	\begin{align*}
 		\forall t \leq T \hspace{1cm} 0&= F(y_{t+1}) - \frac{1}{\Delta}(y_{t+1} -y_{t})
 	\end{align*}
-	Each time step now requires to solve a non linear equation. I solve this non linear equation using a Newton-Raphson method. These inner iterations therefore take the form
+	Each time step now requires to solve a non-linear equation. I solve this non-linear equation using a Newton-Raphson method. These inner iterations therefore take the form
 	\begin{align}\label{inner}
 		\forall i \leq I \hspace{1cm}	0 &= F(y_{t}^i) - \frac{1}{\Delta}(y_{t}^{i} -y_{t}) + (J_{F}(y_t^i) -  \frac{1}{\Delta})(y^{i+1}_{t} - y_t^i)
 	\end{align}
 	We know that the Newton-Raphson method converges if the initial guess is close enough to the solution. Since $y_{t}$ converges towards $y_{t+1}$ as $\Delta$ tends to zero, one can always choose $\Delta$ low enough so that the inner steps converge.Therefore, I adjust $\Delta$ as follows. If the inner iterations do not converge, I decrease $\Delta$. When the inner iteration converges, I increase $\Delta$. \par
 	The update \cref{inner} can be see as weighted average of the Newton-Raphson step \cref{1} and of the explicit Euler step \cref{2}.  After a few sucessful implicit time steps, $\Delta$ is large and therefore the algorithm becomes like Newton-Rapshon. In particular, the convergence is quadratic around the solution. \par
 	\paragraph{Pseudo Transient Method} 	This method is most similar to a method used in the fluid dynamics literature. In this context, it is called the Pseudo-Transient Continuation method, and is denoted $\Psi tc$. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}.\par
-	The algorithm with $I=1$ and $\Delta$ constant corresponds to \citet{achdou2014heterogeneous}. They prove the convergence of this algorithm for models in partial equilibrium. Allowing $I > 1$ and adjusting $\Delta$  are important to ensure convergence in general equilibrium, which are non linear.
+	The algorithm with $I=1$ and $\Delta$ constant corresponds to \citet{achdou2014heterogeneous}. Allowing $I > 1$ and adjusting $\Delta$  are important to ensure convergence in case on non-linear PDEs.
 
 	\bibliography{bib}
 	\bibliographystyle{aer}

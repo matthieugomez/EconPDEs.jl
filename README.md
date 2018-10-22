@@ -24,8 +24,8 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
 	- Bolton Chen Wang (2009) Optimal liquidity management with cash constraints
 
 
-The function reduces the boilerplate in constructing finite difference schemes, upwinding, etc.
-Specifying and solving a model takes less than 20 lines of codes. 
+Specifying and solving a model takes less than 20 lines of codes. This is because the function automatically constructs the finite difference schemes, takes care of upwinding, etc.
+
 
 # Solving  PDEs
 The function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 

@@ -7,8 +7,6 @@ This package provides the function `pdesolve`that solves (system of) ODEs/PDEs a
 - It is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))
 - It is simple-to-use: the finite-difference scheme does not need to be explicitly coded. Specifying and solving a PDE can be done in less than 10 lines of codes.
 
-# Examples
-
 The `examples` folder shows how to use the solver to solve a variety of macro - finance models:
 - Asset Pricing Models
 	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
@@ -22,7 +20,7 @@ The `examples` folder shows how to use the solver to solve a variety of macro - 
 	- Bolton Chen Wang (2009) Optimal liquidity management with cash constraints
 
 
-# First PDE
+# A Simple Example
 
 For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model:
 <img src="img/by.png">

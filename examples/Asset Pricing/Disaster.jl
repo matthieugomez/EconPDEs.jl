@@ -42,7 +42,7 @@ function (m::DisasterModel)(state, y)
     λ = state.λ
     p, pλ, pλλ = y.p, y.pλ, y.pλλ
 
-    # Drift of state variables and value functions
+    # Drift and volatility of λ, p
     μλ = κλ * (λbar - λ)
     σλ = νλ * sqrt(λ)
     μp = pλ / p * μλ + 0.5 * pλλ / p * σλ^2 

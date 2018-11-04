@@ -12,10 +12,10 @@ This package provides the function `pdesolve`that solves (system of) ODEs/PDEs a
 
 The `examples` folder shows how to use the solver to solve a variety of macro-finance models:
 - Asset Pricing Models
-	- Habit Model (Campbell Cochrane (1999) and Wachter (2005))
-	- Long Run Risk Model (Bansal Yaron (2004))
-	- Disaster Model (Wachter (2013))
-	- Heterogeneous Agent Models (Garleanu Panageas (2015), Di Tella (2017), Haddad (2015))
+	- *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))
+	- *Long Run Risk Model* (Bansal Yaron (2004))
+	- *Disaster Model* (Wachter (2013))
+	- *Heterogeneous Agent Models* (Garleanu Panageas (2015), Di Tella (2017), Haddad (2015))
 - Consumption with Borrowing Constraint
     - Wang Wang Yang (2016) Optimal consumption and savings with stochastic income and recursive utility
     - Achdou Han Lasry Lions Moll (2018) Optimal consumption and savings with stochastic income and One or Two assets

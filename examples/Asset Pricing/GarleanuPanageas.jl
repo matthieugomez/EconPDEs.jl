@@ -1,4 +1,4 @@
-mutable struct GarleanuPanageasModel
+struct GarleanuPanageasModel
 
   # utility function
   γA::Float64 
@@ -48,7 +48,7 @@ function (m::GarleanuPanageasModel)(state, y)
   # ϕ2 is value of claim that promises B_2ωexp(-(δ+δ2)(s-t))C_s/C_t for s ≥ t
   pA = y.pA ; pAx = y.pAx ; pAxx = y.pAxx ; pB = y.pB ; pBx = y.pBx ; pBxx = y.pBxx ; ϕ1 = y.ϕ1 ; ϕ1x = y.ϕ1x ; ϕ1xx = y.ϕ1xx ; ϕ2 = y.ϕ2 ; ϕ2x = y.ϕ2x ; ϕ2xx = y.ϕ2xx
 
-  # volatility of X, pA, pB, ϕ1, ϕ2, CA, CB and market price of risk κ
+  # Market price of risk κ
   Γ = 1 / (x / γA + (1 - x) / γB)
   p = x * pA + (1 - x) * pB
   σx = σ * x * (Γ / γA - 1) / (1 + Γ * x * (1 - x) / (γA * γB) * ((1 - γB * ψB) / (ψB - 1) * (pBx / pB) - (1 - γA * ψA) / (ψA - 1) * (pAx / pA)))
@@ -60,7 +60,7 @@ function (m::GarleanuPanageasModel)(state, y)
   σCA = κ / γA + (1 - γA * ψA) / (γA * (ψA - 1)) * σpA
   σCB = κ / γB + (1 - γB * ψB) / (γB * (ψB - 1)) * σpB
 
-  # drift of X, pA, pB, ϕ1, ϕ2, CA, CB and interest rate r
+  # Interest rate r
   # A.16 Equation in Garleanu Panageas has a typo
   mcA = κ^2 * (1 + ψA) / (2 * γA) + (1 - ψA * γA) / (γA * (ψA - 1)) * κ * σpA - (1 - γA * ψA) / (2 * γA * (ψA - 1)) * σpA^2
   mcB = κ^2 * (1 + ψB) / (2 * γB) + (1 - ψB * γB) / (γB * (ψB - 1)) * κ * σpB - (1 - γB * ψB) / (2 * γB * (ψB - 1)) * σpB^2
@@ -73,7 +73,7 @@ function (m::GarleanuPanageasModel)(state, y)
   μϕ1 = ϕ1x / ϕ1 * μx + 0.5 * ϕ1xx / ϕ1 * σx^2
   μϕ2 = ϕ2x / ϕ2 * μx + 0.5 * ϕ2xx / ϕ2 * σx^2
   
-  # PDE
+  # Market Pricing
   pAt = pA * (1 / pA + (μCA - δ) + μpA + σCA * σpA - r - κ * (σpA + σCA))
   pBt = pB * (1 / pB + (μCB - δ) + μpB + σCB * σpB - r - κ * (σpB + σCB))
   ϕ1t = ϕ1 * (B1 * ω / ϕ1 + (μ - δ - δ1) + μϕ1 + σ * σϕ1 - r - κ * (σϕ1 + σ))

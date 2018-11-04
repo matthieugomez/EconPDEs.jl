@@ -5,7 +5,7 @@
 ##############################################################################
 using Distributions
 
-mutable struct DisasterModel{T<: Distribution}
+struct DisasterModel{T<: Distribution}
     # consumption process parameters
     μ::Float64 
     σ::Float64
@@ -42,15 +42,23 @@ function (m::DisasterModel)(state, y)
     λ = state.λ
     p, pλ, pλλ = y.p, y.pλ, y.pλλ
 
+    # Drift of state variables and value functions
     μλ = κλ * (λbar - λ)
     σλ = νλ * sqrt(λ)
     μp = pλ / p * μλ + 0.5 * pλλ / p * σλ^2 
     σp_Zλ = pλ / p * σλ
+
+    # Market price of risk 
     κ_Zc = γ * σ 
     κ_Zλ = (γ * ψ - 1) / (ψ - 1) * σp_Zλ
     η =  λ * (mgf(ZDistribution, 1) - 1 + mgf(ZDistribution, -γ) - 1 - (mgf(ZDistribution, 1 - γ) - 1))
+
+    # Interest rate r
     r = ρ + μ / ψ - (1 + 1 / ψ) / 2 * γ * σ^2 - λ * (mgf(ZDistribution, -γ) - 1) + (1 / ψ - γ) / (1 - γ) * λ * (mgf(ZDistribution, 1 - γ) - 1) - (γ * ψ - 1) / (2 * (ψ - 1)) * σp_Zλ^2
+
+    # Market Pricing
     pt = p * (1 / p  + μ + μp + λ * (mgf(ZDistribution, 1) - 1) - r - κ_Zc * σ - κ_Zλ * σp_Zλ - η)
+    
     return (pt,), (μλ,), (p = p, r = r, κ_Zc = κ_Zc, κ_Zλ = κ_Zλ, η = η)
 end
 

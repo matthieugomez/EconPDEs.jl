@@ -1,6 +1,6 @@
 using EconPDEs, Distributions
 
-mutable struct AchdouHanLasryLionsMoll_TwoAssetsModel
+struct AchdouHanLasryLionsMoll_TwoAssetsModel
     # income process parameters
     κy::Float64 
     ybar::Float64

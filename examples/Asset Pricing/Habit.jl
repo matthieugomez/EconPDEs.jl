@@ -1,4 +1,4 @@
-mutable struct HabitModel
+struct HabitModel
     # consumption process parameters
     μ::Float64 
     σ::Float64
@@ -39,22 +39,20 @@ function (m::HabitModel)(state, y)
     s = state.s
     p, ps, pss = y.p, y.ps, y.pss
     
-    # drift and volatility of state variable s
+    # drift and volatility of  s and p
     Sbar = σ * sqrt(γ / (κs - b / γ))
     sbar = log(Sbar)
     λ = 1 / Sbar * sqrt(1 - 2 * (s - sbar)) - 1
     μs = - κs * (s - sbar)
     σs = λ * σ
+    σp = ps / p * σs
+    μp = ps / p * μs + 0.5 * pss / p * σs^2
 
     # market price of risk κ
     κ = γ * (σ + σs)
 
     # risk free rate  r
     r = ρ + γ * μ - (γ * κs - b) / 2 + b * (sbar - s)
-
-    # drift and volatility of p
-    σp = ps / p * σs
-    μp = ps / p * μs + 0.5 * pss / p * σs^2
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))

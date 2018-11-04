@@ -48,7 +48,7 @@ function (m::DiTellaModel)(state, y)
   μν = κν * (νbar - ν)
   σν = σνbar * sqrt(ν)
 
-  # volatility of X, pA, pB, p, and market price of risk κ
+  # Market price of risk κ
   σX = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx / pA - pBx / pB))
   σpA = pAx / pA * σX + pAν / pA * σν
   σpB = pBx / pB * σX + pBν / pB * σν
@@ -59,17 +59,16 @@ function (m::DiTellaModel)(state, y)
   νA = κν / γ
   σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
 
-  # drift of X, pA, pB, p, and interest rate r
+  # Interest rate r
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
   μpA = pAx / pA * μX + pAν / pA * μν + 0.5 * pAxx / pA * σX^2 + 0.5 * pAνν / pA * σν^2 + pAxν / pA * σX * σν
   μpB = pBx / pB * μX + pBν / pB * μν + 0.5 * pBxx / pB * σX^2 + 0.5 * pBνν / pB * σν^2 + pBxν / pB * σX * σν
   μp = px / p * μX + pν / p * μν + 0.5 * pxx / p * σX^2 + 0.5 * pνν / p * σν^2 + pxν / p * σX * σν
   r = (1 - i) / p + g + μp + σ * σp - κ * (σ + σp) - γ / x * (ϕ * ν)^2
 
-  # PDE
+  # Market Pricing
   pAt = pA * (1 / pA  + (ψ - 1) * τ / (1 - γ) * ((pA / pB)^((1 - γ) / (1 - ψ)) - 1) - ψ * ρ + (ψ - 1) * (r + κ * σA + κν * νA) + μpA - (ψ - 1) * γ / 2 * (σA^2 + νA^2) + (2 - ψ - γ) / (2 * (ψ - 1)) * σpA^2 + (1 - γ) * σpA * σA)
   pBt = pB * (1 / pB - ψ * ρ + (ψ - 1) * (r + κ * σB) + μpB - (ψ - 1) * γ / 2 * σB^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpB^2 + (1 - γ) * σpB * σB)
-
   # algebraic constraint
   pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 

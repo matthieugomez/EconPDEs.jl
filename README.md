@@ -10,7 +10,7 @@ This package provides the function `pdesolve`that solves (system of) ODEs/PDEs a
 
 # Examples
 
-The `examples` folder shows how to use the solver to solve a variety of macro-finance models:
+The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples) shows how to use the solver to solve a variety of macro-finance models:
 - *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))
 - *Long Run Risk Model* (Bansal Yaron (2004))
 - *Disaster Model* (Wachter (2013))

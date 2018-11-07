@@ -3,14 +3,14 @@
 
 This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models.
 
-- It is fast: the algorithm has a quadratic rate of convergence around the solution.
+- It is fast: the underlying algorithm has a quadratic rate of convergence around the solution.
 - It is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))
-- It is simple-to-use: the finite-difference scheme does not need to be explicitly coded. Solve a PDE in less than 10 lines of codes.
+- It is simple-to-use: one can solve a PDE in less than 10 lines of codes. No need to form the finite-difference scheme.
 
 
 # Examples
 
-The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples) shows how to use the solver to solve a variety of macro-finance models:
+The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of macro-finance models:
 - *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))
 - *Long Run Risk Model* (Bansal Yaron (2004))
 - *Disaster Model* (Wachter (2013))

@@ -1,0 +1,1 @@
+r = interpolate((state[:λ],), result[:r], Gridded(Linear()))

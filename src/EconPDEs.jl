@@ -2,7 +2,7 @@ module EconPDEs
 using LinearAlgebra
 import NLsolve: nlsolve
 using Reexport
-@reexport using DataStructures
+@reexport using OrderedCollections
 using ForwardDiff
 using Interpolations
 

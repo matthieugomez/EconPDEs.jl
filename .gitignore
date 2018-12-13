@@ -1,4 +1,0 @@
-..sublime2Terminal.jl
-src/other/
-*.bib
-examples/runbenchmark.jl

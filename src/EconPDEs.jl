@@ -5,7 +5,7 @@ using Reexport
 @reexport using OrderedCollections
 using ForwardDiff
 using Interpolations
-
+using DifferentialEquations
 ##############################################################################
 ##
 ## Load files

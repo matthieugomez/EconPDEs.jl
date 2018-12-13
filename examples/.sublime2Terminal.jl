@@ -1,6 +1,5 @@
-
-include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/Asset Pricing/GarleanuPanageas.jl")
-m = GarleanuPanageasModel()
+include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/Asset Pricing/LongRunRisk.jl")
+m = LongRunRiskModel()
 state = initialize_state(m)
 y0 = initialize_y(m, state)
 pdesolve(m, state, y0)

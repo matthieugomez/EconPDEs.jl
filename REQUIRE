@@ -4,3 +4,4 @@ Reexport
 OrderedCollections
 ForwardDiff
 Interpolations
+DifferentialEquations

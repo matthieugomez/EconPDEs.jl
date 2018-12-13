@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models.
+This package provides the function `pdesolve`that solves (system of) nonlinear ODEs/PDEs arising in economic models.
 
 - It is fast: the underlying algorithm has a quadratic rate of convergence around the solution.
 - It is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))
@@ -57,15 +57,16 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 
 
 # Boundary Conditions
-When solving a PDE using a finite scheme approach, boundary conditions can be seen as ways to (i) construct the second derivative at the boundary (ii) construct the first derivative at the boundary if the drift of the state variable makes it go outside the boundary. By default, this package assumes that the boundary condition is that the derivative of the value function outside the boundary is zero. This default boundary condition cover three cases that cover most of macro - finance PDEs:
+When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. By default, this package assumes that the value outside the grid is the same as the value *at* the boundary. This default boundary condition cover three cases that cover most of macro - finance PDEs:
 
-- In case the state variable is unbounded in the model, but must be bounded for the numerical solution, the right boundary condition is that first derivative is null at the border (i.e. reflecting boundaries). This is the default boundary condition. (see Habit, Long Run Risk, and Disaster models in the example folder).
+- In case the state variable is unbounded in the model, but must be bounded for the numerical solution, the boundary condition of the PDE is that first derivative is null at the border (i.e. reflecting boundaries). In term of finite difference scheme, this means that the value of the function outside the grid is the value at the boundary (see Habit, Long Run Risk, and Disaster models in the example folder).
 
-- In case the volatility of the state variable is zero at the boundaries of the state space, the second derivative does not appear in the PDE at the boundary so there is no need for supplementary conditions. This typically happens in heterogeneous agent models where the state variable is bounded 0 and 1. (see GarleanuPanageas and DiTella models in the example folder).
+- In case the volatility of the state variable is zero at the boundaries of the state space, the second derivative does not appear in the PDE at the boundary. Because of upwinding, the first derivative does not use the value of the function outside the grid either. (see GarleanuPanageas and DiTella models in the example folder).
 
-- In case the boundary of the state variable is due to financial frictions (for instance borrowing constraint), the right boundary condition is that the value of the first derivative at the border makes the agent want to stay on the grid. This means that, when writing the PDE, one must hardcode the value of the first derivative at the boundary in case the drift of the state variable makes it go outside the boundary. One may also need to input the second derivative at the upper boundary of wealth (see WangWangYang model or AchdouHanLasryLionsMoll in the example folder)
 
-In some rare cases,  the boundary condition does not fall into one of these three cases. When this happens, one can specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
+In consumption / saving models with financial constraints, the right boundary condition is that the first derivative of the value function at the constraint is such that the agent chooses to have a nonnegative wealth growth. In this case, specify the value of the first derivative at the boundary in case the drift of the state variable makes it go outside the boundary. (see WangWangYang model or AchdouHanLasryLionsMoll in the example folder)
+
+In some rare cases,  the boundary condition does not fall into one of these three cases. When this happens, specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
 
 # Installation
 

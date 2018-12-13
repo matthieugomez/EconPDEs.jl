@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
 
 
-This package provides the function `pdesolve`that solves (system of) ODEs/PDEs arising in economic models.
+This package provides the function `pdesolve`that solves (system of) nonlinear ODEs/PDEs arising in economic models.
 
 - It is fast: the underlying algorithm has a quadratic rate of convergence around the solution.
 - It is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))

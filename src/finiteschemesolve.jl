@@ -38,7 +38,7 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             coef = 1.0
             olddistance = distance
             iter = 0
-            while (iter <= iterations) & (Δ >= 1e-12) & (distance > maxdist)
+            while (iter < iterations) & (Δ >= 1e-12) & (distance > maxdist)
                 iter += 1
                 y, nldistance = implicit_time_step(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist)
                 F!(ydot, y)
@@ -70,8 +70,10 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 end
             end
         end
-        if distance > maxdist
-            @warn "Iteration did not converge"
+        if verbose
+            if distance > maxdist
+                @warn "Iteration did not converge"
+            end
         end
         return ypost, distance
     else

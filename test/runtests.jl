@@ -92,6 +92,22 @@ catch e
 end
 
 
+include("../examples/Asset Pricing/ArbitrageHoldingCosts.jl")
+try
+	m = ArbitrageHoldingCosts()
+	state = initialize_state(m; n = 10)
+	y0 = initialize_y(m, state)
+	τs = range(0, stop = 1.0, length = 5)
+	y, a, distance = pdesolve(m, state, y0, τs)
+	@test distance <= 1e-5
+	println("\t\033[1m\033[32mPASSED\033[0m: HoldingCost")
+catch e
+	println("\t\033[1m\033[31mFAILED\033[0m: HoldingCost")
+	showerror(stdout, e, backtrace())
+	rethrow(e)
+end
+
+
 include("../examples/Consumption Problem/AchdouHanLasryLionsMoll_OneAsset.jl")
 try
 	m = AchdouHanLasryLionsMollModel()

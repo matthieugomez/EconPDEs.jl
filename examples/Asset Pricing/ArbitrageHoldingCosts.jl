@@ -1,31 +1,33 @@
 using Distributions
 
-mutable struct TradingModel
-    c::Float64 #cost
+# Arbitrage With Holding Costs: A Utility-Based Approach
+# Author(s): Bruce Tuckman and Jean-Luc Vila
+
+mutable struct ArbitrageHoldingCosts
+    c::Float64
     r::Float64
-    ρ::Float64  # process for z
-    σ::Float64 # process for z
-    a::Float64  # Risk Aversion
+    ρ::Float64 
+    σ::Float64 
+    a::Float64 
 end
 
-function TradingModel(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 26.72)
-    TradingModel(c, r, ρ, σ, a)
+function ArbitrageHoldingCosts(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 26.72)
+    ArbitrageHoldingCosts(c, r, ρ, σ, a)
 end
 
 
-function initialize_state(m::TradingModel; n = 200)
+function initialize_state(m::ArbitrageHoldingCosts; n = 200)
     d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
     zmin = quantile(d, 0.00001)
     zmax = quantile(d, 0.99999)
     OrderedDict(:z => collect(range(zmin, stop = zmax, length = n)))
 end
 
-function initialize_y(m::TradingModel, state)
+function initialize_y(m::ArbitrageHoldingCosts, state)
     OrderedDict(:F => zeros(length(state[:z])))
 end
 
-
-function (m::TradingModel)(state, y, τ)
+function (m::ArbitrageHoldingCosts)(state, y, τ)
     c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a
     z = state.z
     F, Fz, Fzz = y.F, y.Fz, y.Fzz
@@ -51,23 +53,22 @@ function (m::TradingModel)(state, y, τ)
 end
 
 
-using EconPDEs
-m = TradingModel()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-τs = range(0, stop = 10, length = 100)
-y, result, distance = pdesolve(m, state, y0, τs)
+#using EconPDEs
+#m = ArbitrageHoldingCosts()
+#state = initialize_state(m)
+#y0 = initialize_y(m, state)
+#τs = range(0, stop = 10, length = 100)
+#y, result, distance = pdesolve(m, state, y0, τs)
 
 
+## reproduce Fig 2
+#d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
+#zmin = quantile(d, 0.025)
+#zmax = quantile(d, 0.975)
+#idx = (state[:z] .>= zmin) .& (state[:z] .<= zmax)
 
-
-d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
-zmin = quantile(d, 0.025)
-zmax = quantile(d, 0.975)
-idx = (state[:z] .>= zmin) .& (state[:z] .<= zmax)
-
-using Plots
-plot(result[:x][idx, 20], result[:I][idx, 20])
-plot!(result[:x][idx, 40], result[:I][idx, 40])
-plot!(result[:x][idx, 60], result[:I][idx, 60])
+#using Plots
+#plot(result[:x][idx, 20], result[:I][idx, 20])
+#plot!(result[:x][idx, 40], result[:I][idx, 40])
+#plot!(result[:x][idx, 60], result[:I][idx, 60])
 

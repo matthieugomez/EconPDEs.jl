@@ -246,32 +246,13 @@ end
     end
 end
 
-function create_dictionary(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y, bc) where {Ngrid, Tstate, Tsolution}
-    i0 = iterate(eachindex(grid))[1]
-    state = grid[i0]
-    solution = derive(Tsolution, grid, y, i0, bc)
-    x = apm(state, solution)[3]
-    A = OrderedDict{Symbol, Array{Float64, Ngrid}}(n => Array{Float64}(undef, size(grid)) for n in keys(x))
-    for i in eachindex(grid)
-        state = grid[i]
-        solution = derive(Tsolution, grid, y, i, bc)
-        outi = apm(state, solution)[2]
-        # upwind
-        solution = derive(Tsolution, grid, y, i, bc, outi)
-        outi = apm(state, solution)[3]
-        for (n, v) in pairs(outi)
-            A[n][i] = v
-        end
-    end
-    return A
-end
 
 
 
 
 #========================================================================================
 
-Solve the PDE
+Solve the stationary solution of the PDE
 
 ========================================================================================#
 function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
@@ -284,41 +265,22 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
         end
     end
     y0_M = _Matrix(y0)
-    if isa(bc, Nothing)
-        bc_m = nothing
-    else
-        bc_m = zero(y0_M)
-        k = 0
-        for yname in keys(y0)
-            k += 1
-            keys_grid = collect(keys(grid))
-            if length(keys_grid) == 1
-                bc_m[1, k] = bc[Symbol(yname, keys_grid[1])][1]
-                bc_m[end, k] = bc[Symbol(yname, keys_grid[1])][2]
-            elseif length(keys_grid) == 2
-                bc_m[1, :,  k] = bc[Symbol(yname, keys_grid[1])][1]
-                bc_m[end, :, k] = bc[Symbol(yname, keys_grid[1])][2]
-                bc_m[:, 1,  k] = bc[Symbol(yname, keys_grid[2])][1]
-                bc_m[:, end,  k] = bc[Symbol(yname, keys_grid[2])][2]
-            end
-        end
-    end
+    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_m), y0_M; is_algebraic = _Matrix(is_algebraic), kwargs...)
-    dy = _Dict(collect(keys(y0)), y)
+
+    y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M), y0_M; is_algebraic = _Matrix(is_algebraic), kwargs...)
+    y = _Dict(collect(keys(y0)), y_M)
     try
-        a = create_dictionary(apm, stategrid, Tsolution, y, bc_m)
-        merge(dy, a)
-        return dy, a, distance
+        a = _Dict_result(apm, stategrid, Tsolution, y_M, bc_M)
+        merge(y, a)
+        return y, a, distance
     catch
-        return dy, nothing, distance
+        return y, nothing, distance
     end
 end
 
 
 # throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")
-
-
 function _Matrix(y)
     k1 = collect(keys(y))[1]
     if length(y) == 1
@@ -327,12 +289,147 @@ function _Matrix(y)
         cat(values(y)..., dims = ndims(y[k1]) + 1)
     end
 end
-function _Dict(k, y)
+
+function _Matrix_bc(bc, y0_M, y0, grid)
+    bc_M = zero(y0_M)
+    k = 0
+    for yname in keys(y0)
+        k += 1
+        keys_grid = collect(keys(grid))
+        if length(keys_grid) == 1
+            bc_M[1, k] = bc[Symbol(yname, keys_grid[1])][1]
+            bc_M[end, k] = bc[Symbol(yname, keys_grid[1])][2]
+        elseif length(keys_grid) == 2
+            bc_M[1, :,  k] = bc[Symbol(yname, keys_grid[1])][1]
+            bc_M[end, :, k] = bc[Symbol(yname, keys_grid[1])][2]
+            bc_M[:, 1,  k] = bc[Symbol(yname, keys_grid[2])][1]
+            bc_M[:, end,  k] = bc[Symbol(yname, keys_grid[2])][2]
+        end
+    end
+    return bc_M
+end
+_Matrix_bc(::Nothing, y0_M, y0, grid) = nothing
+
+function _Dict(k, y_M::AbstractArray)
     if length(k) == 1
-        N = ndims(y)
-        OrderedDict{Symbol, Array{Float64, N}}(k[1] => y)
+        N = ndims(y_M)
+        OrderedDict{Symbol, Array{Float64, N}}(k[1] => y_M)
     else
-        N = ndims(y) - 1
-        OrderedDict{Symbol, Array{Float64, N}}(k[i] => y[(Colon() for _ in 1:N)..., i] for i in 1:length(k))
+        N = ndims(y_M) - 1
+        OrderedDict{Symbol, Array{Float64, N}}(k[i] => y_M[(Colon() for _ in 1:N)..., i] for i in 1:length(k))
     end
 end
+
+function _Dict_result(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_M, bc) where {Ngrid, Tstate, Tsolution}
+    i0 = iterate(eachindex(grid))[1]
+    state = grid[i0]
+    solution = derive(Tsolution, grid, y_M, i0, bc)
+    x = apm(state, solution)[3]
+    A = OrderedDict{Symbol, Array{Float64, Ngrid}}(n => Array{Float64}(undef, size(grid)) for n in keys(x))
+    for i in eachindex(grid)
+        state = grid[i]
+        solution = derive(Tsolution, grid, y_M, i, bc)
+        outi = apm(state, solution)[2]
+        # upwind
+        solution = derive(Tsolution, grid, y_M, i, bc, outi)
+        outi = apm(state, solution)[3]
+        for (n, v) in pairs(outi)
+            A[n][i] = v
+        end
+    end
+    return A
+end
+
+
+
+#========================================================================================
+
+Solve the PDE on a given time grid
+
+========================================================================================#
+function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
+    Tsolution = Type{tuple(keys(y0)...)}
+    stategrid = StateGrid(grid)
+    l = prod(size(stategrid))
+    for e in values(y0)
+        if length(e) != l
+            throw("The length of initial solution $(length(e)) does not equal the length of the state space $l")
+        end
+    end
+    y0_M = _Matrix(y0)
+    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
+    is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
+
+    # create storage
+    y = _Dict(collect(keys(y0)), (size(y0_M)..., length(τs)))
+    a = nothing
+    a = _Dict_result((state, grid) -> apm(state, grid, τs[1]), stategrid, Tsolution, y0_M, bc_M, τs)
+
+
+    y_M = y0_M
+    distance = 0.0
+    # iterate on time
+    for iτ in 1:length(τs)
+        apm2 = (state, grid) -> apm(state, grid, τs[iτ])
+        _setindex!(y, iτ, y_M)
+        if !isa(a, Nothing)
+            _setindex!(a, iτ, apm2, stategrid, Tsolution, y_M, bc_M)
+        end
+        if iτ < length(τs)
+            y_M, newdistance = finiteschemesolve((ydot, y) -> hjb!(apm2, stategrid, Tsolution, ydot, y, bc_M), y_M; is_algebraic = _Matrix(is_algebraic), Δ = τs[iτ+1] - τs[iτ], iterations = 1, verbose = false, kwargs...)
+        end
+    end
+    return y, a, distance
+end
+
+
+function _Dict(k, s::Tuple)
+    if length(k) == 1
+        N = length(s)
+        return OrderedDict{Symbol, Array{Float64, N}}(k[1] => Array{Float64, N}(undef, s))
+    else
+        N = length(s) - 1
+        return OrderedDict{Symbol, Array{Float64, N}}(k[i] =>  Array{Float64, N}(undef, s) for i in 1:length(k))
+    end
+end
+
+function _setindex!(y, iτ, y_M)
+    if length(y) == 1
+        for k in keys(y)
+            y[k][:, iτ] = y_M
+        end
+    else
+        i = 0
+        for k in keys(y)
+            i += 1
+            y[k][:, iτ] = y_M[(Colon() for _ in 1:N)..., i]
+        end
+    end
+end
+
+
+function _Dict_result(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_M, bc, τs) where {Ngrid, Tstate, Tsolution}
+    i0 = iterate(eachindex(grid))[1]
+    state = grid[i0]
+    solution = derive(Tsolution, grid, y_M, i0, bc)
+    x = apm(state, solution)[3]
+    return OrderedDict{Symbol, Array{Float64, Ngrid + 1}}(n => Array{Float64}(undef, size(grid)..., length(τs)) for n in keys(x))
+end
+
+
+
+function _setindex!(a, iτ, apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_M, bc) where {Ngrid, Tstate, Tsolution}
+    for i in eachindex(grid)
+         state = grid[i]
+         solution = derive(Tsolution, grid, y_M, i, bc)
+         outi = apm(state, solution)[2]
+         # upwind
+         solution = derive(Tsolution, grid, y_M, i, bc, outi)
+         outi = apm(state, solution)[3]
+         for (n, v) in pairs(outi)
+             a[n][i, iτ] = v
+         end
+     end
+ end
+
+

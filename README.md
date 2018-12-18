@@ -71,7 +71,7 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 	
 	This happens in consumption / saving models with borrowing constraint. Typically, the agent would like to consume but there is an exogeneous constraint on how low his wealth can be. In this case, specify the value of the first derivative to be such that the agent chooses to stay in the state space when the drift of the state variable initially makes it go outside the boundary. See WangWangYang model or AchdouHanLasryLionsMoll in the example folder.
 
-4. Sometime, the boundary condition does not fall into one of these two cases. When this happens, specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
+4. Sometime, the boundary condition does not fall into one of these cases. When this happens, specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
 
 # Installation
 

@@ -57,7 +57,7 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 
 
 # Boundary Conditions
-When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. By default, this package assumes that the value outside the grid is the same as the value *at* the boundary. 
+When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. By default, this package assumes that the value outside the grid is the same as the value *at* the boundary. I go through several cases for lower boundaries (upper boundaries are similar):
 
 1. First Case: *at the lower boundary of the grid, the state variable has a positive drift and positive volatility.*
 
@@ -67,7 +67,7 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 
 	This happens in heterogeneous agent models such as GarleanuPanageas and DiTella models. In this case, the second derivative does not appear in the PDE at the boundary. Because of upwinding, the first derivative does not use the value of the function outside the grid either. Therefore, there is no need for supplementary boundary conditions.
 
-3. Third case *at the lower boundary of the grid, the state variable has a negative drift and zero volatility.*
+3. Third case: *at the lower boundary of the grid, the state variable has a negative drift and zero volatility.*
 	
 	This happens in consumption / saving models with borrowing constraint. The agent would like to consume but there is an exogeneous constraint on how low his wealth can be. In this case, specify the value of the first derivative to be such that the agent chooses to stay in the state space (only when the drift of the state variable initially makes it go outside the boundary). See WangWangYang model or AchdouHanLasryLionsMoll in the example folder.
 

@@ -27,6 +27,7 @@ function initialize_y(m::ArbitrageHoldingCosts, state)
     OrderedDict(:F => zeros(length(state[:z])))
 end
 
+
 function (m::ArbitrageHoldingCosts)(state, y, τ)
     c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a
     z = state.z
@@ -58,34 +59,34 @@ function (m::ArbitrageHoldingCosts)(state, y, τ)
 end
 
 
-using EconPDEs
-m = ArbitrageHoldingCosts()
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-τs = range(0, stop = 100, length = 100)
-y, result, distance = pdesolve(m, state, y0, τs)
-
-
-## reproduce Fig 2
-d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
-zmin = quantile(d, 0.025)
-zmax = quantile(d, 0.975)
-idx = (state[:z] .>= zmin) .& (state[:z] .<= zmax)
-
-using Plots
-plot(result[:x][idx, 20], [result[:I_myopic][idx, 2] result[:I][idx, 2]], label = ["myopic" "all"])
-
-
-
-plot(result[:x][idx, 20], result[:I][idx, 2])
-plot!(result[:x][idx, 60], result[:I][idx, 60])
-plot!(result[:x][idx, 100], result[:I][idx, 100])
-
-
-
-m = ArbitrageHoldingCosts(; ρ = 0.00001)
-state = initialize_state(m)
-y0 = initialize_y(m, state)
-τs = range(0, stop = 100, length = 100)
-y, result, distance = pdesolve(m, state, y0, τs)
+#using EconPDEs
+#m = ArbitrageHoldingCosts()
+#state = initialize_state(m)
+#y0 = initialize_y(m, state)
+#τs = range(0, stop = 100, length = 100)
+#y, result, distance = pdesolve(m, state, y0, τs)
+#
+#
+### reproduce Fig 2
+#d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
+#zmin = quantile(d, 0.025)
+#zmax = quantile(d, 0.975)
+#idx = (state[:z] .>= zmin) .& (state[:z] .<= zmax)
+#
+#using Plots
+#plot(result[:x][idx, 20], [result[:I_myopic][idx, 2] result[:I][idx, 2]], label = ["myopic" "all"])
+#
+#
+#
+#plot(result[:x][idx, 20], result[:I][idx, 2])
+#plot!(result[:x][idx, 60], result[:I][idx, 60])
+#plot!(result[:x][idx, 100], result[:I][idx, 100])
+#
+#
+#
+#m = ArbitrageHoldingCosts(; ρ = 0.00001)
+#state = initialize_state(m)
+#y0 = initialize_y(m, state)
+#τs = range(0, stop = 100, length = 100)
+#y, result, distance = pdesolve(m, state, y0, τs)
 

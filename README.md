@@ -61,20 +61,20 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 
 1. First Case: *at the lower boundary of the grid, the state variable has a positive drift and positive volatility.*
 
-	This happens in models where the state space is unbounded (see Habit, Long Run Risk, and Disaster models). Because the PDE needs to be solved on a grid, one needs to impose reflecting boundaries, i.e. that the first derivative of the value function is null at the border. In term of finite difference scheme, this means that the value of the function outside the grid is equal to the value *at* the boundary. This is the default boundary condition used by `pdesolve`
+	This typically happens in models where the state space is unbounded (see Habit, Long Run Risk, and Disaster models). Because the PDE needs to be solved on a grid, one needs to impose reflecting boundaries, i.e. that the first derivative of the value function is null at the border. In term of finite difference scheme, this means that the value of the function outside the grid is equal to the value *at* the boundary. This is the default boundary condition used by `pdesolve`
 
 2. Second Case: *at the lower boundary of the grid, the state variable has a positive drift and zero volatility.*
 
-	This happens in heterogeneous agent models such as GarleanuPanageas and DiTella models. In this case, the second derivative does not appear in the PDE at the boundary. Because of upwinding, the first derivative does not use the value of the function outside the grid either. Therefore, there is no need to specify the value of the function outside the grid.
+	This typically happens in heterogeneous agent models such as GarleanuPanageas and DiTella models. Because the volatility is zero at the boundary, the second derivative does not appear at the boundary. Because of upwinding, the first derivative does not use the value of the function outside the grid either. Therefore, there is no need to specify the value of the function outside the grid.
 
-3. Third case: *at the lower boundary of the grid, the state variable has a negative drift and zero volatility.*
+3. Third case: *at the lower boundary of the grid, the state variable must be constrained to have a nonnegative drift.*
 	
-	This happens in consumption / saving models with borrowing constraint. Typically, the agent would like to consume but there is an exogeneous constraint on how low his wealth can be. In this case, specify the value of the first derivative to be such that the agent chooses to stay in the state space when the drift of the state variable initially makes it go outside the boundary. See WangWangYang model or AchdouHanLasryLionsMoll in the example folder.
+	This typically happens in consumption / saving models with borrowing constraint. Typically, the agent would like to consume but there is an exogeneous constraint on how low his wealth can be. In this case, manually specify the value of the first derivative to be such that the agent chooses to stay in the state space. See WangWangYang model or AchdouHanLasryLionsMoll in the example folder.
 
-4. Sometime, the boundary condition does not fall into one of these cases. When this happens, specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
+4. If the boundary condition does not fall into one of these cases, specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
 
 # Time Iteration
-In some cases, one may want to save the iteration over time rather than the stationary solution. In this case, use `pdesolve(f, state, y0, ts)`  where `ts` is a vector of time and `y_0` is the solution at time `ts[1]`. See [ArbitrageHoldingCosts](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples/Asset Pricing/ArbitrageHoldingCosts) for an example.
+To save PDEs with a time dimension, use `pdesolve(f, state, y0, ts)`  where `ts` is a vector of time and `y_0` is the solution at time `ts[1]`. See [ArbitrageHoldingCosts](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples/Asset Pricing/ArbitrageHoldingCosts) for an example.
 
 # Installation
 

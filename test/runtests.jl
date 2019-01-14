@@ -3,7 +3,7 @@ using EconPDEs, Test
 
 println("Running tests:")
 
-include("../examples/Asset Pricing/Habit.jl")
+include("../examples/AssetPricing/Habit.jl")
 try
 	m = HabitModel()
 	state = initialize_state(m; n = 1000)
@@ -17,7 +17,7 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/Asset Pricing/LongRunRisk.jl")
+include("../examples/AssetPricing/LongRunRisk.jl")
 try
 	m = LongRunRiskModel()
 	state = initialize_state(m; μn = 5, vn = 5)
@@ -32,7 +32,7 @@ catch e
 end
 
 
-include("../examples/Asset Pricing/Disaster.jl")
+include("../examples/AssetPricing/Disaster.jl")
 try
 	m = DisasterModel()
 	state = initialize_state(m; n = 5)
@@ -47,7 +47,7 @@ catch e
 end
 
 
-include("../examples/Asset Pricing/GarleanuPanageas.jl")
+include("../examples/AssetPricing/GarleanuPanageas.jl")
 try
 	m = GarleanuPanageasModel()
 	state = initialize_state(m; n = 10)
@@ -62,7 +62,7 @@ catch e
 end
 
 
-include("../examples/Asset Pricing/DiTella.jl")
+include("../examples/AssetPricing/DiTella.jl")
 try
 	m = DiTellaModel()
 	state = initialize_state(m ; xn = 10, νn = 3)
@@ -77,7 +77,7 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/Consumption Problem/WangWangYang.jl")
+include("../examples/ConsumptionProblem/WangWangYang.jl")
 try
 	m = WangWangYangModel()
 	state = initialize_state(m; n = 10)
@@ -92,7 +92,7 @@ catch e
 end
 
 
-include("../examples/Asset Pricing/ArbitrageHoldingCosts.jl")
+include("../examples/AssetPricing/ArbitrageHoldingCosts.jl")
 try
 	m = ArbitrageHoldingCosts()
 	state = initialize_state(m; n = 10)
@@ -108,7 +108,7 @@ catch e
 end
 
 
-include("../examples/Consumption Problem/AchdouHanLasryLionsMoll_OneAsset.jl")
+include("../examples/ConsumptionProblem/AchdouHanLasryLionsMoll_OneAsset.jl")
 try
 	m = AchdouHanLasryLionsMollModel()
 	state = initialize_state(m; yn = 3, an = 5)
@@ -122,7 +122,7 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/Consumption Problem/AchdouHanLasryLionsMoll_TwoAssets.jl")
+include("../examples/ConsumptionProblem/AchdouHanLasryLionsMoll_TwoAssets.jl")
 try
 	m = AchdouHanLasryLionsMoll_TwoAssetsModel(amax = 10.0)
 	state = initialize_state(m; yn = 3, an = 10)
@@ -137,7 +137,7 @@ catch e
 end
 
 
-include("../examples/Investment Problem/BoltonChenWang.jl")
+include("../examples/InvestmentProblem/BoltonChenWang.jl")
 try
 	m = BoltonChenWangModel()
 	state = initialize_state(m; n = 10)

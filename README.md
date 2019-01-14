@@ -5,7 +5,7 @@ This package provides the function `pdesolve`that solves (system of) nonlinear O
 
 - It is fast: the underlying algorithm has a quadratic rate of convergence around the solution.
 - It is robust: the underlying algorithm is based on a combination of upwinding and non-linear time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/src/details.pdf))
-- It is simple-to-use: one can solve a PDE in less than 10 lines of codes. No need to explicitly set up the finite-difference scheme.
+- It is simple-to-use: solve a PDE in less than 10 lines of codes, without writing the finite-difference scheme.
 
 
 # Examples

@@ -74,8 +74,8 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 If the boundary condition does not fall into one of these cases, one can specify particular values for the derivative at the boundaries using the `bc` option (see BoltonChenWang model in the example folder).
 
 # Time Iteration
-To save PDEs with a time dimension, use `pdesolve(f, state, y0, ts)`  where `ts` is a vector of time and `y_0` is the solution at time `ts[1]`. See [ArbitrageHoldingCosts](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples/AssetPricing/ArbitrageHoldingCosts) for an example.
-
+To save PDEs with a time dimension, use `pdesolve(f, state, y0, ts)`  where `ts` is a vector of time and `y_0` is the solution at time `ts[1]`. See [ArbitrageHoldingCosts](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples/AssetPricing/ArbitrageHoldingCosts.jl) for an example.
+ArbitrageHoldingCosts.jl
 # Installation
 
 To install the package

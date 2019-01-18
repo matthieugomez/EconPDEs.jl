@@ -1,11 +1,8 @@
 module EconPDEs
 using LinearAlgebra
-import NLsolve: nlsolve
-using Reexport
-@reexport using OrderedCollections
-using ForwardDiff
-using Interpolations
-using DifferentialEquations
+using NLsolve
+using OrderedCollections
+
 ##############################################################################
 ##
 ## Load files
@@ -13,7 +10,6 @@ using DifferentialEquations
 ##############################################################################
 include("finiteschemesolve.jl")
 include("pdesolve.jl")
-
 
 ##############################################################################
 ##

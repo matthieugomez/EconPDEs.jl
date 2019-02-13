@@ -1,6 +1,7 @@
 module EconPDEs
 using LinearAlgebra
 using NLsolve
+using MINPACK
 using OrderedCollections
 
 ##############################################################################

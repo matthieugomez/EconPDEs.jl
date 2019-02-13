@@ -1,6 +1,6 @@
 using Distributions
 
-struct LongRunRiskModel
+struct BansalYaronModel
     # consumption process parameters
     μbar::Float64 
     vbar::Float64
@@ -15,33 +15,33 @@ struct LongRunRiskModel
     ψ::Float64
 end
 
-function LongRunRiskModel(;μbar = 0.018, vbar = 0.00073, κμ = 0.252, νμ = 0.528, κv = 0.156, νv = 0.00354, ρ = 0.024, γ = 7.5, ψ = 1.5)
-    LongRunRiskModel(μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ)
+function BansalYaronModel(;μbar = 0.018, vbar = 0.00073, κμ = 0.252, νμ = 0.528, κv = 0.156, νv = 0.00354, ρ = 0.024, γ = 7.5, ψ = 1.5)
+    BansalYaronModel(μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ)
 end
 
 
-function initialize_state(m::LongRunRiskModel; μn = 30, vn = 30)
+function initialize_state(m::BansalYaronModel; μn = 30, vn = 30)
     μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
 
     σ = sqrt(νμ^2 * vbar / (2 * κμ))
-    μmin = quantile(Normal(μbar, σ), 0.001)
-    μmax = quantile(Normal(μbar, σ), 0.999)
+    μmin = quantile(Normal(μbar, σ), 0.025)
+    μmax = quantile(Normal(μbar, σ), 0.975)
     μs = collect(range(μmin, stop = μmax, length = μn))
 
     α = 2 * κv * vbar / νv^2
     β = νv^2 / (2 * κv)
-    vmin = quantile(Gamma(α, β), 0.001)
-    vmax = quantile(Gamma(α, β), 0.999)
+    vmin = quantile(Gamma(α, β), 0.025)
+    vmax = quantile(Gamma(α, β), 0.975)
     vs = collect(range(vmin, stop = vmax, length = vn))
     OrderedDict(:μ => μs, :v => vs)
 end
 
-function initialize_y(m::LongRunRiskModel, state)
+function initialize_y(m::BansalYaronModel, state)
     OrderedDict(:p => fill(1.0, length(state[:μ]), length(state[:v])))
 end
 
 
-function (m::LongRunRiskModel)(state, y)
+function (m::BansalYaronModel)(state, y)
     μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
     μ, v = state.μ, state.v
     p, pμ, pv, pμμ, pμv, pvv = y.p, y.pμ, y.pv, y.pμμ, y.pμv, y.pvv
@@ -71,12 +71,18 @@ function (m::LongRunRiskModel)(state, y)
     pt = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
     #pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
-    return (pt,), (μμ, μv), (p = p, r = r, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, σμ = σμ, σμ_Zv = 0.0, σv_Zμ = 0.0, σv = σv, μ = μ, v = v, σμ2 = σμ^2, σv2 = σv^2, σμσv = 0.0, μμ = μμ, μv = μv)
+    return (pt,), (μμ, μv), (p = p, r = r, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, σμ = σμ, σμ_Zv = 0.0, σv_Zμ = 0.0, σv = σv, μ = μ, v = v, σμ2 = σμ^2, σv2 = σv^2, σμv = 0.0, μμ = μμ, μv = μv, σp2 = σp2, σp_Zμ = σp_Zμ, σp_Zv = σp_Zv)
 end
 
 ## Long Run Risk Models
 ### Bansal Yaron (2004)
-# m = LongRunRiskModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y, result, distance = pdesolve(m, state, y0)
+m = BansalYaronModel()
+state = initialize_state(m)
+y0 = initialize_y(m, state)
+y, result, distance = pdesolve(m, state, y0)
+W = Weights(vec(stationary_distribution(state, result)))
+### Bansal Yaron (2009)
+m = BansalYaronModel(μbar = 0.018, vbar = 0.00062, κμ = 0.3, νμ = 0.456, κv = 0.012, νv = 0.00472, ρ = 0.0132, γ = 10, ψ = 1.5)
+state = initialize_state(m)
+y0 = initialize_y(m, state)
+y, result, distance = pdesolve(m, state, y0)

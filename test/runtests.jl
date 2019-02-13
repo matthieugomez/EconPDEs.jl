@@ -3,9 +3,9 @@ using EconPDEs, Test
 
 println("Running tests:")
 
-include("../examples/AssetPricing/Habit.jl")
+include("../examples/AssetPricing/CampbellCochrane.jl")
 try
-	m = HabitModel()
+	m = CampbellCochraneModel()
 	state = initialize_state(m; n = 1000)
 	y0 = initialize_y(m, state)
 	y, a, distance = pdesolve(m, state, y0)
@@ -17,31 +17,31 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/AssetPricing/LongRunRisk.jl")
+include("../examples/AssetPricing/BansalYaron.jl")
 try
-	m = LongRunRiskModel()
+	m = BansalYaronModel()
 	state = initialize_state(m; μn = 5, vn = 5)
 	y0 = initialize_y(m, state)
 	y, a, distance = pdesolve(m, state, y0)
 	@test distance <= 1e-5
-	println("\t\033[1m\033[32mPASSED\033[0m: LongRunRisk")
+	println("\t\033[1m\033[32mPASSED\033[0m: BansalYaron")
 catch e
-	println("\t\033[1m\033[31mFAILED\033[0m: LongRunRisk")
+	println("\t\033[1m\033[31mFAILED\033[0m: BansalYaron")
 	showerror(stdout, e, backtrace())
 	rethrow(e)
 end
 
 
-include("../examples/AssetPricing/Disaster.jl")
+include("../examples/AssetPricing/Wachter.jl")
 try
-	m = DisasterModel()
+	m = WachterModel()
 	state = initialize_state(m; n = 5)
 	y0 = initialize_y(m, state)
 	y, a, distance = pdesolve(m, state, y0)
 	@test distance <= 1e-5
-	println("\t\033[1m\033[32mPASSED\033[0m: Disaster")
+	println("\t\033[1m\033[32mPASSED\033[0m: Wachter")
 catch e
-	println("\t\033[1m\033[31mFAILED\033[0m: Disaster")
+	println("\t\033[1m\033[31mFAILED\033[0m: Wachter")
 	showerror(stdout, e, backtrace())
 	rethrow(e)
 end
@@ -77,6 +77,23 @@ catch e
 	rethrow(e)
 end
 
+include("../examples/AssetPricing/ArbitrageHoldingCosts.jl")
+try
+	m = ArbitrageHoldingCosts()
+	state = initialize_state(m; n = 10)
+	y0 = initialize_y(m, state)
+	τs = range(0, stop = 1.0, length = 5)
+	y, a, distance = pdesolve(m, state, y0, τs)
+	@test distance <= 1e-5
+	println("\t\033[1m\033[32mPASSED\033[0m: HoldingCost")
+catch e
+	println("\t\033[1m\033[31mFAILED\033[0m: HoldingCost")
+	showerror(stdout, e, backtrace())
+	rethrow(e)
+end
+
+
+
 include("../examples/ConsumptionProblem/WangWangYang.jl")
 try
 	m = WangWangYangModel()
@@ -92,20 +109,6 @@ catch e
 end
 
 
-include("../examples/AssetPricing/ArbitrageHoldingCosts.jl")
-try
-	m = ArbitrageHoldingCosts()
-	state = initialize_state(m; n = 10)
-	y0 = initialize_y(m, state)
-	τs = range(0, stop = 1.0, length = 5)
-	y, a, distance = pdesolve(m, state, y0, τs)
-	@test distance <= 1e-5
-	println("\t\033[1m\033[32mPASSED\033[0m: HoldingCost")
-catch e
-	println("\t\033[1m\033[31mFAILED\033[0m: HoldingCost")
-	showerror(stdout, e, backtrace())
-	rethrow(e)
-end
 
 
 include("../examples/ConsumptionProblem/AchdouHanLasryLionsMoll_OneAsset.jl")

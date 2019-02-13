@@ -91,7 +91,7 @@ end
         push!(expr, Expr(:(=), Symbol(solname, statename2), :(μx2 >= 0.0 ? (y[i1, min(i2 + 1, size(y, 2)), $k] - y[i1, i2, $k]) * invΔx2p[i2] : (y[i1, i2, $k] - y[i1, max(i2 - 1, 1), $k]) * invΔx2m[i2])))
         push!(expr, Expr(:(=), Symbol(solname, statename1, statename1), :(y[min(i1 + 1, size(y, 1)), i2, $k] * invΔx1p[i1] * invΔx1[i1] + y[max(i1 - 1, 1), i2, $k] * invΔx1m[i1] * invΔx1[i1] - 2 * y[i1, i2, $k] * invΔx1p[i1] * invΔx1m[i1])))
         push!(expr, Expr(:(=), Symbol(solname, statename2, statename2), :(y[i1, min(i2 + 1, size(y, 2)), $k] * invΔx2p[i2] * invΔx2[i2] + y[i1, max(i2 - 1, 1), $k] * invΔx2m[i2] * invΔx2[i2] - 2 * y[i1, i2, $k] * invΔx2p[i2] * invΔx2m[i2])))
-        push!(expr, Expr(:(=), Symbol(solname, statename1, statename2), :((y[min(i1 + 1, size(y, 1)), min(i2 + 1, size(y, 2)), $k] - y[min(i1 + 1, size(y, 1)), max(i2 -1, 1), $k] - y[max(i1 -1, 1), min(i2 + 1, size(y, 2)), $k] + y[max(i1 -1, 1), max(i2 -1, 1), $k]) * invΔx1[i1] * invΔx2[i2])))
+        push!(expr, Expr(:(=), Symbol(solname, statename1, statename2), :((y[min(i1 + 1, size(y, 1)), min(i2 + 1, size(y, 2)), $k] - y[min(i1 + 1, size(y, 1)), max(i2 - 1, 1), $k] - y[max(i1 - 1, 1), min(i2 + 1, size(y, 2)), $k] + y[max(i1 - 1, 1), max(i2 - 1, 1), $k]) * invΔx1[i1] * invΔx2[i2])))
     end
     out = Expr(:tuple, expr...)
     quote
@@ -104,59 +104,6 @@ end
         $out
     end
 end
-
-# Case with 3 state variables
-@generated function derive(::Type{Tsolution}, grid::StateGrid{3}, y::AbstractArray, icar, bc::Nothing, drift = (0.0, 0.0, 0.0)) where {Tsolution}
-    N = length(Tsolution.parameters[1])
-    statename1 = Tstate[1]
-    statename2 = Tstate[2]
-    statename3 = Tstate[3]
-    expr = Expr[]
-    for k in 1:N
-        solname = Tsolution.parameters[1][k]
-        push!(expr, Expr(:(=), solname, :(y[i1, i2, i3, $k])))
-        push!(expr, Expr(:(=), Symbol(solname, statename1), :((y[i1h, i2, i3, $k] - y[i1l, i2, i3, $k]) * invΔx1[i1])))
-        push!(expr, Expr(:(=), Symbol(solname, statename2), :((y[i1, i2h, i3, $k] - y[i1, i2l, i3, $k]) * invΔx2[i2])))
-        push!(expr, Expr(:(=), Symbol(solname, statename3), :((y[i1, i2, i3h, $k] - y[i1, i2, i3l, $k]) * invΔx3[i3])))
-        push!(expr, Expr(:(=), Symbol(solname, statename1, statename1), :((y[min(i1 + 1, size(y, 1)), i2, i3, $k] + y[max(i1 - 1, 1), i2, i3, $k] - 2 * y[i1, i2, i3, $k]) * invΔx1[i1]^2)))
-        push!(expr,Expr(:(=), Symbol(solname, statename1, statename2), :((y[i1h, i2h, i3, $k] - y[i1h, i2l, i3, $k] - y[i1l, i2h, i3, $k] + y[i1l, i2l, i3, $k]) * invΔx1[i1] * invΔx2[i2])))
-        push!(expr, Expr(:(=), Symbol(solname, statename1, statename3), :((y[i1h, i2, i3h, $k] - y[i1h, i2, i3l, $k] - y[i1l, i2, i3h, $k] + y[i1l, i2, i3l, $k]) * invΔx1[i1] * invΔx3[i3])))
-        push!(expr, Expr(:(=), Symbol(solname, statename2, statename2), :((y[i1, min(i2 + 1, size(y, 2)), i3, $k] + y[i1, max(i2 - 1, 1), i3, $k] - 2 * y[i1, i2, i3, $k]) * invΔx2[i2]^2)))
-        push!(expr, Expr(:(=), Symbol(solname, statename2, statename3), :((y[i1, i2h, i3h, $k] - y[i1, i2l, i3l, $k] - y[i1, i2l, i3h, $k] + y[i1, i2l, i3l, $k]) * invΔx2[i2] * invΔx3[i3])))
-        push!(expr, Expr(:(=), Symbol(solname, statename3, statename3), :((y[i1, i2, min(i3 + 1, size(y, 3)), $k] + y[i1, i2, max(i3 - 1, 1), $k] - 2 * y[i1, i2, i3, $k]) * invΔx3[i3]^2)))
-    end
-    out = Expr(:call, Tsolution, expr...)
-    quote
-        $(Expr(:meta, :inline))
-        i1, i2, i3 = icar[1], icar[2], icar[3]
-        μx1, μx2, μx3 = drift[1], drift[2], drift[3]
-        invΔx1, invΔx2, indvΔx3 = grid.invΔx[1], grid.invΔx[2], grid.invΔx[3]
-        if μx1 >= 0.0
-            i1h = min(i1 + 1, size(y, 1))
-            i1l = i1
-        else
-          i1h = i1
-          i1l = max(i1 - 1, 1)
-        end
-        if μx2 >= 0.0
-            i2h = min(i2 + 1, size(y, 2))
-            i2l = i2
-        else
-          i2h = i2
-          i2l = max(i2 - 1, 1)
-        end
-        if μx3 >= 0.0
-            i3h = min(i3 + 1, size(y, 3))
-            i3l = i3
-        else
-          i3h = i3
-          i3l = max(i3 - 1, 1)
-        end
-        $out
-    end
-end
-
-
 
 
 #========================================================================================

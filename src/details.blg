@@ -1,0 +1,61 @@
+This is BibTeX, Version 0.99d (TeX Live 2016)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: details.aux
+The style file: aer.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Database file #1: bib.bib
+I was expecting a `,' or a `}'---line 254 of file bib.bib
+ :   
+ :   title={Wealth and inheritance in the long run},
+(Error may have been on previous line)
+I'm skipping whatever remains of this entry
+I was expecting a `,' or a `}'---line 795 of file bib.bib
+ :   
+ :   journal={Journal of Political Economy},
+(Error may have been on previous line)
+I'm skipping whatever remains of this entry
+Warning--empty journal in achdou2014heterogeneous
+Warning--empty journal in silva2015risk
+You've used 5 entries,
+            2984 wiz_defined-function locations,
+            679 strings with 5035 characters,
+and the built_in function-call counts, 4058 in all, are:
+= -- 617
+> -- 246
+< -- 65
++ -- 79
+- -- 44
+* -- 256
+:= -- 947
+add.period$ -- 8
+call.type$ -- 5
+change.case$ -- 35
+chr.to.int$ -- 5
+cite$ -- 7
+duplicate$ -- 52
+empty$ -- 110
+format.name$ -- 125
+if$ -- 975
+int.to.chr$ -- 1
+int.to.str$ -- 0
+missing$ -- 5
+newline$ -- 24
+num.names$ -- 60
+pop$ -- 68
+preamble$ -- 1
+purify$ -- 40
+quote$ -- 0
+skip$ -- 0
+stack$ -- 0
+substring$ -- 107
+swap$ -- 15
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 20
+warning$ -- 2
+while$ -- 54
+width$ -- 0
+write$ -- 85
+(There were 2 error messages)

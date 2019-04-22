@@ -1,0 +1,18 @@
+name = "EconPDEs"
+uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MINPACK = "4854310b-de5a-5eb6-a2a5-c1dee2bd17f9"
+NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+
+[compat]
+julia = "≥ 0.7.0"
+
+[extras]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Distributions"]

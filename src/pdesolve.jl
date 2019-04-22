@@ -92,6 +92,7 @@ end
         push!(expr, Expr(:(=), Symbol(solname, statename2), :(μx2 >= 0.0 ? (y[i1, min(i2 + 1, size(y, 2)), $k] - y[i1, i2, $k]) * invΔx2p[i2] : (y[i1, i2, $k] - y[i1, max(i2 - 1, 1), $k]) * invΔx2m[i2])))
         push!(expr, Expr(:(=), Symbol(solname, statename1, statename1), :(y[min(i1 + 1, size(y, 1)), i2, $k] * invΔx1p[i1] * invΔx1[i1] + y[max(i1 - 1, 1), i2, $k] * invΔx1m[i1] * invΔx1[i1] - 2 * y[i1, i2, $k] * invΔx1p[i1] * invΔx1m[i1])))
         push!(expr, Expr(:(=), Symbol(solname, statename2, statename2), :(y[i1, min(i2 + 1, size(y, 2)), $k] * invΔx2p[i2] * invΔx2[i2] + y[i1, max(i2 - 1, 1), $k] * invΔx2m[i2] * invΔx2[i2] - 2 * y[i1, i2, $k] * invΔx2p[i2] * invΔx2m[i2])))
+        # cross deriative. Maybe the sign should depend on σx1_x2. If positively correlated, I take the average of cross forward derivative  and cross backward derivative. If negatively correlated, I take the average of cross forward and backward.
         push!(expr, Expr(:(=), Symbol(solname, statename1, statename2), :((y[min(i1 + 1, size(y, 1)), min(i2 + 1, size(y, 2)), $k] - y[min(i1 + 1, size(y, 1)), max(i2 - 1, 1), $k] - y[max(i1 - 1, 1), min(i2 + 1, size(y, 2)), $k] + y[max(i1 - 1, 1), max(i2 - 1, 1), $k]) * invΔx1[i1] * invΔx2[i2] / 4)))
     end
     out = Expr(:tuple, expr...)

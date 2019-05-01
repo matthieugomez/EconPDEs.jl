@@ -182,18 +182,22 @@ function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where
         #upwind
         solution = derive(Tsolution, grid, y, i, bc, outi)
         outi = apm(grid[i], solution)[1]
+        if isa(outi, Number)
+            @error "The pde function must returns a tuple of tuples, not a tuple of numbers"
+        end
         _setindex!(ydot, outi, i)
     end
     return ydot
 end
 
 
-@generated function _setindex!(ydot, outi::NTuple{N, T}, i) where {N, T}
+@generated function _setindex!(ydot::AbstractArray, outi::NTuple{N, T}, i::CartesianIndex) where {N, T}
     quote
          $(Expr(:meta, :inline))
          $(Expr(:block, [:(setindex!(ydot, outi[$k], i, $k)) for k in 1:N]...))
     end
 end
+
 
 
 
@@ -342,12 +346,13 @@ function _Dict(k, s::Tuple)
     end
 end
 
-function _setindex!(y, iτ, y_M)
+function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)
     if length(y) == 1
         for k in keys(y)
             y[k][:, iτ] = y_M
         end
     else
+        N = ndims(y_M) - 1
         i = 0
         for k in keys(y)
             i += 1

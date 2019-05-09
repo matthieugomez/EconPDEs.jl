@@ -3,40 +3,6 @@
 ## Non Linear solver using Pseudo-Transient Continuation Method
 ##
 ##############################################################################
-
-
-# Modified version of F! to compute F(y) + dy/dt with vector argument
-function helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize)
-    y = reshape(y, ysize...)
-    ypost = reshape(ypost, ysize...)
-    ydot = reshape(ydot, ysize...)
-    F!(ydot, y)
-    for i in eachindex(ydot)
-        if !is_algebraic[i]
-            ydot[i] = ydot[i] + (ypost[i] - y[i]) / Δ
-        end
-    end
-    return reshape(ydot, length(ydot))
-end
-
-# Implicit time step
-function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
-    ysize = size(ypost)
-    ypost = reshape(ypost, prod(ysize))
-    if method ∈ (:newton, :trust_region)
-        result = nlsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
-        y = result.zero
-        distance = result.residual_norm
-    elseif method ∈ (:hybr,)
-        result = fsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; tol = maxdist, show_trace = verbose, method =:hybr,
-               iterations = iterations)
-        y = result.x
-        distance = norm(result.f, Inf)
-    end
-    y = reshape(y, ysize...)
-    return y, distance
-end
-
 # Solve for steady state
 function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
     ypost = y0
@@ -90,6 +56,39 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
     end
     return ypost, distance
+end
+
+
+# Implicit time step
+function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
+    ysize = size(ypost)
+    ypost = reshape(ypost, prod(ysize))
+    if method ∈ (:newton, :trust_region)
+        result = nlsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
+        y = result.zero
+        distance = result.residual_norm
+    elseif method ∈ (:hybr,)
+        result = fsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; tol = maxdist, show_trace = verbose, method =:hybr,
+               iterations = iterations)
+        y = result.x
+        distance = norm(result.f, Inf)
+    end
+    y = reshape(y, ysize...)
+    return y, distance
+end
+
+# Modified version of F! to compute F(y) + dy/dt with vector argument
+function helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize)
+    y = reshape(y, ysize...)
+    ypost = reshape(ypost, ysize...)
+    ydot = reshape(ydot, ysize...)
+    F!(ydot, y)
+    for i in eachindex(ydot)
+        if !is_algebraic[i]
+            ydot[i] = ydot[i] + (ypost[i] - y[i]) / Δ
+        end
+    end
+    return reshape(ydot, length(ydot))
 end
 
 

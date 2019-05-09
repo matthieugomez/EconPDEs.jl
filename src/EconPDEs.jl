@@ -10,6 +10,8 @@ using OrderedCollections
 ##
 ##############################################################################
 include("finiteschemesolve.jl")
+include("stategrid.jl")
+include("derive.jl")
 include("pdesolve.jl")
 
 ##############################################################################

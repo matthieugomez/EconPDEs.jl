@@ -40,4 +40,3 @@ pdesolve(m, state, y0)
 @time pdesolve(m, state, y0)
 # Old:  12.711423 seconds (48.52 M allocations: 24.635 GiB, 10.62% gc time)
 # With SparseDiffTools:  1.850576 seconds (4.14 M allocations: 2.418 GiB, 10.71% gc time)
-# Most of the time is still spend in computing the jacobian. Not sure how  sparse -> blockbanded can improve this.

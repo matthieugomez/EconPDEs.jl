@@ -10,7 +10,7 @@ pdesolve(m, state, y0)
 # Old: 0.522157 seconds (6.75 M allocations: 1021.049 MiB, 16.41% gc time)
 # With SparseDiffTools:   0.053521 seconds (901.37 k allocations: 45.875 MiB, 29.16% gc time)
 
-# PDE with 2 state variable
+# PDE with 2 state variables
 include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/AssetPricing/BansalYaron.jl")
 m = BansalYaronModel()
 state = initialize_state(m)
@@ -31,7 +31,7 @@ pdesolve(m, state, y0)
 # Old: 1.134897 seconds (4.30 M allocations: 1.939 GiB, 10.29% gc time)
 # With SparseDiffTools: 0.078087 seconds (952.86 k allocations: 109.397 MiB, 18.61% gc time)
 
-# System of 3 PDEs with 3 state variable
+# System of 3 PDEs with 2 state variables
 include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/AssetPricing/DiTella.jl")
 m = DiTellaModel()
 state = initialize_state(m; xn = 80, νn = 10)

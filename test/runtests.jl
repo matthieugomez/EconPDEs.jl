@@ -17,21 +17,6 @@ catch e
 	rethrow(e)
 end
 
-include("../examples/AssetPricing/BansalYaron.jl")
-try
-	m = BansalYaronModel()
-	state = initialize_state(m; μn = 5, vn = 5)
-	y0 = initialize_y(m, state)
-	y, a, distance = pdesolve(m, state, y0)
-	@test distance <= 1e-5
-	println("\t\033[1m\033[32mPASSED\033[0m: BansalYaron")
-catch e
-	println("\t\033[1m\033[31mFAILED\033[0m: BansalYaron")
-	showerror(stdout, e, backtrace())
-	rethrow(e)
-end
-
-
 include("../examples/AssetPricing/Wachter.jl")
 try
 	m = WachterModel()
@@ -42,6 +27,20 @@ try
 	println("\t\033[1m\033[32mPASSED\033[0m: Wachter")
 catch e
 	println("\t\033[1m\033[31mFAILED\033[0m: Wachter")
+	showerror(stdout, e, backtrace())
+	rethrow(e)
+end
+
+include("../examples/AssetPricing/BansalYaron.jl")
+try
+	m = BansalYaronModel()
+	state = initialize_state(m; μn = 5, vn = 5)
+	y0 = initialize_y(m, state)
+	y, a, distance = pdesolve(m, state, y0)
+	@test distance <= 1e-5
+	println("\t\033[1m\033[32mPASSED\033[0m: BansalYaron")
+catch e
+	println("\t\033[1m\033[31mFAILED\033[0m: BansalYaron")
 	showerror(stdout, e, backtrace())
 	rethrow(e)
 end

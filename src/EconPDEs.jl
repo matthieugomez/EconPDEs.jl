@@ -3,7 +3,11 @@ using LinearAlgebra
 using NLsolve
 using MINPACK
 using OrderedCollections
-
+using SparseArrays
+using SparseDiffTools
+using DiffEqDiffTools
+using BandedMatrices
+using BlockBandedMatrices
 ##############################################################################
 ##
 ## Load files

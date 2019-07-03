@@ -44,11 +44,19 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
             throw("The length of initial solution $(length(e)) does not equal the length of the state space $l")
         end
     end
-    y0_M = _Matrix(y0)
-    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
 
-    y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M), y0_M; is_algebraic = _Matrix(is_algebraic), kwargs...)
+    y0_M = _Matrix(y0)
+    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
+    is_algebraic_M = _Matrix(is_algebraic)
+    ysize = size(y0_M)
+    function F!(ydot, y)
+        y = reshape(y, ysize...)
+        ydot = reshape(ydot, ysize...)
+        vec(hjb!(apm, stategrid, Tsolution, ydot, y, bc_M))
+    end
+    y_M, distance = finiteschemesolve(F!, vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = sparsity_jac(stategrid, y0), kwargs... )
+    y_M = reshape(y_M, ysize...)
     y = _Dict(collect(keys(y0)), y_M)
     try
         a = _Dict_result(apm, stategrid, Tsolution, y_M, bc_M)
@@ -58,6 +66,36 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
         return y, nothing, distance
     end
 end
+
+
+function sparsity_jac(stategrid, y0)
+    s = size(stategrid)
+    l = prod(s)
+    t = (ndims(stategrid), length(y0) > 1)
+    J = nothing
+    if t == (1, 0)
+        J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
+    elseif t == (2, 0)
+        J = BandedBlockBandedMatrix(Zeros(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
+    elseif t == (1, 1)
+        J = sparse(BandedBlockBandedMatrix(Zeros(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1)))
+    #elseif t == (2, 1)
+    #   J = sparse(BandedBlockBandedMatrix(Zeros(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1)))
+    end
+    color = (J === nothing) ? nothing : matrix_colors(J)
+    return J, color
+end
+
+
+#========================================================================================
+
+Sparsity pattern
+
+
+
+========================================================================================#
+
+
 
 
 # throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")

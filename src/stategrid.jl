@@ -31,6 +31,7 @@ function StateGrid(x)
         map(i -> map(v -> make_Δ(v)[i], tuple(values(x)...)), 1:4)...)
 end
 Base.size(grid::StateGrid) = map(length, grid.x)
+Base.ndims(grid::StateGrid) = length(grid.x)
 Base.eachindex(grid::StateGrid) = CartesianIndices(size(grid))
 @generated function Base.getindex(grid::StateGrid{N, V}, args::CartesianIndex) where {N, V}
     quote

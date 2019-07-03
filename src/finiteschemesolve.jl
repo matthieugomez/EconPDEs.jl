@@ -4,7 +4,7 @@
 ##
 ##############################################################################
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0)
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0, J0c = (nothing, nothing))
     ypost = y0
     ydot = zero(y0)
     F!(ydot, ypost)
@@ -13,14 +13,14 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         throw("F! returns NaN with the initial value")
     end
     if Δ == Inf
-        ypost, distance = implicit_time_step(F!, y0, Δ; verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist)
+        ypost, distance = implicit_time_step(F!, J0c, y0, Δ; verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist)
     else
         coef = 1.0
         olddistance = distance
         iter = 0
         while (iter < iterations) & (Δ >= 1e-12) & (distance > maxdist)
             iter += 1
-            y, nldistance = implicit_time_step(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist)
+            y, nldistance = implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist)
             F!(ydot, y)
             distance, olddistance = norm(ydot) / length(ydot), distance
             if isnan(distance)
@@ -60,35 +60,31 @@ end
 
 
 # Implicit time step
-function implicit_time_step(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
-    ysize = size(ypost)
-    ypost = reshape(ypost, prod(ysize))
-    if method ∈ (:newton, :trust_region)
-        result = nlsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
-        y = result.zero
-        distance = result.residual_norm
-    elseif method ∈ (:hybr,)
-        result = fsolve((ydot, y) -> helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize), ypost; tol = maxdist, show_trace = verbose, method =:hybr,
-               iterations = iterations)
-        y = result.x
-        distance = norm(result.f, Inf)
+function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
+    F_helper!(ydot, y) = helper!(F!, ydot, y, ypost, Δ, is_algebraic)
+    if J0c[1] == nothing
+        result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
+    else
+        J0, color = J0c
+        J0 = sparse(J0)
+        j_helper!(J, y) = DiffEqDiffTools.finite_difference_jacobian!(J, F_helper!, y; color = color)
+        y0 = deepcopy(ypost)
+        ydot = deepcopy(ypost)
+        result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, y0, ydot, J0), y0; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
     end
-    y = reshape(y, ysize...)
+    y = result.zero
+    distance = result.residual_norm
     return y, distance
 end
 
-# Modified version of F! to compute F(y) + dy/dt with vector argument
-function helper!(F!, ydot, y, ypost, Δ, is_algebraic, ysize)
-    y = reshape(y, ysize...)
-    ypost = reshape(ypost, ysize...)
-    ydot = reshape(ydot, ysize...)
+function helper!(F!, ydot, y, ypost, Δ, is_algebraic)
     F!(ydot, y)
     for i in eachindex(ydot)
         if !is_algebraic[i]
             ydot[i] = ydot[i] + (ypost[i] - y[i]) / Δ
         end
     end
-    return reshape(ydot, length(ydot))
+    return ydot
 end
 
 

@@ -20,7 +20,6 @@ pdesolve(m, state, y0)
 # Old: 1.456456 seconds (15.41 M allocations: 3.434 GiB, 15.67% gc time)
 # With SparseDiffTools:   0.112325 seconds (639.39 k allocations: 104.911 MiB, 8.37% gc time)
 
-
 # System of 4 PDEs with 1 state variable
 include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/AssetPricing/GarleanuPanageas.jl")
 m = GarleanuPanageasModel()

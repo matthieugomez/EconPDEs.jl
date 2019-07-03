@@ -1,13 +1,10 @@
 module EconPDEs
 using LinearAlgebra
-using NLsolve
-using MINPACK
-using OrderedCollections
 using SparseArrays
-using SparseDiffTools
-using DiffEqDiffTools
-using BandedMatrices
+using NLsolve
+using OrderedCollections
 using BlockBandedMatrices
+using SparseDiffTools
 ##############################################################################
 ##
 ## Load files

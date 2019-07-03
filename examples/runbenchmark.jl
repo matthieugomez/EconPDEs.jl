@@ -8,7 +8,7 @@ y0 = initialize_y(m, state)
 pdesolve(m, state, y0)
 @time y, result, distance = pdesolve(m, state, y0)
 # Old: 0.522157 seconds (6.75 M allocations: 1021.049 MiB, 16.41% gc time)
-# With SparseDiffTools:   0.053521 seconds (901.37 k allocations: 45.875 MiB, 29.16% gc time)
+# With SparseDiffTools:    0.040861 seconds (897.88 k allocations: 44.763 MiB, 14.81% gc time)
 
 # PDE with 2 state variables
 include("/Users/Matthieu/Dropbox/Github/EconPDEs.jl/examples/AssetPricing/BansalYaron.jl")
@@ -40,6 +40,6 @@ pdesolve(m, state, y0)
 @time pdesolve(m, state, y0)
 # Old:  12.711423 seconds (48.52 M allocations: 24.635 GiB, 10.62% gc time)
 # With SparseDiffTools:  2.341447 seconds (19.59 M allocations: 2.023 GiB, 16.00% gc time)
-
+# Most of the time is still spend in computing the jacobian. Not sure how  sparse -> blockbanded can improve this.
 
 

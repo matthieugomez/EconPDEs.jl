@@ -58,7 +58,6 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     return ypost, distance
 end
 
-
 # Implicit time step
 function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
     F_helper!(ydot, y) = helper!(F!, ydot, y, ypost, Δ, is_algebraic)
@@ -66,7 +65,6 @@ function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
         J0, color = J0c
-        J0 = sparse(J0)
         j_helper!(J, y) = DiffEqDiffTools.finite_difference_jacobian!(J, F_helper!, y; color = color)
         y0 = deepcopy(ypost)
         ydot = deepcopy(ypost)

@@ -27,10 +27,10 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 ```julia
 using EconPDEs
 # define state grid
-state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 1000))
+state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
 # define initial guess
-y0 = OrderedDict(:V => ones(1000))
+y0 = OrderedDict(:V => ones(500))
 
 # define pde function that specifies PDE to solve. The function takes two arguments:
 # 1. state variable `state`, a named tuple. 

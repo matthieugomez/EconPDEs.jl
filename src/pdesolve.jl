@@ -75,15 +75,16 @@ function sparsity_jac(stategrid, y0)
     if t == (1, 0)
         J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
     elseif t == (2, 0)
-        J = BandedBlockBandedMatrix(Zeros(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
+        J = BandedBlockBandedMatrix(Ones(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
     elseif t == (1, 1)
-        J = BandedBlockBandedMatrix(Zeros(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1))
+        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1))
     elseif t == (2, 1)
-        J = BandedBlockBandedMatrix(Zeros(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1))
+        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1))
     else
         J = nothing
     end
     color = (J === nothing) ? nothing : matrix_colors(J)
+    J = (J == nothing) ? nothing : sparse(J)
     return J, color
 end
 

@@ -66,6 +66,12 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     end
 end
 
+#========================================================================================
+
+Sparsity pattern
+
+========================================================================================#
+
 function sparsity_jac(stategrid, y0)
     s = size(stategrid)
     l = prod(s)
@@ -86,7 +92,7 @@ end
 
 #========================================================================================
 
-Sparsity pattern
+Dict to Matrix
 
 ========================================================================================#
 
@@ -99,6 +105,11 @@ function _Matrix(y)
         cat(collect.(values(y))..., dims = ndims(y[k1]) + 1)
     end
 end
+
+function _Matrix_bc(::Nothing, y0_M, y0, grid)
+    zero(y0_M)
+end
+
 
 function _Matrix_bc(bc, y0_M, y0, grid)
     bc_M = zero(y0_M)
@@ -118,7 +129,7 @@ function _Matrix_bc(bc, y0_M, y0, grid)
     end
     return bc_M
 end
-_Matrix_bc(::Nothing, y0_M, y0, grid) = nothing
+
 
 function _Dict(k, y_M::AbstractArray)
     if length(k) == 1

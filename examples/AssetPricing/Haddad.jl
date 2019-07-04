@@ -27,14 +27,14 @@ function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
   μbar = m.μbar; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; αbar = m.αbar ; λ = m.λ ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
 
   σ = sqrt(νμ^2 * vbar / (2 * κμ))
-  μmin = quantile(Normal(μbar, σ), 0.001)
-  μmax = quantile(Normal(μbar, σ), 0.999)
+  μmin = quantile(Normal(μbar, σ), 0.025)
+  μmax = quantile(Normal(μbar, σ), 0.975)
   μs = range(μmin, stop = μmax, length = μn)
 
   α = 2 * κv * vbar / νv^2
   β = νv^2 / (2 * κv)
-  vmin = quantile(Gamma(α, β), 0.001)
-  vmax = quantile(Gamma(α, β), 0.999)
+  vmin = quantile(Gamma(α, β), 0.025)
+  vmax = quantile(Gamma(α, β), 0.975)
   vs = range(vmin, stop = vmax, length = vn)
 
   OrderedDict(:μ => μs, :v => vs)

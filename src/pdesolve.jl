@@ -95,10 +95,9 @@ Define function F!(ydot, y) to pass to finiteschemesolve
 function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where {Ngrid, Tstate}
     for i in eachindex(grid)
         solution = derive(Tsolution, grid, y, i, bc)
-        outi = apm(grid[i], solution)[2]
-        #upwind
-        solution = derive(Tsolution, grid, y, i, bc, outi)
-        outi = apm(grid[i], solution)[1]
+        outi, drifti, = apm(grid[i], solution)
+        solution = derive(Tsolution, grid, y, i, bc, drifti)
+        outi, drifti, = apm(grid[i], solution)
         if isa(outi, Number)
             @error "The pde function must returns a tuple of tuples, not a tuple of numbers"
         end
@@ -113,7 +112,6 @@ end
          $(Expr(:block, [:(setindex!(ydot, outi[$k], i, $k)) for k in 1:N]...))
     end
 end
-
 
 #========================================================================================
 
@@ -197,7 +195,6 @@ function _Matrix_bc(::Nothing, y0_M, y0, grid)
     zero(y0_M)
 end
 
-
 function _Matrix_bc(bc, y0_M, y0, grid)
     bc_M = zero(y0_M)
     k = 0
@@ -216,7 +213,6 @@ function _Matrix_bc(bc, y0_M, y0, grid)
     end
     return bc_M
 end
-
 
 function _Dict(k, y_M::AbstractArray)
     if length(k) == 1

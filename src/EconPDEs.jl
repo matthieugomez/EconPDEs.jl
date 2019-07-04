@@ -6,8 +6,6 @@ using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatri
 ##
 ##############################################################################
 include("finiteschemesolve.jl")
-include("stategrid.jl")
-include("derive.jl")
 include("pdesolve.jl")
 
 ##############################################################################

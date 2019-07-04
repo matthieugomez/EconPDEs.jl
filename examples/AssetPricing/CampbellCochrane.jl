@@ -1,3 +1,5 @@
+using EconPDEs
+
 struct CampbellCochraneModel
     # consumption process parameters
     μ::Float64 
@@ -19,7 +21,7 @@ function CampbellCochraneModel(;μ = 0.0189, σ = 0.015, γ = 2.0, ρ = 0.116, �
     CampbellCochraneModel(μ, σ, γ, ρ, κs, b)
 end
 
-function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
+function initialize_stategrid(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     Sbar = σ * sqrt(γ / (κs - b / γ))
     sbar = log.(Sbar)
@@ -30,11 +32,11 @@ function initialize_state(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
-function initialize_y(m::CampbellCochraneModel, state)
-    OrderedDict(:p => ones(length(state[:s])))
+function initialize_y(m::CampbellCochraneModel, stategrid)
+    OrderedDict(:p => ones(length(stategrid[:s])))
 end
 	
-function (m::CampbellCochraneModel)(state, y)
+function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     s = state.s
     p, ps, pss = y.p, y.ps, y.pss
@@ -60,15 +62,15 @@ function (m::CampbellCochraneModel)(state, y)
 end
 
 
-# # CampbellCochrane Model
-# ## Campbell Cochrane (1999)
-# m = CampbellCochraneModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# result, distance = pdesolve(m, state, y0)
+# Campbell Cochrane (1999)
+m = CampbellCochraneModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
 
-# ## Wachter (2005) calibration
+# Wachter (2005) calibration
 # m = CampbellCochraneModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011 * 4)
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# result, distance = pdesolve(m, state, y0)
+# stategrid = initialize_stategrid(m)
+# y0 = initialize_y(m, stategrid)
+# y, result, distance = pdesolve(m, stategrid, y0)
+

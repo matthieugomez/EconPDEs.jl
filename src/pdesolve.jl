@@ -5,7 +5,6 @@ Define function F!(ydot, y) to pass to finiteschemesolve
 
 ========================================================================================#
 
-
 function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where {Ngrid, Tstate}
     for i in eachindex(grid)
         solution = derive(Tsolution, grid, y, i, bc)
@@ -21,7 +20,6 @@ function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where
     return ydot
 end
 
-
 @generated function _setindex!(ydot::AbstractArray, outi::NTuple{N, T}, i::CartesianIndex) where {N, T}
     quote
          $(Expr(:meta, :inline))
@@ -35,6 +33,7 @@ end
 Solve the stationary solution of the PDE
 
 ========================================================================================#
+
 function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
     Tsolution = Type{tuple(keys(y0)...)}
     stategrid = StateGrid(grid)
@@ -67,7 +66,6 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     end
 end
 
-
 function sparsity_jac(stategrid, y0)
     s = size(stategrid)
     l = prod(s)
@@ -83,32 +81,22 @@ function sparsity_jac(stategrid, y0)
     else
         J = nothing
     end
-    color = (J === nothing) ? nothing : matrix_colors(J)
-    J = (J == nothing) ? nothing : sparse(J)
-    return J, color
+    return (J === nothing) ? (nothing, nothing) : (sparse(J), matrix_colors(J))
 end
-
-
-
 
 #========================================================================================
 
 Sparsity pattern
 
-
-
 ========================================================================================#
-
-
-
 
 # throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")
 function _Matrix(y)
     k1 = collect(keys(y))[1]
     if length(y) == 1
-        y[k1]
+        collect(y[k1])
     else
-        cat(values(y)..., dims = ndims(y[k1]) + 1)
+        cat(collect.(values(y))..., dims = ndims(y[k1]) + 1)
     end
 end
 
@@ -162,13 +150,12 @@ function _Dict_result(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_
     return A
 end
 
-
-
 #========================================================================================
 
 Solve the PDE on a given time grid
 
 ========================================================================================#
+
 function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
     Tsolution = Type{tuple(keys(y0)...)}
     stategrid = StateGrid(grid)
@@ -204,7 +191,6 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     return y, a, distance
 end
 
-
 function _Dict(k, s::Tuple)
     if length(k) == 1
         N = length(s)
@@ -230,7 +216,6 @@ function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)
     end
 end
 
-
 function _Dict_result(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_M, bc, τs) where {Ngrid, Tstate, Tsolution}
     i0 = iterate(eachindex(grid))[1]
     state = grid[i0]
@@ -238,8 +223,6 @@ function _Dict_result(apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_
     x = apm(state, solution)[3]
     return OrderedDict{Symbol, Array{Float64, Ngrid + 1}}(n => Array{Float64}(undef, size(grid)..., length(τs)) for n in keys(x))
 end
-
-
 
 function _setindex!(a, iτ, apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolution}, y_M, bc) where {Ngrid, Tstate, Tsolution}
     for i in eachindex(grid)
@@ -254,5 +237,3 @@ function _setindex!(a, iτ, apm, grid::StateGrid{Ngrid, Tstate}, ::Type{Tsolutio
          end
      end
  end
-
-

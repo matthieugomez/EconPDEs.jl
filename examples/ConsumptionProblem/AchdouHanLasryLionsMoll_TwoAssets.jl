@@ -22,22 +22,22 @@ function AchdouHanLasryLionsMoll_TwoAssetsModel(;κy = 0.1, ybar = 1.0, σy = 0.
     AchdouHanLasryLionsMoll_TwoAssetsModel(κy, ybar, σy, r, μR, σR, ρ, γ, amin, amax)
 end
 
-function initialize_state(m::AchdouHanLasryLionsMoll_TwoAssetsModel; yn = 5, an = 100)
+function initialize_stategrid(m::AchdouHanLasryLionsMoll_TwoAssetsModel; yn = 5, an = 100)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
     ymin = quantile(distribution, 0.001)
     ymax = quantile(distribution, 0.999)
-    ys = collect(range(ymin, stop = ymax, length = yn))
-    as = collect(range(amin, stop = amax, length = an))
+    ys = range(ymin, stop = ymax, length = yn)
+    as = range(amin, stop = amax, length = an)
     OrderedDict(:y => ys, :a => as)
 end
 
-function initialize_y(m::AchdouHanLasryLionsMoll_TwoAssetsModel, state)
-    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in state[:y], a in state[:a]])
+function initialize_y(m::AchdouHanLasryLionsMoll_TwoAssetsModel, stategrid::OrderedDict)
+    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in stategrid[:y], a in stategrid[:a]])
 end
 
-function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state, value)
+function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::NamedTuple)
     κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; μR = m.μR ; σR = m.σR ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
     y, a = state.y, state.a
     v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
@@ -74,10 +74,10 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state, value)
 end
 
 
-# m = AchdouHanLasryLionsMoll_TwoAssetsModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y, result, distance = pdesolve(m, state, y0)
+m = AchdouHanLasryLionsMoll_TwoAssetsModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
 # 
 # # Important: check marginal value of wealth converges to 1.0
 # # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. This is interesting. Maybe it means there should be a better way to have bordering condition at # top

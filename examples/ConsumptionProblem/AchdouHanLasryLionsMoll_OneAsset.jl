@@ -20,22 +20,22 @@ function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.
     AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-function initialize_state(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
+function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
     ymin = quantile(distribution, 0.001)
     ymax = quantile(distribution, 0.999)
-    ys = collect(range(ymin, stop = ymax, length = yn))
-    as = collect(range(amin, stop = amax, length = an))
+    ys = range(ymin, stop = ymax, length = yn)
+    as = range(amin, stop = amax, length = an)
     OrderedDict(:y => ys, :a => as)
 end
 
-function initialize_y(m::AchdouHanLasryLionsMollModel, state)
-    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in state[:y], a in state[:a]])
+function initialize_y(m::AchdouHanLasryLionsMollModel, stategrid)
+    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in stategrid[:y], a in stategrid[:a]])
 end
 
-function (m::AchdouHanLasryLionsMollModel)(state, value)
+function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
     y, a = state.y, state.a
     v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
@@ -63,13 +63,11 @@ end
 
 
 
-#m = AchdouHanLasryLionsMollModel()
-#state = initialize_state(m)
-#y0 = initialize_y(m, state)
-#y, result, distance = pdesolve(m, state, y0)
-#
-#
-## Important: marginal value of wealth converges to 1.0
+m = AchdouHanLasryLionsMollModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
+
+# Check marginal value of wealth converges to 1.0 at infinity
 #b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
 #pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
-#

@@ -14,21 +14,21 @@ function WangWangYangModel(;μ = 0.015, σ = 0.1, r = 0.035, ρ = 0.04, γ = 3, 
     WangWangYangModel(μ, σ, r, ρ, γ, ψ, wmax)
 end
 
-function initialize_state(m::WangWangYangModel; n = 500)
-    OrderedDict(:w => collect(range(0.0, stop = m.wmax, length = n)))
+function initialize_stategrid(m::WangWangYangModel; n = 500)
+    OrderedDict(:w => range(0.0, stop = m.wmax, length = n))
 end
 
-function initialize_y(m::WangWangYangModel, state)
-    OrderedDict(:p => 1 .+ state[:w])
+function initialize_y(m::WangWangYangModel, stategrid)
+    OrderedDict(:p => 1 .+ stategrid[:w])
 end
     
-function (m::WangWangYangModel)(state, y)
+function (m::WangWangYangModel)(state::NamedTuple, y::NamedTuple)
     μ = m.μ ;  σ = m.σ ;  r = m.r ;  ρ = m.ρ ;  γ = m.γ ;  ψ = m.ψ  ; wmax = m.wmax
     w = state.w
     p, pw, pww = y.p, y.pw, y.pww
     c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
     μw = (r - μ + σ^2) * w + 1 - c
-    # This branch is unecessary. One way to understand this may be that, since second derivative drops out at the bottom, there is already a boundary condition, which is given by relationship between first and second derivative.
+    # This branch turns out to be unecessary. This is because, at w = 0, the PDE does not depend on the second derive (σ^2 * w^2 / 2= 0). Therefore, at w = 0, the PDE is simple a relationship between function and first derivative: this is the boundary counstraint.
     if w ≈ 0.0 && μw <= 0.0
        pw = ((r + ψ * (ρ - r)) * p)^(1 / ψ)
        c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
@@ -50,9 +50,7 @@ function (m::WangWangYangModel)(state, y)
     return (pt,), (μw,), (w = w, p = p, pw = pw, pww = pww, μw = μw, c = c)
 end
 
-# m = WangWangYangModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y0, result0, distance0 = pdesolve(m, state, y0)
-# # Important: check marginal value of wealth converges to 1.0
-# result0[:pw]
+m = WangWangYangModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance0 = pdesolve(m, stategrid, y0)

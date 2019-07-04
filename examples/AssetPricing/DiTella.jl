@@ -1,4 +1,4 @@
-using Distributions
+using EconPDEs, Distributions
 
 mutable struct DiTellaModel
   # Utility Function
@@ -24,20 +24,20 @@ function DiTellaModel(;γ = 5.0, ψ = 1.5, ρ = 0.05, τ = 0.4, A = 200.0, σ = 
   DiTellaModel(γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar)
 end
 
-function initialize_state(m::DiTellaModel; xn = 80, νn = 10)
+function initialize_stategrid(m::DiTellaModel; xn = 80, νn = 10)
   γ = m.γ ; ψ = m.ψ ; ρ = m.ρ ; τ = m.τ ; A = m.A ; σ = m.σ ; ϕ = m.ϕ ; νbar = m.νbar ; κν = m.κν ; σνbar = m.σνbar
   distribution = Gamma(2 * κν * νbar / σνbar^2, σνbar^2 / (2 * κν))
   νmin = quantile(distribution, 0.001)
   νmax = quantile(distribution, 0.999)
-  OrderedDict(:x => collect(range(0.01, stop = 0.99, length = xn)), :ν => collect(range(νmin, stop = νmax, length = νn)))
+  OrderedDict(:x => range(0.01, stop = 0.99, length = xn), :ν => range(νmin, stop = νmax, length = νn))
 end
 
-function initialize_y(m::DiTellaModel, state)
-  x = fill(1.0, length(state[:x]), length(state[:ν]))
+function initialize_y(m::DiTellaModel, stategrid::OrderedDict)
+  x = fill(1.0, length(stategrid[:x]), length(stategrid[:ν]))
   OrderedDict(:pA => x, :pB => x, :p => x)
 end
 
-function (m::DiTellaModel)(state, y)
+function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   γ = m.γ ; ψ = m.ψ ; ρ = m.ρ ; τ = m.τ ; A = m.A ; σ = m.σ ; ϕ = m.ϕ ; νbar = m.νbar ; κν = m.κν ; σνbar = m.σνbar
   x, ν = state.x, state.ν
   pA, pAx, pAν, pAxx, pAxν, pAνν, pB, pBx, pBν, pBxx, pBxν, pBνν, p, px, pν, pxx, pxν, pνν = y.pA, y.pAx, y.pAν, y.pAxx, y.pAxν, y.pAνν, y.pB, y.pBx, y.pBν, y.pBxx, y.pBxν, y.pBνν, y.p, y.px, y.pν, y.pxx, y.pxν, y.pνν
@@ -75,8 +75,8 @@ function (m::DiTellaModel)(state, y)
   return (pAt, pBt, pt), (μX, μν), (μX = μX, μν = μν, p = p, pA = pA, pB = pB, κ = κ, r = r, σX = σX)
 end
 
-
-# m = DiTellaModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# result, distance = pdesolve(m, state, y0)
+m = DiTellaModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
+y, result, distance = pdesolve(m, stategrid, y0; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))

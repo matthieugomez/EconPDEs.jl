@@ -20,8 +20,7 @@ include("pdesolve.jl")
 ## Exported methods and types 
 ##
 ##############################################################################
-export finiteschemesolve,
-pdesolve,
-simulate,
-OrderedDict
+export OrderedDict,
+finiteschemesolve,
+pdesolve
 end

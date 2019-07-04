@@ -1,3 +1,5 @@
+using EconPDEs
+
 struct GarleanuPanageasModel
 
   # utility function
@@ -30,16 +32,16 @@ function GarleanuPanageasModel(;γA  = 1.5, ψA = 0.7, γB = 10.0, ψB = 0.05, �
   GarleanuPanageasModel(γA , ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω)
 end
 
-function initialize_state(m::GarleanuPanageasModel; n = 200)
+function initialize_stategrid(m::GarleanuPanageasModel; n = 200)
   OrderedDict(:x => range(0.0, stop = 1.0, length = n))
 end
 
-function initialize_y(m::GarleanuPanageasModel, state)
-    x = fill(1.0, length(state[:x]))
+function initialize_y(m::GarleanuPanageasModel, stategrid::OrderedDict)
+    x = ones(length(stategrid[:x]))
     OrderedDict(:pA => x, :pB => x, :ϕ1 => x, :ϕ2 => x)
 end
 
-function (m::GarleanuPanageasModel)(state, y)
+function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   γA = m.γA ; ψA = m.ψA ; γB = m.γB ; ψB = m.ψB ; ρ = m.ρ ; δ = m.δ ; νA = m.νA ; μ = m.μ ; σ = m.σ; B1 = m.B1 ; δ1 = m.δ1 ; B2 = m.B2 ; δ2 = m.δ2 ; ω = m.ω
   x = state.x
   # pA is wealth / consumption ratio of agent A
@@ -82,8 +84,7 @@ function (m::GarleanuPanageasModel)(state, y)
   return (pAt, pBt, ϕ1t, ϕ2t), (μx, ), (μx = μx, p = p, pA = pA, pB = pB, κ = κ, r = r, σx = σx)
 end
 
-
-# m = GarleanuPanageasModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y, result, distance = pdesolve(m, state, y0)
+m = GarleanuPanageasModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)

@@ -16,15 +16,15 @@ function BoltonChenWangModel(r = 0.06, δ = 0.10, A = 0.18, σ = 0.09, θ = 1.5,
   BoltonChenWang(r, δ, A, σ, θ, λ, l , γ, ϕ)
 end
 
-function initialize_state(m::BoltonChenWangModel; n = 100)
-  OrderedDict(:w => collect(range(0.0, stop = 0.3, length = n)))
+function initialize_stategrid(m::BoltonChenWangModel; n = 100)
+  OrderedDict(:w => range(0.0, stop = 0.3, length = n))
 end
 
-function initialize_y(m::BoltonChenWangModel, state)
-    OrderedDict(:v =>  1 .+ state[:w])
+function initialize_y(m::BoltonChenWangModel, stategrid::OrderedDict)
+    OrderedDict(:v =>  1 .+ stategrid[:w])
 end
 
-function (m::BoltonChenWangModel)(state, y)
+function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
   r = m.r; δ = m.δ; A = m.A; σ = m.σ; θ = m.θ; λ = m.λ; l = m.l; γ = m.γ; ϕ = m.ϕ
   w = state.w
   v, vw, vww = y.v, y.vw, y.vww
@@ -35,12 +35,19 @@ function (m::BoltonChenWangModel)(state, y)
 end
 
 
+m = BoltonChenWangModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (1.5, 1.0)))
 
+#========================================================================================
 
-# This function iterates on the boundary conditions about the derivative of the value function until the solution satisfies the conditions given in Bolton Chen Wang (2009).
+Iterate on boundary conditions until the solution satisfies the conditions given in Bolton Chen Wang (2009)
 
-function f(m, x, state, y0)
-  y, result, distance = pdesolve(m, state, y0; bc = OrderedDict(:vw => (x[1], x[2])))
+========================================================================================#
+
+function f(m, x, stategrid, y0)
+  y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (x[1], x[2])))
   y0[:v] = y[:v]
   u1, u2, w = result[:v], result[:vw], result[:w]
   out = zeros(4)
@@ -54,11 +61,7 @@ function f(m, x, state, y0)
   return out
 end
 # using LeastSquaresOptim
-# m = BoltonChenWangModel()
-# state = initialize_state(m)
-# y0 = initialize_y(m, state)
-# y, result, distance = pdesolve(m, state, y0, bc = OrderedDict(:vw => (1.5, 1.0)))
-# newsol = optimize(x -> f(m, x, state, y0), [1.0,  1.0], Dogleg())
-# y, result, distance = pdesolve(m, state, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
+# newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
+# y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
 
 

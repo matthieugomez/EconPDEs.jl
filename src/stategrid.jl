@@ -10,7 +10,7 @@ struct StateGrid{N, V}
     invΔxp::NTuple{N, Vector{Float64}}
 end
 
-function make_Δ(x)
+function make_Δ(x::AbstractVector)
     n = length(x)
     Δxm = zero(x)
     Δxm[1] = x[2] - x[1]

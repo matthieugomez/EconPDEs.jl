@@ -1,4 +1,4 @@
-using Distributions
+using EconPDEs, Distributions
 
 # Arbitrage With Holding Costs: A Utility-Based Approach
 # Author(s): Bruce Tuckman and Jean-Luc Vila
@@ -15,20 +15,18 @@ function ArbitrageHoldingCosts(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 2
     ArbitrageHoldingCosts(c, r, ρ, σ, a)
 end
 
-
-function initialize_state(m::ArbitrageHoldingCosts; n = 200)
+function initialize_stategrid(m::ArbitrageHoldingCosts; n = 200)
     d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
     zmin = quantile(d, 0.00001)
     zmax = quantile(d, 0.99999)
-    OrderedDict(:z => collect(range(zmin, stop = zmax, length = n)))
+    OrderedDict(:z => range(zmin, stop = zmax, length = n))
 end
 
-function initialize_y(m::ArbitrageHoldingCosts, state)
-    OrderedDict(:F => zeros(length(state[:z])))
+function initialize_y(m::ArbitrageHoldingCosts, stategrid::OrderedDict)
+    OrderedDict(:F => zeros(length(stategrid[:z])))
 end
 
-
-function (m::ArbitrageHoldingCosts)(state, y, τ)
+function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
     c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a
     z = state.z
     F, Fz, Fzz = y.F, y.Fz, y.Fzz
@@ -58,15 +56,13 @@ function (m::ArbitrageHoldingCosts)(state, y, τ)
     return (Ft,), (-ρ * z,), (F = F, i = i, I = i / (sτ * ϕz * exp(r * τ)), x  = sτ * ϕ, I_myopic = i_myopic / (sτ * ϕz * exp(r * τ)), I_hedging = Fz / a / (sτ * ϕz * exp(r * τ)))
 end
 
+τs = range(0, stop = 100, length = 100)
+m = ArbitrageHoldingCosts()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0, τs)
 
-#using EconPDEs
-#m = ArbitrageHoldingCosts()
-#state = initialize_state(m)
-#y0 = initialize_y(m, state)
-#τs = range(0, stop = 100, length = 100)
-#y, result, distance = pdesolve(m, state, y0, τs)
-#
-#
+
 ### reproduce Fig 2
 #d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
 #zmin = quantile(d, 0.025)
@@ -75,18 +71,8 @@ end
 #
 #using Plots
 #plot(result[:x][idx, 20], [result[:I_myopic][idx, 2] result[:I][idx, 2]], label = ["myopic" "all"])
-#
-#
-#
 #plot(result[:x][idx, 20], result[:I][idx, 2])
 #plot!(result[:x][idx, 60], result[:I][idx, 60])
 #plot!(result[:x][idx, 100], result[:I][idx, 100])
 #
-#
-#
-#m = ArbitrageHoldingCosts(; ρ = 0.00001)
-#state = initialize_state(m)
-#y0 = initialize_y(m, state)
-#τs = range(0, stop = 100, length = 100)
-#y, result, distance = pdesolve(m, state, y0, τs)
 

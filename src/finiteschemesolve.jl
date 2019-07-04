@@ -61,14 +61,13 @@ end
 # Implicit time step
 function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(ypost)...), verbose = true, iterations = 100, method = :newton, autodiff = :forward, maxdist = 1e-9)
     F_helper!(ydot, y) = helper!(F!, ydot, y, ypost, Δ, is_algebraic)
-    if J0c[1] == nothing
+    J0, color = J0c
+    if J0 == nothing
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
-        J0, color = J0c
-        j_helper!(J, y) = SparseDiffTools.forwarddiff_color_jacobian!(J, F_helper!, y, color = color)
-        y0 = deepcopy(ypost)
-        ydot = deepcopy(ypost)
-        result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, y0, ydot, J0), y0; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
+        jac_cache = ForwardColorJacCache(F_helper!, deepcopy(ypost); color = color)
+        j_helper!(J, y) = forwarddiff_color_jacobian!(J, F_helper!, y, jac_cache)
+        result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
     end
     y = result.zero
     distance = result.residual_norm

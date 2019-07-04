@@ -1,9 +1,4 @@
-##############################################################################
-##
-## Type
-##
-##############################################################################
-using Distributions
+using EconPDEs, Distributions
 
 struct WachterModel{T<: Distribution}
     # consumption process parameters
@@ -22,22 +17,22 @@ struct WachterModel{T<: Distribution}
     ψ::Float64
     ϕ::Float64
 end
+
 # distirbution of jump comes from Ian Martin higher order cumulants paper
 function WachterModel(;μ = 0.025, σ = 0.02, λbar = 0.0355, κλ = 0.08, νλ = 0.067, ZDistribution = Normal(-0.4, 0.25), ρ = 0.012, γ = 3.0, ψ = 1.1, ϕ = 2.6)
     WachterModel(μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ)
 end
 
-function initialize_state(m::WachterModel; n = 30)
+function initialize_stategrid(m::WachterModel; n = 30)
     μ = m.μ ; σ = m.σ ; λbar = m.λbar ; κλ = m.κλ ; νλ = m.νλ ; ZDistribution = m.ZDistribution ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
-    λs = collect(range(0.0, stop = 0.1, length = n))
-    OrderedDict(:λ => λs)
+    OrderedDict(:λ => range(0.0, stop = 0.1, length = n))
 end
 
-function initialize_y(m::WachterModel, state)
-    OrderedDict(:p => fill(1.0, length(state[:λ])))
+function initialize_y(m::WachterModel, stategrid::OrderedDict)
+    OrderedDict(:p => ones(length(stategrid[:λ])))
 end
 
-function (m::WachterModel)(state, y)
+function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     μ = m.μ ; σ = m.σ ; λbar = m.λbar ; κλ = m.κλ ; νλ = m.νλ ; ZDistribution = m.ZDistribution ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ ; ϕ = m.ϕ
     λ = state.λ
     p, pλ, pλλ = y.p, y.pλ, y.pλλ
@@ -62,9 +57,18 @@ function (m::WachterModel)(state, y)
     return (pt,), (μλ,), (p = p, r = r, κ_Zc = κ_Zc, κ_Zλ = κ_Zλ, η = η)
 end
 
+m = WachterModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
 
-# solve for levered equity claim
-function f(m, state, y, r, κ_Zc, κ_Zλ)
+#========================================================================================
+
+Solve for levered equity claim
+
+========================================================================================#
+ 
+function pde_levered(m, state, y, r, κ_Zc, κ_Zλ)
     μ = m.μ ; σ = m.σ ; λbar = m.λbar ; κλ = m.κλ ; νλ = m.νλ ; ZDistribution = m.ZDistribution ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ ; ϕ = m.ϕ
     λ = state.λ
 
@@ -77,15 +81,8 @@ function f(m, state, y, r, κ_Zc, κ_Zλ)
     pet = pe * (1 / pe  + μ + μpe + λ * (mgf(ZDistribution, ϕ) - 1) - r(λ) - κ_Zc(λ) * ϕ * σ - κ_Zλ(λ) * σpe_Zλ - η)
     return (pet,), (μλ,)
 end
-
-#using EconPDEs
-#m = WachterModel()
-#state = initialize_state(m)
-#y0 = initialize_y(m, state)
-#y, result, distance = pdesolve(m, state, y0)
 #using Interpolations
 #r = interpolate((state[:λ],), result[:r], Gridded(Linear()))
 #κ_Zc = interpolate((state[:λ],), result[:κ_Zc], Gridded(Linear()))
 #κ_Zλ = interpolate((state[:λ],), result[:κ_Zλ], Gridded(Linear()))
-#y2, _, distance =  pdesolve((state, y) -> f(m, state, y, r, κ_Zc, κ_Zλ), state, OrderedDict(:pe => y[:p]))
-
+#y2, _, distance =  pdesolve((state, y) -> pde_levered(m, state, y, r, κ_Zc, κ_Zλ), stategrid, OrderedDict(:pe => y[:p]))

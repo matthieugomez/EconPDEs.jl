@@ -4,7 +4,7 @@
 ##
 ##############################################################################
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 2.0, J0c = (nothing, nothing))
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 10.0, J0c = (nothing, nothing))
     ypost = y0
     ydot = zero(y0)
     F!(ydot, ypost)

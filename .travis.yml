@@ -6,7 +6,7 @@ matrix:
   allow_failures:
     - julia: nightly
 before_script:
-- julia -e `using Pkg; Pkg.add("SparseDiffTools#master")
+- julia -e `using Pkg; pkg"add SparseDiffTools#master"'
 after_success:    
 - julia -e 'using Pkg; cd(Pkg.dir("EconPDEs")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
 notifications:

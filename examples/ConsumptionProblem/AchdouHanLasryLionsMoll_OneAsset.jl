@@ -32,7 +32,7 @@ function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
 end
 
 function initialize_y(m::AchdouHanLasryLionsMollModel, stategrid)
-    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in stategrid[:y], a in stategrid[:a]])
+    OrderedDict(:v => [log(y + a) for y in stategrid[:y], a in stategrid[:a]])
 end
 
 function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)

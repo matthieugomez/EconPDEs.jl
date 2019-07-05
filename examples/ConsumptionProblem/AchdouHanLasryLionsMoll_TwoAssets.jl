@@ -34,7 +34,7 @@ function initialize_stategrid(m::AchdouHanLasryLionsMoll_TwoAssetsModel; yn = 5,
 end
 
 function initialize_y(m::AchdouHanLasryLionsMoll_TwoAssetsModel, stategrid::OrderedDict)
-    OrderedDict(:v => [(y + m.r * a)^(1-m.γ)/(1-m.γ)/m.ρ for y in stategrid[:y], a in stategrid[:a]])
+    OrderedDict(:v => [log(y + a) for y in stategrid[:y], a in stategrid[:a]])
 end
 
 function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::NamedTuple)

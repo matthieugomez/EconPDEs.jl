@@ -7,9 +7,7 @@ struct StateGrid{N, V}
     x::NTuple{N, Vector{Float64}}
 end
 
-function StateGrid(x)
-    StateGrid{length(x), tuple(keys(x)...)}(tuple(values(x)...))
-end
+StateGrid(x) = StateGrid{length(x), tuple(keys(x)...)}(tuple(values(x)...))
 Base.size(grid::StateGrid) = map(length, grid.x)
 Base.ndims(grid::StateGrid) = length(grid.x)
 Base.eachindex(grid::StateGrid) = CartesianIndices(size(grid))
@@ -191,9 +189,7 @@ function _Matrix(y)
     end
 end
 
-function _Matrix_bc(::Nothing, y0_M, y0, grid)
-    zero(y0_M)
-end
+_Matrix_bc(::Nothing, y0_M, y0, grid) = zero(y0_M)
 
 function _Matrix_bc(bc, y0_M, y0, grid)
     bc_M = zero(y0_M)

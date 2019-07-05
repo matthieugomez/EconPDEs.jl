@@ -21,7 +21,7 @@ function initialize_stategrid(m::BoltonChenWangModel; n = 100)
 end
 
 function initialize_y(m::BoltonChenWangModel, stategrid::OrderedDict)
-    OrderedDict(:v =>  1 .+ stategrid[:w])
+    OrderedDict(:v =>  stategrid[:w])
 end
 
 function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
@@ -46,9 +46,8 @@ Iterate on boundary conditions until the solution satisfies the conditions given
 
 ========================================================================================#
 
-function f(m, x, stategrid, y0)
-  y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (x[1], x[2])))
-  y0[:v] = y[:v]
+function f(m, x, stategrid, y)
+  y, result, distance = pdesolve(m, stategrid, y; bc = OrderedDict(:vw => (x[1], x[2])))
   u1, u2, w = result[:v], result[:vw], result[:w]
   out = zeros(4)
   mi = argmin(abs.(1 + m.γ .- u2))
@@ -60,8 +59,8 @@ function f(m, x, stategrid, y0)
   out[4] = m.r * u1[wi] - (i - m.δ) * (u1[wi] - w[wi]) - ((m.r - m.λ) * w[wi] + m.A - i - m.θ * i^2 / 2)
   return out
 end
-# using LeastSquaresOptim
-# newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
-# y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
+using LeastSquaresOptim
+newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
+y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
 
 

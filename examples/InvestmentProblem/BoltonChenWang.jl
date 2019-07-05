@@ -59,8 +59,8 @@ function f(m, x, stategrid, y)
   out[4] = m.r * u1[wi] - (i - m.δ) * (u1[wi] - w[wi]) - ((m.r - m.λ) * w[wi] + m.A - i - m.θ * i^2 / 2)
   return out
 end
-using LeastSquaresOptim
-newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
-y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
+# using LeastSquaresOptim
+# newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
+# y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
 
 

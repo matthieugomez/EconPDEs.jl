@@ -66,7 +66,7 @@ function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
         if autodiff == :forward
-            jac_cache = ForwardColorJacCache(F_helper!, deepcopy(ypost); color = color)
+            jac_cache = ForwardColorJacCache(F_helper!, deepcopy(ypost); color = color, sparsity = J0)
             j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, F_helper!, y, jac_cache)
         else
             j_helper! = (J, y) -> DiffEqDiffTools.finite_difference_jacobian!(J, F_helper!, y; color = color)

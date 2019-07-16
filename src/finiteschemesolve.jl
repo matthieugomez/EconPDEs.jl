@@ -70,7 +70,7 @@ function implicit_time_step(F!, J0c, ypost, Δ; is_algebraic = fill(false, size(
             j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, F_helper!, y, jac_cache)
         else
             j_helper! = (J, y) -> DiffEqDiffTools.finite_difference_jacobian!(J, F_helper!, y; color = color)
-        #end
+        end
         result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
     end
     y = result.zero

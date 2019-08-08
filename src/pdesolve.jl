@@ -149,6 +149,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     end
 end
 
+
 #========================================================================================
 
 Sparsity pattern

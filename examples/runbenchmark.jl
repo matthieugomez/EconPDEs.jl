@@ -35,5 +35,5 @@ stategrid = initialize_stategrid(m; xn = 80, νn = 10)
 y0 = initialize_y(m, stategrid)
 pdesolve(m, stategrid, y0)
 @time pdesolve(m, stategrid, y0)
-# 1.382844 seconds (2.55 M allocations: 2.031 GiB, 6.97% gc time)
+# 0.912719 seconds (2.55 M allocations: 1.303 GiB, 9.01% gc time)
 

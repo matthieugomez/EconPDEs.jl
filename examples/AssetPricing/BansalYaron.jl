@@ -73,6 +73,7 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
 end
 
 # Bansal Yaron (2004)
+m = BansalYaronModel()
 stategrid = initialize_stategrid(m)
 y0 = initialize_y(m, stategrid)
 y, result, distance = pdesolve(m, stategrid, y0)

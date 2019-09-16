@@ -111,24 +111,32 @@ Define function F!(ydot, y) to pass to finiteschemesolve
 
 ========================================================================================#
 
-function hjb!(apm, grid::StateGrid{Ngrid, Tstate}, Tsolution, ydot, y, bc) where {Ngrid, Tstate}
-    for i in eachindex(grid)
-        solution = derive(Tsolution, grid, y, i, bc)
-        outi, drifti, = apm(grid[i], solution)
-        solution = derive(Tsolution, grid, y, i, bc, drifti)
-        outi, drifti, = apm(grid[i], solution)
+function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
+    for i in eachindex(stategrid)
+        solution = derive(Tsolution, stategrid, y_M, i, bc_M)
+        outi, drifti, = apm(stategrid[i], solution)
+        solution = derive(Tsolution, stategrid, y_M, i, bc_M, drifti)
+        outi, drifti, = apm(stategrid[i], solution)
         isa(outi, Number) && @error "The pde function must returns a tuple of tuples, not a tuple of numbers"
-        _setindex!(ydot, outi, i)
+        _setindex!(ydot_M, outi, i)
     end
-    return ydot
+    return ydot_M
 end
 
-@generated function _setindex!(ydot::AbstractArray, outi::NTuple{N, T}, i::CartesianIndex) where {N, T}
+@generated function _setindex!(ydot_M::AbstractArray, outi::NTuple{N, T}, i::CartesianIndex) where {N, T}
     quote
          $(Expr(:meta, :inline))
-         $(Expr(:block, [:(setindex!(ydot, outi[$k], i, $k)) for k in 1:N]...))
+         $(Expr(:block, [:(setindex!(ydot_M, outi[$k], i, $k)) for k in 1:N]...))
     end
 end
+
+# create function that accepts and returns vectors rather than arrays
+function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
+    y_M = reshape(y, ysize...)
+    ydot_M = reshape(ydot, ysize...)
+    vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
+end
+
 
 #========================================================================================
 
@@ -143,18 +151,24 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y = OrderedDict(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
 
+
     # Convert to Matrix
-    y0_M = _Matrix(y0)
+    y0_M = _Array(y0)
     ysize = size(y0_M)
-    is_algebraic_M = _Matrix(is_algebraic)
-    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
-    
-    function F!(ydot, y)
-        y = reshape(y, ysize...)
-        ydot = reshape(ydot, ysize...)
-        vec(hjb!(apm, stategrid, Tsolution, ydot, y, bc_M))
+    is_algebraic_M = _Array(is_algebraic)
+    bc_M = _Array_bc(bc, y0_M, y0, grid)
+
+    # prepare dict
+    a_keys = get_keys(apm, stategrid, Tsolution, y0_M, bc_M)
+    a = nothing
+    if a_keys !== nothing
+       a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
     end
-    y_M, distance = finiteschemesolve(F!, vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = sparsity_jac(stategrid, y0), kwargs... )
+
+    # create sparsity
+    J0c = sparsity_jac(stategrid, y0)
+
+    y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
     y_M = reshape(y_M, ysize...)
     _setindex!(y, y_M)
 
@@ -168,9 +182,9 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     return y, a, distance
 end
 
-_Matrix(y0) = cat(collect.(values(y0))...; dims = ndims(first(values(y0))) + 1)
+_Array(y0) = cat(collect.(values(y0))...; dims = ndims(first(values(y0))) + 1)
 
-function _Matrix_bc(bc, y0_M, y0, grid)
+function _Array_bc(bc, y0_M, y0, grid)
     bc_M = zero(y0_M)
     k = 0
     for yname in keys(y0)
@@ -185,8 +199,7 @@ function _Matrix_bc(bc, y0_M, y0, grid)
     end
     return bc_M
 end
-_Matrix_bc(::Nothing, y0_M, y0, grid) = zero(y0_M)
-
+_Array_bc(::Nothing, y0_M, y0, grid) = zero(y0_M)
 
 function _setindex!(y::OrderedDict, y_M::AbstractArray)
     N = ndims(y_M) - 1
@@ -197,14 +210,14 @@ function _setindex!(y::OrderedDict, y_M::AbstractArray)
     end
 end
 
-function get_keys(apm, stategrid::StateGrid, Tsolution, y_M, bc_M)
+function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     i0 = first(eachindex(stategrid))
     solution = derive(Tsolution, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], solution)
     return (length(result) == 3) ? keys(result[3]) : nothing
 end
 
-function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M, bc_M)
+function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     for i in eachindex(stategrid)
         state = stategrid[i]
         solution = derive(Tsolution, stategrid, y_M, i, bc_M)
@@ -230,33 +243,31 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y = OrderedDict(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
 
-
-    y0_M = _Matrix(y0)
-    is_algebraic_M = _Matrix(is_algebraic)
-    bc_M = _Matrix_bc(bc, y0_M, y0, grid)
-    # create sparsity
-    J0c = sparsity_jac(stategrid, y0)
-
-    y_M = y0_M
+    # convert to Matrix
+    y0_M = _Array(y0)
     ysize = size(y0_M)
-    distance = 0.0
+    is_algebraic_M = _Array(is_algebraic)
+    bc_M = _Array_bc(bc, y0_M, y0, grid)
 
-    # iterate on time
+    # prepare dict
     apm_onestep = (state, grid) -> apm(state, grid, τs[1])
     a_keys = get_keys(apm_onestep, stategrid, Tsolution, y0_M, bc_M)
     a = nothing
     if a_keys !== nothing
-        a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)..., length(τs)) for a_key in a_keys)
-        _setindex!(a, 1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
+       a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)..., length(τs)) for a_key in a_keys)
     end
+
+    # create sparsity
+    J0c = sparsity_jac(stategrid, y0)
+
+    # iterate on time
+    y_M = y0_M
+    distance = 0.0
+    apm_onestep = (state, grid) -> apm(state, grid, τs[1])
+    a_keys !== nothing && _setindex!(a, 1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
     _setindex!(y, 1, y_M)
     for iτ in 1:(length(τs)-1)
-        function F!(ydot, y)
-            y = reshape(y, ysize...)
-            ydot = reshape(ydot, ysize...)
-            vec(hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M))
-        end
-        y_M, newdistance = implicit_timestep(F!, vec(y_M), τs[iτ+1] - τs[iτ]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+        y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ+1] - τs[iτ]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
         y_M = reshape(y_M, ysize...)
         apm_onestep = (state, grid) -> apm(state, grid, τs[iτ+1])
         a_keys !== nothing && _setindex!(a, iτ+1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
@@ -274,7 +285,7 @@ function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)
     end
 end
 
-function _setindex!(a::OrderedDict, iτ, apm, stategrid::StateGrid, Tsolution, y_M, bc_M)
+function _setindex!(a::OrderedDict, iτ::Integer, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     for i in eachindex(stategrid)
          state = stategrid[i]
          solution = derive(Tsolution, stategrid, y_M, i, bc_M)

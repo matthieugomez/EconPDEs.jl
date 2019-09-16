@@ -23,6 +23,9 @@ The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/e
 # A Simple Example
 
 For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model with time-varying drift:
+<!-- 
+\partial_t V = 1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  
+-->
 <img src="img/by.png">
 
 ```julia
@@ -50,20 +53,29 @@ function f(state, sol)
 	(Vt,), (θμ * (μbar - state.μ),)
 end
 
-# the function `pdesolve` takes three arguments: (i) a function encoding the ode / pde (ii) a state grid corresponding to a discretized version of the state space (iii) an initial guess for the array(s) to solve for. 
+# The function `pdesolve` takes four arguments:
+# 1. a function encoding the ode / pde
+# 2. a state grid corresponding to a discretized version of the state space
+# 3. an initial guess for the array(s) to solve for
+# 4. a time grid with decreasing values 
+
+ts = range(1000, stop = 0, length = 100)
+pdesolve(f, state, y0, ts)
+
+# To solve directly for the stationary solution, 
+# i.e. the solution of the PDE with ∂tV = 0,
+# simply omit the time grid
 pdesolve(f, state, y0)
 ```
 
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
 
+
 # Boundary Conditions
 When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. 
 
-By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). You can specify different values for values at the ghost node using the option `bc`.
-
-# Time Iteration
-To save PDEs with a time dimension, use `pdesolve(f, state, y0, ts)`  where `ts` is an `AbstractVector` of (decreasing) times and `y_0` is the solution at time `ts[1]`. See [ArbitrageHoldingCosts](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples/AssetPricing/ArbitrageHoldingCosts.jl) for an example.
+By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc`.
 
 # Installation
 

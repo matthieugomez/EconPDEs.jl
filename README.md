@@ -31,19 +31,19 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 using EconPDEs
 
 # Define a discretized state space
-# An OrderedDict: each key corresponds to one state variable.
+# An OrderedDict in which each key corresponds to a dimension of the state space.
 stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
 # Define an initial guess for the value functions
-# An OrderedDict: each key corresponds to a value function to solve for, 
-# specified as an array with as many dimensions as there are state variables
+# An OrderedDict in which each key corresponds to a value function to solve for, 
+# specified as an array with the same dimension as the state space
 solgrid = OrderedDict(:V => ones(500))
 
-#Define a function that encodes the PDE. The function takes three arguments:
-# 1. A named tuple corresponding to the current value of the state. 
-# 2. A named tuple corresponding to the value function (and its derivatives) 
-# at the current value of the state.
-# (the names are the ones used when defining the state grid and the initial guess).
+# Define a function that encodes the PDE. 
+# The function takes three arguments:
+# 1. A named tuple giving the current value of the state. 
+# 2. A named tuple giving the value function(s) (as well as its derivatives)
+# at the current value of the state. 
 # 3. (Optional) Current time t
 # It returns two tuples:
 # 1. a tuple with the time derivative of each value function
@@ -56,9 +56,9 @@ function f(state::NamedTuple, sol::NamedTuple)
 end
 
 # The function `pdesolve` takes four arguments:
-# 1. a function encoding the PDE
-# 2. a discretized state space
-# 3. an initial guess for the value functions
+# 1. the function encoding the PDE
+# 2. the discretized state space
+# 3. the initial guess for the value functions
 # 4. a time grid with decreasing values 
 @time pdesolve(f, state, y0, range(1000, stop = 0, length = 100))
 #> 0.220390 seconds (3.07 M allocations: 219.883 MiB, 18.28% gc time)

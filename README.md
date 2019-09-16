@@ -56,8 +56,8 @@ function f(state::NamedTuple, sol::NamedTuple)
 end
 
 # The function `pdesolve` takes four arguments:
-# 1. a function encoding the ode / pde
-# 2. a state space
+# 1. a function encoding the PDE
+# 2. a discretized state space
 # 3. an initial guess for the value functions
 # 4. a time grid with decreasing values 
 @time pdesolve(f, state, y0, range(1000, stop = 0, length = 100))

@@ -33,9 +33,6 @@ using EconPDEs
 # define state grid
 state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# define initial guess
-y0 = OrderedDict(:V => ones(500))
-
 # define pde function that specifies PDE to solve. The function takes two arguments:
 # 1. state variable `state`, a named tuple. 
 # The state can be accessed with `state.x` where `x` denotes the name of the state variable.
@@ -58,7 +55,7 @@ end
 # 2. a state grid corresponding to a discretized version of the state space
 # 3. an initial guess for the array(s) to solve for
 # 4. a time grid with decreasing values 
-
+y0 = OrderedDict(:V => ones(500)
 ts = range(1000, stop = 0, length = 100)
 pdesolve(f, state, y0, ts)
 

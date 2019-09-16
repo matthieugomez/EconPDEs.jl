@@ -7,6 +7,7 @@
 function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = 1e-9, J0c = (nothing, nothing))
     F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
+    ypost = vec(ypost)
     if J0 == nothing
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
@@ -20,7 +21,6 @@ function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     end
     return result.zero, result.residual_norm
 end
-
 
 # Solve for steady state
 function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 10.0, J0c = (nothing, nothing))

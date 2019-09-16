@@ -141,12 +141,14 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     stategrid = StateGrid(grid)
     all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
+    y = OrderedDict(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
 
     # Convert to Matrix
     y0_M = _Matrix(y0)
+    ysize = size(y0_M)
     is_algebraic_M = _Matrix(is_algebraic)
     bc_M = _Matrix_bc(bc, y0_M, y0, grid)
-    ysize = size(y0_M)
+    
     function F!(ydot, y)
         y = reshape(y, ysize...)
         ydot = reshape(ydot, ysize...)
@@ -154,7 +156,6 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     end
     y_M, distance = finiteschemesolve(F!, vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = sparsity_jac(stategrid, y0), kwargs... )
     y_M = reshape(y_M, ysize...)
-    y = OrderedDict(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
     _setindex!(y, y_M)
 
     a = nothing
@@ -227,16 +228,17 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     stategrid = StateGrid(grid)
     all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
+    y = OrderedDict(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
+
 
     y0_M = _Matrix(y0)
+    is_algebraic_M = _Matrix(is_algebraic)
     bc_M = _Matrix_bc(bc, y0_M, y0, grid)
-
     # create sparsity
     J0c = sparsity_jac(stategrid, y0)
 
-    # create storage
-    y = OrderedDict(x =>  Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
     y_M = y0_M
+    ysize = size(y0_M)
     distance = 0.0
 
     # iterate on time
@@ -249,7 +251,13 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     end
     _setindex!(y, 1, y_M)
     for iτ in 1:(length(τs)-1)
-        y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M), y_M, τs[iτ+1] - τs[iτ]; is_algebraic = _Matrix(is_algebraic), verbose = false, J0c = J0c, kwargs...)
+        function F!(ydot, y)
+            y = reshape(y, ysize...)
+            ydot = reshape(ydot, ysize...)
+            vec(hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M))
+        end
+        y_M, newdistance = implicit_timestep(F!, vec(y_M), τs[iτ+1] - τs[iτ]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+        y_M = reshape(y_M, ysize...)
         apm_onestep = (state, grid) -> apm(state, grid, τs[iτ+1])
         a_keys !== nothing && _setindex!(a, iτ+1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
         _setindex!(y, iτ+1, y_M)

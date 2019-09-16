@@ -23,9 +23,9 @@ The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/e
 
 For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model with time-varying drift:
 <!-- 
-\partial_t V = 1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  
+1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  + \partial_t V  = 0
 -->
-<img src="img/by2.png">
+<img src="img/by.png">
 
 ```julia
 using EconPDEs
@@ -46,7 +46,7 @@ y0 = OrderedDict(:V => ones(500))
 # at the current value of the state. 
 # 3. (Optional) Current time t
 # It returns two tuples:
-# 1. a tuple with the time derivative of each value function
+# 1. a tuple with the opposite of the time derivative of each value function
 # 2. a tuple with the drift of each state variable (internally used for upwinding)
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5

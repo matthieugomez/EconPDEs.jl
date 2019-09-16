@@ -251,7 +251,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     bc_M = _Array_bc(bc, y0_M, y0, grid)
 
     # prepare dict
-    apm_onestep = (state, grid) -> apm(state, grid, τs[1])
+    apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[1]) : apm
     a_keys = get_keys(apm_onestep, stategrid, Tsolution, y0_M, bc_M)
     a = nothing
     if a_keys !== nothing
@@ -264,17 +264,25 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     # iterate on time
     y_M = y0_M
     distance = 0.0
-    apm_onestep = (state, grid) -> apm(state, grid, τs[1])
-    a_keys !== nothing && _setindex!(a, 1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
-    _setindex!(y, 1, y_M)
-    for iτ in 1:(length(τs)-1)
-        y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ+1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
-        y_M = reshape(y_M, ysize...)
-        apm_onestep = (state, grid) -> apm(state, grid, τs[iτ+1])
-        a_keys !== nothing && _setindex!(a, iτ+1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
-        _setindex!(y, iτ+1, y_M)
+    for iτ in 1:length(τs)
+        a_keys !== nothing && _setindex!(a, iτ, localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
+        _setindex!(y, iτ, y_M)
+        if iτ < length(τs)
+            y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ+1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+            y_M = reshape(y_M, ysize...)
+        end
     end
     return y, a, distance
+end
+
+function localize(apm, τ::Number)
+    if hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number})
+        (state, grid) -> apm(state, grid, τ)
+    elseif hasmethod(apm, Tuple{NamedTuple, NamedTuple})
+        apm
+    else
+        throw("The function encoding the PDE must accept NamedTuples for arguments")
+    end
 end
 
 function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)

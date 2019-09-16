@@ -29,8 +29,6 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 
 ```julia
 using EconPDEs
-# define state grid
-state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
 # define pde function that specifies PDE to solve. The function takes three arguments:
 # 1. state variable `state`, a named tuple. 
@@ -51,6 +49,7 @@ end
 # 2. a state grid corresponding to a discretized version of the state space
 # 3. an initial guess for the array(s) to solve for
 # 4. a time grid with decreasing values 
+state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 y0 = OrderedDict(:V => ones(500))
 ts = range(1000, stop = 0, length = 100)
 @time pdesolve(f, state, y0, ts)
@@ -59,6 +58,7 @@ ts = range(1000, stop = 0, length = 100)
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
+state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 y0 = OrderedDict(:V => ones(500))
 @time pdesolve(f, state, y0)
 #>  0.018544 seconds (301.91 k allocations: 20.860 MiB)

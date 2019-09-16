@@ -15,6 +15,17 @@ for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella
 	end
 end
 
+# Test Campbell Cochrane with fixed time grid
+m = CampbellCochraneModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+τs = range(1000, stop = 0, length = 50)
+y, result, distance = pdesolve(m, stategrid, y0)
+y2, result, distance = pdesolve(m, stategrid, y0, τs)
+@test sum(abs2, y[:p] .- y2[:p][:, end]) <= 1e-10
+
+
+
 for x in (:WangWangYang, :AchdouHanLasryLionsMoll_OneAsset, :AchdouHanLasryLionsMoll_TwoAssets)
 	try
 		include("../examples/ConsumptionProblem/$(x).jl")

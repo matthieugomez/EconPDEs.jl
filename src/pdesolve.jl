@@ -9,7 +9,7 @@ end
 
 StateGrid(x) = StateGrid{length(x), tuple(keys(x)...)}(tuple(values(x)...))
 Base.size(stategrid::StateGrid) = map(length, stategrid.x)
-Base.ndims(stategrid::StateGrid) = length(stategrid.x)
+Base.ndims(stategrid::StateGrid{N, V}) where {N, V} = N
 Base.eachindex(stategrid::StateGrid) = CartesianIndices(size(stategrid))
 @generated function Base.getindex(grid::StateGrid{N, V}, args::CartesianIndex) where {N, V}
     quote
@@ -149,7 +149,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     stategrid = StateGrid(grid)
     all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y = OrderedDict(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
+    y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
 
     # Convert to Matrix
     y0_M = _Array(y0)
@@ -161,7 +161,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     a_keys = get_keys(apm, stategrid, Tsolution, y0_M, bc_M)
     a = nothing
     if a_keys !== nothing
-       a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
+       a = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
     end
 
     # create sparsity
@@ -170,11 +170,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
     y_M = reshape(y_M, ysize...)
     _setindex!(y, y_M)
-
-    a = nothing
-    a_keys = get_keys(apm, stategrid, Tsolution, y_M, bc_M)
     if a_keys !== nothing
-        a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
         _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
         a = merge(y, a)
     end
@@ -240,7 +236,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     stategrid = StateGrid(grid)
     all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y = OrderedDict(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
+    y = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
 
     issorted(reverse(τs)) || throw("The set of times must be decreasing.")
 
@@ -255,7 +251,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     a_keys = get_keys(apm_onestep, stategrid, Tsolution, y0_M, bc_M)
     a = nothing
     if a_keys !== nothing
-       a = OrderedDict(a_key => Array{Float64}(undef, size(stategrid)..., length(τs)) for a_key in a_keys)
+       a = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(a_key => Array{Float64}(undef, size(stategrid)..., length(τs)) for a_key in a_keys)
     end
 
     # create sparsity

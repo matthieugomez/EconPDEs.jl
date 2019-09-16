@@ -64,6 +64,8 @@ stategrid = initialize_stategrid(m)
 y0 = initialize_y(m, stategrid)
 y, result, distance = pdesolve(m, stategrid, y0)
 
+
+
 # Wachter (2005) calibration
 # m = CampbellCochraneModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011 * 4)
 # stategrid = initialize_stategrid(m)

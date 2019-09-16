@@ -30,15 +30,17 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 ```julia
 using EconPDEs
 
-# Define a space grid
-state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
+# Define a state grid as an Ordered Dictionary 
+stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# Define an initial guess for the value function
-y0 = OrderedDict(:V => ones(500))
+# Define an initial guess for the value function as an Ordered Dictionary
+solgrid = OrderedDict(:V => ones(500))
 
 # define pde function that specifies PDE to solve. The function takes three arguments:
-# 1. state variable `state`, a named tuple. 
-# 2. current solution `sol`, a named tuple. 
+# 1. A named tuple corresponding to the current value of the state. 
+# (the names are the ones used when defining the state grid).
+# 2. A named tuple corresponding to the value function at the current value of the state,
+# as well as its derivatives. (the names are the ones used when defining the state grid and the initial guess).
 # 3. (Optional) Current time t
 # It returns two tuples:
 # 1. a tuple with the value of the time derivative

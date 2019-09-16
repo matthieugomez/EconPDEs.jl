@@ -4,7 +4,7 @@
 
 This package provides the function `pdesolve`that solves (system of) nonlinear ODEs/PDEs arising in economic models (i.e. parabolic/elliptic PDEs)
 
-- It is robust: the underlying algorithm is based on a combination of upwinding and implicit time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/details.pdf))
+- It is robust: the underlying algorithm is based on a combination of upwinding and *fully* implicit time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/details.pdf))
 - It is fast: implicit time-steps are solved using sparse Jacobians
 - It is simple-to-use: solve PDEs in less than 10 lines of codes
 

@@ -242,7 +242,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y = OrderedDict(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
 
-    issorted(reverse(τs)) || throw("The set of times must be given as a decreasing vector.")
+    issorted(reverse(τs)) || throw("The set of times must be decreasing.")
 
     # convert to Matrix
     y0_M = _Array(y0)
@@ -268,7 +268,7 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     a_keys !== nothing && _setindex!(a, 1, apm_onestep, stategrid, Tsolution, y_M, bc_M)
     _setindex!(y, 1, y_M)
     for iτ in 1:(length(τs)-1)
-        y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ+1] - τs[iτ]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+        y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ+1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
         y_M = reshape(y_M, ysize...)
         apm_onestep = (state, grid) -> apm(state, grid, τs[iτ+1])
         a_keys !== nothing && _setindex!(a, iτ+1, apm_onestep, stategrid, Tsolution, y_M, bc_M)

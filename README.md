@@ -66,7 +66,7 @@ end
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
-@time pdesolve(f, state, y0)
+@time pdesolve(f, stategrid, y0)
 #>  0.018544 seconds (301.91 k allocations: 20.860 MiB)
 ```
 

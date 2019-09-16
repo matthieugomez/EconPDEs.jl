@@ -26,7 +26,7 @@ end
 Derive
 
 ========================================================================================#
-# Case with 1 state variable
+# 1 state variable
 @generated function derive(::Type{Tsolution}, grid::StateGrid{1, Tstate}, y::AbstractArray{T}, icar, bc, drift = (0.0,)) where {Tsolution, Tstate, T}
     N = length(Tsolution.parameters[1])
     statename = Tstate[1]
@@ -50,7 +50,7 @@ Derive
     end
 end
 
-# Case with 2 state variables
+# 2 state variables
 @generated function derive(::Type{Tsolution}, grid::StateGrid{2, Tstate}, y::AbstractArray{T}, icar, bc, drift = (0.0, 0.0)) where {Tsolution, Tstate, T}
     N = length(Tsolution.parameters[1])
     statename1 = Tstate[1]
@@ -83,31 +83,7 @@ end
 
 #========================================================================================
 
-Sparsity pattern
-
-========================================================================================#
-
-function sparsity_jac(stategrid::StateGrid, y0::OrderedDict)
-    s = size(stategrid)
-    l = prod(s)
-    t = (ndims(stategrid), length(y0) > 1)
-    if t == (1, 0)
-        J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
-    elseif t == (2, 0)
-        J = BandedBlockBandedMatrix(Ones(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
-    elseif t == (1, 1)
-        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1))
-    elseif t == (2, 1)
-        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1))
-    else
-        J = nothing
-    end
-    return (J === nothing) ? (nothing, nothing) : (sparse(J), matrix_colors(J))
-end
-
-#========================================================================================
-
-Define function F!(ydot, y) to pass to finiteschemesolve
+Define function F!(ydot, y)
 
 ========================================================================================#
 
@@ -130,13 +106,12 @@ end
     end
 end
 
-# create function that accepts and returns vectors rather than arrays
+# create hjb! that accepts and returns AbstractVector rather than AbstractArrays
 function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
     y_M = reshape(y, ysize...)
     ydot_M = reshape(ydot, ysize...)
     vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
 end
-
 
 
 #========================================================================================
@@ -212,7 +187,6 @@ function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M
     return (length(result) == 3) ? keys(result[3]) : nothing
 end
 
-
 function localize(apm, τ::Number)
     if hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number})
         (state, grid) -> apm(state, grid, τ)
@@ -221,6 +195,24 @@ function localize(apm, τ::Number)
     else
         throw("The function encoding the PDE must accept NamedTuples for arguments")
     end
+end
+
+function sparsity_jac(stategrid::StateGrid, y0::OrderedDict)
+    s = size(stategrid)
+    l = prod(s)
+    t = (ndims(stategrid), length(y0) > 1)
+    if t == (1, 0)
+        J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
+    elseif t == (2, 0)
+        J = BandedBlockBandedMatrix(Ones(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
+    elseif t == (1, 1)
+        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1))
+    elseif t == (2, 1)
+        J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1))
+    else
+        J = nothing
+    end
+    return (J === nothing) ? (nothing, nothing) : (sparse(J), matrix_colors(J))
 end
 
 function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)

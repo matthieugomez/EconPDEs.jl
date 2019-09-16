@@ -151,7 +151,6 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = Ordere
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y = OrderedDict(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
 
-
     # Convert to Matrix
     y0_M = _Array(y0)
     ysize = size(y0_M)

@@ -7,7 +7,6 @@
 function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = 1e-9, J0c = (nothing, nothing))
     F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
-    ypost = vec(ypost)
     if J0 == nothing
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else

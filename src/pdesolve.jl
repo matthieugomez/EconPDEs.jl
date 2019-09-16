@@ -203,16 +203,19 @@ function sparsity_jac(stategrid::StateGrid, y0::OrderedDict)
     t = (ndims(stategrid), length(y0) > 1)
     if t == (1, 0)
         J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
+        return J, matrix_colors(J)
     elseif t == (2, 0)
         J = BandedBlockBandedMatrix(Ones(l, l), (fill(s[1], s[2]), fill(s[1], s[2])), (1, 1), (1, 1))
+        return sparse(J), matrix_colors(J)
     elseif t == (1, 1)
         J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (fill(l, length(y0)) ,fill(l, length(y0))), (length(y0) - 1, length(y0) - 1), (1, 1))
+        return sparse(J), matrix_colors(J)
     elseif t == (2, 1)
         J = BandedBlockBandedMatrix(Ones(l * length(y0), l * length(y0)), (repeat(fill(s[1], s[2]), outer = length(y0)), repeat(fill(s[1], s[2]), outer = length(y0))), (s[2] * length(y0) - 1, s[2] * length(y0) - 1), (1, 1))
+        return sparse(J), matrix_colors(J)
     else
-        J = nothing
+        return nothing, nothing
     end
-    return (J === nothing) ? (nothing, nothing) : (sparse(J), matrix_colors(J))
 end
 
 function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)

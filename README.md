@@ -33,7 +33,7 @@ using EconPDEs
 # Define a space grid
 state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# Define an inintial guess for the value function
+# Define an initial guess for the value function
 y0 = OrderedDict(:V => ones(500))
 
 # define pde function that specifies PDE to solve. The function takes three arguments:

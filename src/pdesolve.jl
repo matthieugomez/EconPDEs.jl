@@ -242,6 +242,8 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
     y = OrderedDict(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(y0))
 
+    issorted(reverse(τs)) || throw("The set of times must be given as a decreasing vector.")
+
     # convert to Matrix
     y0_M = _Array(y0)
     ysize = size(y0_M)

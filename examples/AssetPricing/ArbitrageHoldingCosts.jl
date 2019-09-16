@@ -9,10 +9,11 @@ struct ArbitrageHoldingCosts
     ρ::Float64 
     σ::Float64 
     a::Float64 
+    T::Float64
 end
 
-function ArbitrageHoldingCosts(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 26.72)
-    ArbitrageHoldingCosts(c, r, ρ, σ, a)
+function ArbitrageHoldingCosts(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 26.72, T = 100)
+    ArbitrageHoldingCosts(c, r, ρ, σ, a, T)
 end
 
 function initialize_stategrid(m::ArbitrageHoldingCosts; n = 200)
@@ -27,13 +28,13 @@ function initialize_y(m::ArbitrageHoldingCosts, stategrid::OrderedDict)
 end
 
 function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
-    c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a
+    c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a ; T = m.T
     z = state.z
     F, Fz, Fzz = y.F, y.Fz, y.Fzz
     ϕ = z * (1 + z^2)^(-1/2)
     ϕz = (1 + z^2)^(-3/2)
     ϕzz = - 3 * z * (1 + z^2)^(-5/2)
-    sτ = c / r * (1 - exp(- r * τ))
+    sτ = c / r * (1 - exp(- r * (T - τ)))
     μL = ρ * z - 0.5 * σ^2 * ϕzz / ϕz + c / sτ * (ϕ - 1) / ϕz
     iL = 1 / a * (μL / σ^2 + Fz)
     μS = ρ * z - 0.5 * σ^2 * ϕzz / ϕz + c / sτ * (ϕ + 1) / ϕz
@@ -53,11 +54,11 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
     end
     # otherwise i = 0.0 and value of μ does not matter
     Ft = (μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2) 
-    return (Ft,), (-ρ * z,), (F = F, i = i, I = i / (sτ * ϕz * exp(r * τ)), x  = sτ * ϕ, I_myopic = i_myopic / (sτ * ϕz * exp(r * τ)), I_hedging = Fz / a / (sτ * ϕz * exp(r * τ)))
+    return (Ft,), (-ρ * z,), (F = F, i = i, I = i / (sτ * ϕz * exp(r * (T - τ))), x  = sτ * ϕ, I_myopic = i_myopic / (sτ * ϕz * exp(r * (T - τ))), I_hedging = Fz / a / (sτ * ϕz * exp(r * (T - τ))))
 end
 
-τs = range(0, stop = 100, length = 100)
 m = ArbitrageHoldingCosts()
+τs = range(m.T, stop = 0, length = 100)
 stategrid = initialize_stategrid(m)
 y0 = initialize_y(m, stategrid)
 y, result, distance = pdesolve(m, stategrid, y0, τs)

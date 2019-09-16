@@ -138,92 +138,6 @@ function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::Abs
 end
 
 
-#========================================================================================
-
-Solve the stationary solution of the PDE
-# throw("Naming for spaces and solutions lead to ambiguous derivative names. Use different letters for spaces and for solutions")
-========================================================================================#
-
-function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
-    Tsolution = Type{tuple(keys(y0)...)}
-    stategrid = StateGrid(grid)
-    all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
-    is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
-    y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
-
-    # Convert to Matrix
-    y0_M = _Array(y0)
-    ysize = size(y0_M)
-    is_algebraic_M = _Array(is_algebraic)
-    bc_M = _Array_bc(bc, y0_M, y0, grid)
-
-    # prepare dict
-    a_keys = get_keys(apm, stategrid, Tsolution, y0_M, bc_M)
-    a = nothing
-    if a_keys !== nothing
-       a = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
-    end
-
-    # create sparsity
-    J0c = sparsity_jac(stategrid, y0)
-
-    y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
-    y_M = reshape(y_M, ysize...)
-    _setindex!(y, y_M)
-    if a_keys !== nothing
-        _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
-        a = merge(y, a)
-    end
-    return y, a, distance
-end
-
-_Array(y0) = cat(collect.(values(y0))...; dims = ndims(first(values(y0))) + 1)
-
-function _Array_bc(bc, y0_M, y0, grid)
-    bc_M = zero(y0_M)
-    k = 0
-    for yname in keys(y0)
-        k += 1
-        keys_grid = collect(keys(grid))
-        if length(keys_grid) == 1
-            bc_M[1, k], bc_M[end, k] = bc[Symbol(yname, keys_grid[1])]
-        elseif length(keys_grid) == 2
-            bc_M[1, :,  k],  bc_M[end, :, k] = bc[Symbol(yname, keys_grid[1])]
-            bc_M[:, 1,  k], bc_M[:, end,  k] = bc[Symbol(yname, keys_grid[2])]
-        end
-    end
-    return bc_M
-end
-_Array_bc(::Nothing, y0_M, y0, grid) = zero(y0_M)
-
-function _setindex!(y::OrderedDict, y_M::AbstractArray)
-    N = ndims(y_M) - 1
-    i = 0
-    for v in values(y)
-        i += 1
-        v[:] = y_M[(Colon() for _ in 1:N)..., i]
-    end
-end
-
-function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
-    i0 = first(eachindex(stategrid))
-    solution = derive(Tsolution, stategrid, y_M, i0, bc_M)
-    result = apm(stategrid[i0], solution)
-    return (length(result) == 3) ? keys(result[3]) : nothing
-end
-
-function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
-    for i in eachindex(stategrid)
-        state = stategrid[i]
-        solution = derive(Tsolution, stategrid, y_M, i, bc_M)
-        # upwind
-        solution = derive(Tsolution, stategrid, y_M, i, bc_M, apm(state, solution)[2])
-        outi = apm(state, solution)[3]
-        for (k, v) in zip(values(a), values(outi))
-            k[i] = v
-        end
-    end
-end
 
 #========================================================================================
 
@@ -271,6 +185,34 @@ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict, τs::AbstractVector; 
     return y, a, distance
 end
 
+_Array(y0) = cat(collect.(values(y0))...; dims = ndims(first(values(y0))) + 1)
+
+function _Array_bc(bc, y0_M, y0, grid)
+    bc_M = zero(y0_M)
+    k = 0
+    for yname in keys(y0)
+        k += 1
+        keys_grid = collect(keys(grid))
+        if length(keys_grid) == 1
+            bc_M[1, k], bc_M[end, k] = bc[Symbol(yname, keys_grid[1])]
+        elseif length(keys_grid) == 2
+            bc_M[1, :,  k],  bc_M[end, :, k] = bc[Symbol(yname, keys_grid[1])]
+            bc_M[:, 1,  k], bc_M[:, end,  k] = bc[Symbol(yname, keys_grid[2])]
+        end
+    end
+    return bc_M
+end
+_Array_bc(::Nothing, y0_M, y0, grid) = zero(y0_M)
+
+
+function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+    i0 = first(eachindex(stategrid))
+    solution = derive(Tsolution, stategrid, y_M, i0, bc_M)
+    result = apm(stategrid[i0], solution)
+    return (length(result) == 3) ? keys(result[3]) : nothing
+end
+
+
 function localize(apm, τ::Number)
     if hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number})
         (state, grid) -> apm(state, grid, τ)
@@ -286,7 +228,7 @@ function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)
     i = 0
     for v in values(y)
         i += 1
-        v[:, iτ] = y_M[(Colon() for _ in 1:N)..., i]
+        v[(Colon() for _ in 1:N)..., iτ] = y_M[(Colon() for _ in 1:N)..., i]
     end
 end
 
@@ -302,3 +244,44 @@ function _setindex!(a::OrderedDict, iτ::Integer, apm, stategrid::StateGrid, Tso
          end
      end
  end
+
+ #========================================================================================
+
+ Solve the stationary solution of the PDE
+
+========================================================================================#
+
+ function pdesolve(apm, grid::OrderedDict, y0::OrderedDict; is_algebraic = OrderedDict(k => false for k in keys(y0)), bc = nothing, kwargs...)
+     Tsolution = Type{tuple(keys(y0)...)}
+     stategrid = StateGrid(grid)
+     all(length.(values(y0)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
+     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(y0[k])) for k in keys(y0))
+     y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(y0))
+
+     # Convert to Matrix
+     y0_M = _Array(y0)
+     ysize = size(y0_M)
+     is_algebraic_M = _Array(is_algebraic)
+     bc_M = _Array_bc(bc, y0_M, y0, grid)
+
+     # prepare dict
+     a_keys = get_keys(apm, stategrid, Tsolution, y0_M, bc_M)
+     a = nothing
+     if a_keys !== nothing
+        a = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
+     end
+
+     # create sparsity
+     J0c = sparsity_jac(stategrid, y0)
+
+     y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y0_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
+     y_M = reshape(y_M, ysize...)
+     _setindex!(y, 1, y_M)
+     if a_keys !== nothing
+         _setindex!(a, 1, apm, stategrid, Tsolution, y_M, bc_M)
+         a = merge(y, a)
+     end
+     return y, a, distance
+ end
+
+

@@ -32,17 +32,18 @@ using EconPDEs
 # define state grid
 state = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# define pde function that specifies PDE to solve. The function takes two arguments:
+# define pde function that specifies PDE to solve. The function takes three arguments:
 # 1. state variable `state`, a named tuple. 
 # The state can be accessed with `state.x` where `x` denotes the name of the state variable.
 # 2. current solution `sol`, a named tuple. 
+# 3. (Optional) Current time t
 # The current solution at the current state can be accessed with `sol.y` where `y` denotes the name of initial guess. 
 # Its derivative can be accessed with `sol.yx` where `x` denotes the name of state variable.
 # Its second derivative can be accessed with `sol.yxx`,
 # It returns two outputs
 # 1. a tuple with the value of PDE at current solution and current state 
 # 2. a tuple with drift of state variable, used for upwinding 
-function f(state, sol)
+function f(state::NamedTuple, sol::NamedTuple, t::Number)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
 	Vt = 1 / sol.V - ρ + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) + θμ * (μbar - state.μ) * sol.Vμ / sol.V +
 	0.5 * νμ^2 * ϑ * sol.Vμμ / sol.V + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * sol.Vμ^2/sol.V^2

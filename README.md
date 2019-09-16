@@ -6,7 +6,7 @@ This package provides the function `pdesolve`that solves (system of) nonlinear O
 
 - It is robust: the underlying algorithm is based on a combination of upwinding and *fully* implicit time stepping (more details [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/details.pdf))
 - It is fast: implicit time-steps are solved using sparse Jacobians
-- It is simple-to-use: solve PDEs in less than 10 lines of codes
+- It is simple-to-use: solve PDEs in 10 lines of codes
 
 # Examples
 
@@ -30,21 +30,22 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 ```julia
 using EconPDEs
 
-# Define a state grid as an Ordered Dictionary 
+# Define a discretized state space (an OrderedDict)
+# Each key corresponds to one state variable.
 stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# Define an initial guess for the value function as an Ordered Dictionary
+# Define an initial guess for the value functions (an OrderedDict)
+# Each key corresponds to a value function to solve for.
 solgrid = OrderedDict(:V => ones(500))
 
-# define pde function that specifies PDE to solve. The function takes three arguments:
+#Define a function that encodes the PDE. The function takes three arguments:
 # 1. A named tuple corresponding to the current value of the state. 
-# (the names are the ones used when defining the state grid).
 # 2. A named tuple corresponding to the value function at the current value of the state,
-# as well as its derivatives. (the names are the ones used when defining the state grid and the initial guess).
+# (the names are the ones used when defining the state grid and the initial guess).
 # 3. (Optional) Current time t
 # It returns two tuples:
-# 1. a tuple with the value of the time derivative
-# 2. a tuple with the drift of the state variables (internally used for upwinding)
+# 1. a tuple with the time derivative of each value function
+# 2. a tuple with the drift of each state variable (internally used for upwinding)
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
 	Vt = 1 / sol.V - ρ + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) + θμ * (μbar - state.μ) * sol.Vμ / sol.V +
@@ -54,8 +55,8 @@ end
 
 # The function `pdesolve` takes four arguments:
 # 1. a function encoding the ode / pde
-# 2. a state grid corresponding to a discretized version of the state space
-# 3. an initial guess for the array(s) to solve for
+# 2. a state space
+# 3. an initial guess for the value functions
 # 4. a time grid with decreasing values 
 ts = range(1000, stop = 0, length = 100)
 @time pdesolve(f, state, y0, ts)

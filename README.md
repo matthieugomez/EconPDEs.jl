@@ -30,17 +30,19 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 ```julia
 using EconPDEs
 
-# Define a discretized state space (an OrderedDict)
-# Each key corresponds to one state variable.
+# Define a discretized state space
+# An OrderedDict: each key corresponds to one state variable.
 stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
-# Define an initial guess for the value functions (an OrderedDict)
-# Each key corresponds to a value function to solve for.
+# Define an initial guess for the value functions
+# An OrderedDict: each key corresponds to a value function to solve for, 
+# specified as an array with as many dimensions as there are state variables
 solgrid = OrderedDict(:V => ones(500))
 
 #Define a function that encodes the PDE. The function takes three arguments:
 # 1. A named tuple corresponding to the current value of the state. 
-# 2. A named tuple corresponding to the value function at the current value of the state,
+# 2. A named tuple corresponding to the value function (and its derivatives) 
+# at the current value of the state.
 # (the names are the ones used when defining the state grid and the initial guess).
 # 3. (Optional) Current time t
 # It returns two tuples:

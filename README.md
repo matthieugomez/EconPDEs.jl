@@ -60,8 +60,7 @@ end
 # 2. a state space
 # 3. an initial guess for the value functions
 # 4. a time grid with decreasing values 
-ts = range(1000, stop = 0, length = 100)
-@time pdesolve(f, state, y0, ts)
+@time pdesolve(f, state, y0, range(1000, stop = 0, length = 100))
 #> 0.220390 seconds (3.07 M allocations: 219.883 MiB, 18.28% gc time)
 
 # To solve directly for the stationary solution, 

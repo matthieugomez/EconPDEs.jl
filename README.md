@@ -54,14 +54,16 @@ end
 # 2. a state grid corresponding to a discretized version of the state space
 # 3. an initial guess for the array(s) to solve for
 # 4. a time grid with decreasing values 
-y0 = OrderedDict(:V => ones(500)
+y0 = OrderedDict(:V => ones(500))
 ts = range(1000, stop = 0, length = 100)
-pdesolve(f, state, y0, ts)
+@time pdesolve(f, state, y0, ts)
+#> 0.220390 seconds (3.07 M allocations: 219.883 MiB, 18.28% gc time)
 
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
-pdesolve(f, state, y0)
+@time pdesolve(f, state, y0)
+#>  0.018544 seconds (301.91 k allocations: 20.860 MiB)
 ```
 
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 

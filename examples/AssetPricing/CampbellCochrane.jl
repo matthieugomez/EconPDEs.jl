@@ -1,25 +1,21 @@
 using EconPDEs
 
-struct CampbellCochraneModel
+Base.@kwdef  struct CampbellCochraneModel
     # consumption process parameters
-    μ::Float64 
-    σ::Float64
+    μ::Float64 = 0.0189
+    σ::Float64 = 0.015
 
     # utility
-    γ::Float64
-    ρ::Float64
+    γ::Float64 = 2.0
+    ρ::Float64 = 0.116
 
     # habit
-    κs::Float64
-    b::Float64
+    κs::Float64 = 0.138
+    b::Float64 = 0.0
 end
-
-function CampbellCochraneModel(;μ = 0.0189, σ = 0.015, γ = 2.0, ρ = 0.116, κs = 0.138, b = 0.0)
-    # I choose persistence so that monthly simulation of the model matches processes in CC (1999)
-    # ρ = 12 * (1 - 0.89^(1/12))
-    # κs = 12 * (1 - 0.87^(1/12))
-    CampbellCochraneModel(μ, σ, γ, ρ, κs, b)
-end
+# I choose persistence so that monthly simulation of the model matches processes in CC (1999)
+# ρ = 12 * (1 - 0.89^(1/12))
+# κs = 12 * (1 - 0.87^(1/12))
 
 function initialize_stategrid(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b

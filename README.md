@@ -25,7 +25,7 @@ For instance, to solve the PDE giving the price-dividend ratio in the Long Run R
 <!-- 
 1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  + \partial_t V  = 0
 -->
-<img src="img/by2.png">
+<img src="img/by.png">
 
 ```julia
 using EconPDEs

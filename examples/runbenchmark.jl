@@ -7,7 +7,7 @@ stategrid = initialize_stategrid(m)
 y0 = initialize_y(m, stategrid)
 pdesolve(m, stategrid, y0)
 @time y, result, distance = pdesolve(m, stategrid, y0)
-# 0.019167 seconds (249.93 k allocations: 15.914 MiB, 29.78% gc time)
+#   0.011112 seconds (286.45 k allocations: 12.268 MiB)
 
 
 # PDE with 2 state variables

@@ -4,22 +4,19 @@ Type State Grid
 
 ========================================================================================#
 struct StateGrid{N, V}
-    x::NTuple{N, Vector{Float64}}
+    x::NamedTuple{N, V}
 end
-
-StateGrid(x) = StateGrid{length(x), tuple(keys(x)...)}(tuple(values(x)...))
-Base.size(stategrid::StateGrid) = map(length, stategrid.x)
-Base.ndims(stategrid::StateGrid{N, V}) where {N, V} = N
+StateGrid(x::OrderedDict) = StateGrid((;x...))
+Base.size(stategrid::StateGrid) = map(length, values(stategrid.x))
+Base.ndims(stategrid::StateGrid{N, <: NTuple{K, R}}) where {N, K, R} = K
 Base.eachindex(stategrid::StateGrid) = CartesianIndices(size(stategrid))
-@generated function Base.getindex(grid::StateGrid{N, V}, args::CartesianIndex) where {N, V}
+@generated function Base.getindex(stategrid::StateGrid{N, <: NTuple{K, R}}, args::CartesianIndex) where {N, K, R}
     quote
         $(Expr(:meta, :inline))
-        $(Expr(:tuple, [Expr(:(=), V[i], :(grid.x[$i][args[$i]])) for i in 1:N]...))
+        $(Expr(:tuple, [Expr(:(=), N[i], :(stategrid.x[$i][args[$i]])) for i in 1:K]...))
     end
 end
-function Base.getindex(grid::StateGrid{N, V}, x::Symbol) where {N, V}
-    grid.x[find(collect(V) .== x)[1]]
-end
+Base.getindex(stategrid::StateGrid, x::Symbol) = stategrid.x[x]
 
 #========================================================================================
 
@@ -27,11 +24,10 @@ Derive
 
 ========================================================================================#
 # 1 state variable
-@generated function derive(::Type{Tsolution}, grid::StateGrid{1, Tstate}, y::AbstractArray{T}, icar, bc, drift = (0.0,)) where {Tsolution, Tstate, T}
-    N = length(Tsolution.parameters[1])
-    statename = Tstate[1]
+@generated function derive(::Type{Tsolution}, grid::StateGrid{N, <: NTuple{1, R}}, y::AbstractArray{T}, icar, bc, drift = (0.0,)) where {Tsolution, N, R, T}
+    statename = N[1]
     expr = Expr[]
-    for k in 1:N
+    for k in 1:length(Tsolution.parameters[1])
         solname = Tsolution.parameters[1][k]
         push!(expr, Expr(:(=), solname, :(y[i, $k])))
         push!(expr, Expr(:(=), Symbol(solname, statename), :((μx >= 0.0) ? ((i < size(y, 1)) ? (y[i+1, $k] - y[i, $k]) / Δxp : convert($T, bc[end, $k])) : ((i > 1) ? (y[i, $k] - y[i-1, $k]) / Δxm : convert($T, bc[1, $k])))))
@@ -51,12 +47,11 @@ Derive
 end
 
 # 2 state variables
-@generated function derive(::Type{Tsolution}, grid::StateGrid{2, Tstate}, y::AbstractArray{T}, icar, bc, drift = (0.0, 0.0)) where {Tsolution, Tstate, T}
-    N = length(Tsolution.parameters[1])
-    statename1 = Tstate[1]
-    statename2 = Tstate[2]
+@generated function derive(::Type{Tsolution}, grid::StateGrid{N, <: NTuple{2, R}}, y::AbstractArray{T}, icar, bc, drift = (0.0, 0.0)) where {Tsolution, N, R, T}
+    statename1 = N[1]
+    statename2 = N[2]
     expr = Expr[]
-    for k in 1:N
+    for k in 1:length(Tsolution.parameters[1])
         solname = Tsolution.parameters[1][k]
         push!(expr, Expr(:(=), solname, :(y[i1, i2, $k])))
         push!(expr, Expr(:(=), Symbol(solname, statename1), :((μx1 >= 0.0) ? ((i1 < size(y, 1)) ? (y[i1+1, i2, $k] - y[i1, i2, $k]) / Δx1p : convert($T, bc[end, i2, $k])) : ((i1 > 1) ? (y[i1, i2, $k] - y[i1-1, i2, $k]) / Δx1m : convert($T, bc[1, i2, $k])))))

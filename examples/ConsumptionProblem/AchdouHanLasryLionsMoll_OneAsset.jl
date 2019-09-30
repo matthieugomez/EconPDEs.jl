@@ -50,14 +50,8 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
         c = y + r * amin
         μa = 0.0
     end
-    # this branch is unnecessary when individuals dissave at the top (default)
-    if (a ≈ amax) && (μa >= 0.0)
-        va = (((ρ - r) / γ + r) * a)^(-γ)
-        c = ((ρ - r) / γ + r) * a
-        μa = y + (r - ρ) / γ * a
-    end
 
-    vt = c^(1 - γ) / (1 - γ) + va * μa + vy * μy + 0.5 * vyy * σy^2 - ρ * v
+    vt = c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v
     return (vt,), (μy, μa), (v = v, c = c, va = va, vy = vy, y = y, a = a, μa = μa, vaa = vaa)
 end
 

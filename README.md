@@ -79,11 +79,6 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 
 By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
 
-# Installation
-
-To install the package
-```julia
-using Pkg
-Pkg.add("EconPDEs")
-```
+## Installation
+The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.
 

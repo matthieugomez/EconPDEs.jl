@@ -5,7 +5,7 @@
 ##############################################################################
 
 # Implicit time step
-function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = 1e-9, J0c = (nothing, nothing))
+function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing))
     F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
     if J0 == nothing
@@ -23,7 +23,7 @@ function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)
 end
 
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = 1e-9, scale = 10.0, J0c = (nothing, nothing))
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing))
     ypost = y0
     ydot = zero(y0)
     F!(ydot, ypost)
@@ -48,7 +48,7 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 Δ = Δ * coef * olddistance / distance
                 ypost, y = y, ypost
             else
-                verbose && @show iter, Δ, NaN
+                # verbose && @show iter, Δ, NaN
                 # if the implict time step is not solved
                 # revert and diminish the time step
                 coef = 1.0

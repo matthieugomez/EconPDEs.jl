@@ -6,9 +6,13 @@ Type State Grid
 struct StateGrid{T, N, C <: NamedTuple} <: AbstractArray{T, N}
     x::C
 end
-StateGrid(x::NamedTuple{Names, <: NTuple{N, <: AbstractVector{T}}}) where {Names, N, T} = StateGrid{T, N, typeof(x)}(x)
+function StateGrid(x::NamedTuple{Names, <: NTuple{N, <: AbstractVector{T}}}) where {Names, N, T}
+    StateGrid{T, N, typeof(x)}(x)
+end
 StateGrid(x::OrderedDict) = StateGrid((;x...))
-Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V} = NamedTuple{Names, NTuple{N, T}}
+function Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V}
+    NamedTuple{Names, NTuple{N, T}}
+end
 Base.ndims(stategrid::StateGrid{T, N}) where {T, N} = N
 Base.size(stategrid::StateGrid{T, N}) where {T, N} = ntuple(i -> length(stategrid.x[i]), N)
 Base.eachindex(stategrid::StateGrid) = CartesianIndices(size(stategrid))

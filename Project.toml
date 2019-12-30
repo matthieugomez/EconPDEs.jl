@@ -15,8 +15,8 @@ DiffEqDiffTools = "01453d9d-ee7c-5054-8395-0335cb756afa"
 julia = "1"
 NLsolve = "1, 2, 3, 4"
 OrderedCollections = "1"
-BlockBandedMatrices = "0"
-SparseDiffTools = "0.8, 0.9, 0.10, 1"
+BlockBandedMatrices = "0.7"
+SparseDiffTools = "1.2"
 DiffEqDiffTools = "1"
 
 

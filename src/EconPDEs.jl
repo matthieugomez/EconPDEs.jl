@@ -1,5 +1,5 @@
 module EconPDEs
-using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatrices, SparseDiffTools, DiffEqDiffTools
+using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatrices, SparseDiffTools, FiniteDiff
 ##############################################################################
 ##
 ## Load files

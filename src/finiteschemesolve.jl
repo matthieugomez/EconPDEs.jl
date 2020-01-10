@@ -15,7 +15,7 @@ function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             jac_cache = ForwardColorJacCache(F_helper!, deepcopy(ypost); colorvec = colorvec, sparsity = J0)
             j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, F_helper!, y, jac_cache)
         else
-            j_helper! = (J, y) -> DiffEqDiffTools.finite_difference_jacobian!(J, F_helper!, y; colorvec = colorvec)
+            j_helper! = (J, y) -> FiniteDiff.finite_difference_jacobian!(J, F_helper!, y; colorvec = colorvec)
         end
         result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
     end

@@ -23,7 +23,7 @@ function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)
 end
 
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing))
+function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing), minΔ = 1e-9)
     ypost = y0
     ydot = zero(y0)
     F!(ydot, ypost)
@@ -35,7 +35,7 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         coef = 1.0
         olddistance = distance
         iter = 0
-        while (iter < iterations) & (Δ >= 1e-12) & (distance > maxdist)
+        while (iter < iterations) & (Δ >= minΔ) & (distance > maxdist)
             iter += 1
             y, nldistance = implicit_timestep(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c)
             F!(ydot, y)
@@ -57,7 +57,7 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             end
         end
     end
-    verbose && (distance > maxdist) && @warn "Iteration did not converge"
+    verbose && ((distance > maxdist) | (Δ < minΔ)) && @warn "Iteration did not converge"
     return ypost, distance
 end
 

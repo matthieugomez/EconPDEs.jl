@@ -1,6 +1,6 @@
 name = "EconPDEs"
 uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"

@@ -109,51 +109,51 @@ function simulate_duration(ws, m, Csitp, Psitp, Pwsitp, N, ts)
 end
 
 
-using Interpolations, Plots
-m = WangWangYangModel()
-stategrid = initialize_stategrid(m)
-m.wmax = maximum(stategrid[:w])
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0, bc = OrderedDict(:pw => (1.0, 1.0)))
-Csitp = interpolate((stategrid[:w],), result[:c], Gridded(Linear()))
-Psitp = interpolate((stategrid[:w],), result[:p], Gridded(Linear()))
-Pwsitp = interpolate((stategrid[:w],), result[:pw], Gridded(Linear()))
+#using Interpolations, Plots
+#m = WangWangYangModel()
+#stategrid = initialize_stategrid(m)
+#m.wmax = maximum(stategrid[:w])
+#y0 = initialize_y(m, stategrid)
+#y, result, distance = pdesolve(m, stategrid, y0, bc = OrderedDict(:pw => (1.0, 1.0)))
+#Csitp = interpolate((stategrid[:w],), result[:c], Gridded(Linear()))
+#Psitp = interpolate((stategrid[:w],), result[:p], Gridded(Linear()))
+#Pwsitp = interpolate((stategrid[:w],), result[:pw], Gridded(Linear()))
 
 
 # test Euler equation
-w = result[:w]
-p = result[:p]
-pw = result[:pw]
-pww = result[:pww]
-function diff(y, a, μa)
-    out = zeros(length(y))
-    for i in 1:length(y)
-        if ((μa[i] >= 0) & (i < length(y))) | (i == 1)
-            out[i] = (y[i+1]-y[i]) / (a[i+1]-a[i])
-        else
-            out[i] = (y[i]-y[i-1]) / (a[i]-a[i-1])
-        end
-    end
-    return out
-end
-pwww = diff(result[:pww], w, result[:μw])
-Vw = p.^(-m.γ) .* pw
-Vy = p.^(-m.γ) .* (p.- w .* pw)
-Vww = p.^(-1-m.γ) .* (p .* pww .- m.γ .* pw.^2)
-Vwy = p.^(-1-m.γ) .* (.- w .* p .* pww .- m.γ .* pw .* (p .- w .* pw))
-Vyy = p.^(-1-m.γ) .* (w.^2 .* p .* pww .- m.γ .* (p .- w.* pw).^2)
-Vwyy = p.^(-2-m.γ) .* (2 .* w .* p .* pww .+ w.^2 .* pw .* pww .+ w.^2 .* p .* pwww .- m.γ .* 2 .* (p .- w .* pw) .* (.- w .* pww) .+ (-1 -m.γ) .* pw .* (w.^2 .* p .* pww .- m.γ .* (p .- w.* pw).^2))
-
-wn = length(stategrid[:w])
-irange = 2:wn
-lhs = m.ρ .* Vw 
-rhs = (m.r .* Vw .+ (m.r .* w .+ 1 .- result[:c]) .* Vww + m.μ .* Vwy .+ 0.5 .* m.σ^2 .* Vwyy)
-plot(w[irange], [lhs[irange] rhs[irange]])
-
-N = 10000
-ts = range(0, 200, step = 1//12)
-irange = trunc.(Int, range(1, length(stategrid[:w]), length = 10))
-wealths, durations, durations2, durations_r, durations_sdf, Es, E2s, E3s = simulate_duration(stategrid[:w][irange], m, Csitp, Psitp, Pwsitp, N, ts)
+#w = result[:w]
+#p = result[:p]
+#pw = result[:pw]
+#pww = result[:pww]
+#function diff(y, a, μa)
+#    out = zeros(length(y))
+#    for i in 1:length(y)
+#        if ((μa[i] >= 0) & (i < length(y))) | (i == 1)
+#            out[i] = (y[i+1]-y[i]) / (a[i+1]-a[i])
+#        else
+#            out[i] = (y[i]-y[i-1]) / (a[i]-a[i-1])
+#        end
+#    end
+#    return out
+#end
+#pwww = diff(result[:pww], w, result[:μw])
+#Vw = p.^(-m.γ) .* pw
+#Vy = p.^(-m.γ) .* (p.- w .* pw)
+#Vww = p.^(-1-m.γ) .* (p .* pww .- m.γ .* pw.^2)
+#Vwy = p.^(-1-m.γ) .* (.- w .* p .* pww .- m.γ .* pw .* (p .- w .* pw))
+#Vyy = p.^(-1-m.γ) .* (w.^2 .* p .* pww .- m.γ .* (p .- w.* pw).^2)
+#Vwyy = p.^(-2-m.γ) .* (2 .* w .* p .* pww .+ w.^2 .* pw .* pww .+ w.^2 .* p .* pwww .- m.γ .*# 2 .* (p .- w .* pw) .* (.- w .* pww) .+ (-1 -m.γ) .* pw .* (w.^2 .* p .* pww .- m.γ .* (#p .- w.* pw).^2))
+#
+#wn = length(stategrid[:w])
+#irange = 2:wn
+#lhs = m.ρ .* Vw 
+#rhs = (m.r .* Vw .+ (m.r .* w .+ 1 .- result[:c]) .* Vww + m.μ .* Vwy .+ 0.5 .* m.σ^2 .* Vwyy#)
+#plot(w[irange], [lhs[irange] rhs[irange]])
+#
+#N = 10000
+#ts = range(0, 200, step = 1//12)
+#irange = trunc.(Int, range(1, length(stategrid[:w]), length = 10))
+#wealths, durations, durations2, durations_r, durations_sdf, Es, E2s, E3s = simulate_duration(stategrid[:w][irange], m, Csitp, Psitp, Pwsitp, N, ts)
 
 plot(stategrid[:w][irange], [durations durations2 durations_sdf durations_r], legend = :bottomright)
 

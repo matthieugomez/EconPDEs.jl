@@ -20,7 +20,7 @@ function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.
     AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
+function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 10, an = 100)
     κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
 
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
@@ -32,7 +32,7 @@ function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 5, an = 50)
 end
 
 function initialize_y(m::AchdouHanLasryLionsMollModel, stategrid)
-    OrderedDict(:v => [log(y + a) for y in stategrid[:y], a in stategrid[:a]])
+    OrderedDict(:v => [log(y + max(a, 0.0)) for y in stategrid[:y], a in stategrid[:a]])
 end
 
 function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
@@ -54,14 +54,6 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     vt = c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v
     return (vt,), (μy, μa), (v = v, c = c, va = va, vy = vy, y = y, a = a, μa = μa, vaa = vaa)
 end
-
-
-
-m = AchdouHanLasryLionsMollModel()
-stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
-
 
 # Check marginal value of wealth converges to 1.0 at infinity
 #b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))

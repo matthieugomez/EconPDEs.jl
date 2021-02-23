@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.org/matthieugomez/EconPDEs.jl)
+[![Build Status](https://travis-ci.com/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.com/matthieugomez/EconPDEs.jl)
 [![Coverage Status](https://coveralls.io/repos/matthieugomez/EconPDEs.jl/badge.svg?branch=master)](https://coveralls.io/r/matthieugomez/EconPDEs.jl?branch=master)
 
 

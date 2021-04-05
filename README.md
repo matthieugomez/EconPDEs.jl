@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.com/matthieugomez/EconPDEs.jl.svg?branch=master)](https://travis-ci.com/matthieugomez/EconPDEs.jl)
-[![Coverage Status](https://coveralls.io/repos/matthieugomez/EconPDEs.jl/badge.svg?branch=master)](https://coveralls.io/r/matthieugomez/EconPDEs.jl?branch=master)
+[![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 
 
 This package provides the function `pdesolve` that solves (system of) nonlinear ODEs/PDEs arising in economic models (i.e. parabolic/elliptic PDEs arising from HJB equations). It is:

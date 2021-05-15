@@ -55,6 +55,12 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     return (vt,), (μy, μa), (v = v, c = c, va = va, vy = vy, y = y, a = a, μa = μa, vaa = vaa)
 end
 
+m = AchdouHanLasryLionsMollModel()
+stategrid = initialize_stategrid(m)
+y0 = initialize_y(m, stategrid)
+y, result, distance = pdesolve(m, stategrid, y0)
+
+
 # Check marginal value of wealth converges to 1.0 at infinity
 #b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
 #pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b

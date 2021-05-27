@@ -50,5 +50,16 @@ for x in (:BoltonChenWang, )
 	end
 end
 
+for x in (:Leland, )
+	try
+		include("../examples/OptimalStoppingTime/$(x).jl")
+		@test distance <= 1e-5
+		println("\t\033[1m\033[32mPASSED\033[0m: $(x)")
+	catch e
+		println("\t\033[1m\033[31mFAILED\033[0m: $(x)")
+		showerror(stdout, e, backtrace())
+		rethrow(e)
+	end
+end
 
 

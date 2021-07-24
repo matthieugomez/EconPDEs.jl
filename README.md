@@ -17,7 +17,7 @@ The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/e
 - *Heterogeneous Agent Models* (Garleanu Panageas (2015), Di Tella (2017), Haddad (2015))
 - *Consumption with Borrowing Constraint* (Wang Wang Yang (2016), Achdou Han Lasry Lions Moll (2018))
 - *Investment with Borrowing Constraint* (Bolton Chen Wang (2009))
-
+- *Strategic Default* (Leland (1994))
 
 # A Simple Example
 
@@ -78,6 +78,14 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. 
 
 By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
+
+## Optimal Stopping
+Optimal stopping problems are also supported, as exemplified in [Leland.jl](examples/OptimalStoppingTime/Leland.jl). These problems are solved with "HJB variational inequality" (HJBVI), i.e.:
+
+<img src="img/hjbvi.png">
+
+where `S(x)` is the value of exercising the option. Notice the traditional "value matching" (`S(x̲)=v(x̲)`) and "smooth pasting" (`S'(x̲)=v'(x̲)`) conditions are implied in the HJBVI formulation. See [the deck of notes from Ben Moll on stopping time problems](https://benjaminmoll.com/codes/) for more details. The `S(x)` can be provided to the solver as a vector defined on the grid via the keyword `y̲` (or `ȳ` as the upper bound for cost minimization problems).
+
 
 ## Installation
 The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.

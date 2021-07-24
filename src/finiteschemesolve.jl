@@ -6,7 +6,11 @@
 
 # Implicit time step
 function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth)
-    F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ; ydot .*= -1) # follow the sign convention by mcpsolve
+    F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ; ydot .*= -1)
+    # sign flipped for HJBVI: The HJBVI is min{-ydot, y - y̲}=0, so when y==y̲, ydot ≤ 0
+    # (remember here ydot = u + ∂y/∂x dx - ρy + ẏ)
+    # while the sign convention in mcpsolve is when y==y̲, ydot>=0. 
+    # usual HJBs are not affected since they require ydot==0.
     J0, colorvec = J0c
     if J0 == nothing
         result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
@@ -18,6 +22,7 @@ function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             j_helper! = (J, y) -> FiniteDiff.finite_difference_jacobian!(J, F_helper!, y; colorvec = colorvec)
         end
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
+            # using mcpsolve if lower/upper bounds are given
             result = mcpsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
         else
             result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)

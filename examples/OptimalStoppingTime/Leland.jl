@@ -53,8 +53,8 @@ grid = OrderedDict(:δ => δgrid)
 y0 = initialize_y(le, grid)
 @unpack_LelandModel le
 
-y̲, ȳ = zeros(length(grid[:δ])), Inf * ones(length(grid[:δ]))
-y, result, distance = pdesolve(le, grid, y0; y̲ = y̲, ȳ = ȳ, bc = OrderedDict(:Eδ => (0.0, 1/(r - μ),)), reformulation = :smooth)
+y̲ = zeros(length(grid[:δ]))
+y, result, distance = pdesolve(le, grid, y0; y̲ = y̲, bc = OrderedDict(:Eδ => (0.0, 1/(r - μ),)), reformulation = :smooth)
 
 
 

@@ -60,12 +60,11 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = DiTellaModel()
-xs = range(0.01, 0.99, length = 80)
+xn = 80
+νn = 10
+xs = range(0.01, 0.99, length = xn)
 distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κν))
-νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10)
+νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = νn)
 stategrid = OrderedDict(:x => xs, :ν => νs)
-yend = OrderedDict(:pA => ones(length(stategrid[:x]), length(stategrid[:ν])), 
-                   :pB => ones(length(stategrid[:x]), length(stategrid[:ν])), 
-                   :p => ones(length(stategrid[:x]), length(stategrid[:ν]))
-                   )
+yend = OrderedDict(:pA => ones(xn, νn), :pB => ones(xn, νn), :p => ones(xn, νn))
 y, result, distance = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))

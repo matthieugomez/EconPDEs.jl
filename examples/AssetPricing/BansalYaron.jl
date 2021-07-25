@@ -51,12 +51,14 @@ end
 
 # Bansal Yaron (2004)
 m = BansalYaronModel()
+μn = 30
+νn = 30
 distribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
-μs = range(quantile(distribution, 0.025), quantile(distribution, 0.975), length = 30)
+μs = range(quantile(distribution, 0.025), quantile(distribution, 0.975), length = μn)
 distribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-vs = range(quantile(distribution, 0.025), quantile(distribution, 0.975), length = 30)
+vs = range(quantile(distribution, 0.025), quantile(distribution, 0.975), length = νn)
 stategrid = OrderedDict(:μ => μs, :v => vs)
-yend = OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))
+yend = OrderedDict(:p => ones(μn, νn))
 y, result, distance = pdesolve(m, stategrid, yend)
 
 # Bansal Yaron (2009)

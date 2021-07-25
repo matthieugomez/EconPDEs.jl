@@ -65,16 +65,15 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
 
   # Interest rate r
   #r = ρ + μc / ψ - (1 - 1 / ψ) / (2 * γ) * κ2 - (1 / ψ - γ) / (2 * γ * (ψ - 1)) * σp2 - (1 - γ) / (γ * ψ) * (κμ * σμ + κv * σv) + 1 / ψ  * (κ_Zc * σc + κμ * σμ + κv * σv)
-
-  # Market pricing
   #out = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
 
   out = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2 * (1 - (αstar - 1)^2)) + μp + (0.5 * (1 / ψ - γ) / (1 - 1 / ψ) + 0.5 * γ * (1 - 1 / ψ) * (αstar - 1)^2) * σp2)
-
   return (out,) , (μμ, μv)
 end
 
 m = HaddadModel()
-stategrid = initialize_stategrid(m)
-yend =  OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))
+μn = 30
+vn = 30
+stategrid = initialize_stategrid(m; μn = μn, vn = vn)
+yend = OrderedDict(:p => ones(μn, vn))
 y, result, distance = pdesolve(m, stategrid, yend)

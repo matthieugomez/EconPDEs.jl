@@ -46,8 +46,9 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = WachterModel()
-stategrid = OrderedDict(:λ => range(0.0, 0.1, length = 30))
-yend =  OrderedDict(:p => ones(length(stategrid[:λ])))
+λn = 30
+stategrid = OrderedDict(:λ => range(0.0, 0.1, length = λn))
+yend =  OrderedDict(:p => ones(λn))
 y, result, distance = pdesolve(m, stategrid, yend)
 
 #========================================================================================

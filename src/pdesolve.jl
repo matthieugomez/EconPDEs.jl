@@ -17,7 +17,7 @@
 function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, kwargs...)
     Tsolution = Type{tuple(keys(yend)...)}
     stategrid = StateGrid(grid)
-    all(length.(values(yend)) .== prod(size(stategrid))) || throw("The length of initial solution does not equal the length of the state space")
+    all(length.(values(yend)) .== prod(size(stategrid))) || throw("The length of initial guess (e.g. terminal value) does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(yend[k])) for k in keys(yend))
     if τs isa AbstractVector
         y = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(yend))

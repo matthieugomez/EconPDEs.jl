@@ -41,9 +41,10 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
 end
 
 m = ArbitrageHoldingCosts()
+zn = 200
 d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
-stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = 200))
-yend = OrderedDict(:F => zeros(length(stategrid[:z])))
+stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = zn))
+yend = OrderedDict(:F => zeros(zn))
 τs = range(0, m.T, length = 100)
 y, result, distance = pdesolve(m, stategrid, yend, τs)
 

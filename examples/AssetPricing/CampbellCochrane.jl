@@ -15,14 +15,14 @@ end
 # ρ = 12 * (1 - 0.89^(1/12))
 # κs = 12 * (1 - 0.87^(1/12))
 
-function initialize_stategrid(m::CampbellCochraneModel; smin = -300.0, n = 1000)
+function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
     μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
     Sbar = σ * sqrt(γ / (κs - b / γ))
     sbar = log.(Sbar)
     smax =  sbar + 0.5 * (1 - Sbar^2)
     # corresponds to Grid 3 in Wachter (2005)
-    shigh = log.(range(0.0, stop = exp(smax), length = div(n, 10)))
-    slow = range(smin, shigh[2], length = n - div(n, 10))
+    shigh = log.(range(0.0, exp(smax), length = div(sn, 10)))
+    slow = range(-300.0, shigh[2], length = sn - div(sn, 10))
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
@@ -58,7 +58,6 @@ m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
 yend = OrderedDict(:p => ones(length(stategrid[:s])))
 y, result, distance = pdesolve(m, stategrid, yend)
-
 
 
 # Wachter (2005) calibration

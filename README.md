@@ -6,21 +6,11 @@ This package provides the function `pdesolve` that solves (system of) nonlinear 
 - robust: upwinding + fully implicit time stepping (see [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/details.pdf))
 - fast: sparse matrices + Newton acceleration
 - simple-to-use
-
-# Examples
-
-The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of macro-finance models:
-- *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))
-- *Long Run Risk Model* (Bansal Yaron (2004))
-- *Disaster Model* (Wachter (2013))
-- *Heterogeneous Agent Models* (Garleanu Panageas (2015), Di Tella (2017), Haddad (2015))
-- *Consumption with Borrowing Constraint* (Wang Wang Yang (2016), Achdou Han Lasry Lions Moll (2018))
-- *Investment with Borrowing Constraint* (Bolton Chen Wang (2009))
-- *Strategic Default* (Leland (1994))
+(Leland (1994))
 
 # A Simple Example
 
-For instance, to solve the PDE giving the price-dividend ratio in the Long Run Risk model with time-varying drift:
+Let us solve the PDE for the price-dividend ratio in the Long Run Risk model with time-varying drift:
 <!-- 
 1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  + \partial_t V  = 0
 -->
@@ -68,7 +58,6 @@ end
 @time pdesolve(f, stategrid, solend)
 #> 0.012886 seconds (232.59 k allocations: 8.926 MiB)
 ```
-
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
 
@@ -85,6 +74,15 @@ Optimal stopping problems are also supported, as exemplified in [Leland.jl](exam
 
 where `S(x)` is the value of exercising the option. Notice the traditional "value matching" (`S(x̲)=v(x̲)`) and "smooth pasting" (`S'(x̲)=v'(x̲)`) conditions are implied in the HJBVI formulation. See [the deck of notes from Ben Moll on stopping time problems](https://benjaminmoll.com/codes/) for more details. The `S(x)` can be provided to the solver as a vector defined on the grid via the keyword `y̲` (or `ȳ` as the upper bound for cost minimization problems).
 
+
+# Examples
+The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of models:
+- *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))
+- *Long Run Risk Model* (Bansal Yaron (2004))
+- *Disaster Model* (Wachter (2013))
+- *Heterogeneous Agent Models* (Garleanu Panageas (2015), Di Tella (2017), Haddad (2015))
+- *Consumption with Borrowing Constraint* (Wang Wang Yang (2016), Achdou Han Lasry Lions Moll (2018))
+- *Investment with Borrowing Constraint* (Bolton Chen Wang (2009))
 
 ## Installation
 The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.

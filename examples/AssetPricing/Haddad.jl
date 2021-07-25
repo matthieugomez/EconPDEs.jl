@@ -1,27 +1,24 @@
 using EconPDEs, Distributions
 
-struct HaddadModel
+Base.@kwdef struct HaddadModel
   # consumption process parameters
-  μbar::Float64 
-  vbar::Float64
-  κμ::Float64 
-  νμ::Float64 
-  κv::Float64 
-  νv::Float64 
+  μbar::Float64 = 0.018
+  vbar::Float64 = 0.00052
+  κμ::Float64 = 0.3
+  νμ::Float64 = 0.456
+  κv::Float64 = 0.012
+  νv::Float64 = 0.00472
 
   # active capital
-  αbar::Float64
-  λ::Float64
+  αbar::Float64 = 1.2
+  λ::Float64 = 0.018
 
   # utility parameters
-  ρ::Float64  
-  γ::Float64 
-  ψ::Float64
+  ρ::Float64 = 0.0132
+  γ::Float64 = 10.0
+  ψ::Float64 = 1.5
 end
 
-function HaddadModel(;μbar = 0.018, vbar = 0.00052, κμ = 0.3, νμ = 0.456, κv = 0.012, νv = 0.00472, αbar = 1.2, λ = 0.018, ρ = 0.0132, γ = 10.0, ψ = 1.5)
-  HaddadModel(μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ)
-end
 
 function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
   μbar = m.μbar; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; αbar = m.αbar ; λ = m.λ ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
@@ -29,25 +26,22 @@ function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
   σ = sqrt(νμ^2 * vbar / (2 * κμ))
   μmin = quantile(Normal(μbar, σ), 0.001)
   μmax = quantile(Normal(μbar, σ), 0.999)
-  μs = range(μmin, stop = μmax, length = μn)
+  μs = range(μmin,  μmax, length = μn)
 
   α = 2 * κv * vbar / νv^2
   β = νv^2 / (2 * κv)
   vmin = quantile(Gamma(α, β), 0.001)
   vmax = quantile(Gamma(α, β), 0.999)
-  vs = range(vmin, stop = vmax, length = vn)
+  vs = range(vmin,  vmax, length = vn)
 
   OrderedDict(:μ => μs, :v => vs)
 end
   
-function initialize_y(m::HaddadModel, stategrid::OrderedDict)
-  OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))
-end
 
 function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
-  μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; αbar = m.αbar ; λ = m.λ ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
-  μ, v = state.μ, state.v
-  p, pμ, pv, pμμ, pμv, pvv = y.p, y.pμ, y.pv, y.pμμ, y.pμv, y.pvv
+  (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
+  (; μ, v) = state
+  (; p, pμ, pv, pμμ, pμv, pvv) = y
 
   # drift and volatility of μ, ν, p
   μc = μ
@@ -77,10 +71,10 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
 
   out = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2 * (1 - (αstar - 1)^2)) + μp + (0.5 * (1 / ψ - γ) / (1 - 1 / ψ) + 0.5 * γ * (1 - 1 / ψ) * (αstar - 1)^2) * σp2)
 
-  return (out,) , (μμ, μv), (p = p, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, αstar = αstar)
+  return (out,) , (μμ, μv)
 end
 
 m = HaddadModel()
 stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
+yend =  OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))
+y, result, distance = pdesolve(m, stategrid, yend)

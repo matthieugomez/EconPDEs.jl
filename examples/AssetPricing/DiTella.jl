@@ -1,41 +1,25 @@
 using EconPDEs, Distributions
 
-mutable struct DiTellaModel
+Base.@kwdef mutable struct DiTellaModel
   # Utility Function
-  γ::Float64 
-  ψ::Float64
-  ρ::Float64
-  τ::Float64
+  γ::Float64 = 5.0 
+  ψ::Float64 = 1.5
+  ρ::Float64 = 0.05
+  τ::Float64 = 0.4
 
   # Technology
-  A::Float64
-  σ::Float64
+  A::Float64 = 200.0
+  σ::Float64 = 0.03
 
   # MoralHazard
-  ϕ::Float64
+  ϕ::Float64 = 0.2
 
   # Idiosyncratic
-  νbar::Float64
-  κν::Float64
-  σνbar::Float64
+  νbar::Float64 = 0.24
+  κν::Float64 = 0.22
+  σνbar::Float64 = -0.13
 end
 
-function DiTellaModel(;γ = 5.0, ψ = 1.5, ρ = 0.05, τ = 0.4, A = 200.0, σ = 0.03, ϕ = 0.2, νbar = 0.24, κν = 0.22, σνbar = -0.13)
-  DiTellaModel(γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar)
-end
-
-function initialize_stategrid(m::DiTellaModel; xn = 80, νn = 10)
-  γ = m.γ ; ψ = m.ψ ; ρ = m.ρ ; τ = m.τ ; A = m.A ; σ = m.σ ; ϕ = m.ϕ ; νbar = m.νbar ; κν = m.κν ; σνbar = m.σνbar
-  distribution = Gamma(2 * κν * νbar / σνbar^2, σνbar^2 / (2 * κν))
-  νmin = quantile(distribution, 0.001)
-  νmax = quantile(distribution, 0.999)
-  OrderedDict(:x => range(0.01, stop = 0.99, length = xn), :ν => range(νmin, stop = νmax, length = νn))
-end
-
-function initialize_y(m::DiTellaModel, stategrid::OrderedDict)
-  x = fill(1.0, length(stategrid[:x]), length(stategrid[:ν]))
-  OrderedDict(:pA => x, :pB => x, :p => x)
-end
 
 function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   (; γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar) = m  
@@ -76,7 +60,12 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = DiTellaModel()
-stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
-y, result, distance = pdesolve(m, stategrid, y0; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))
+distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κν))
+stategrid = OrderedDict(:x => range(0.01, 0.99, length = 80), 
+                        :ν => range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10)
+                        )
+yend = OrderedDict(:pA => ones(length(stategrid[:x]), length(stategrid[:ν])), 
+                   :pB => ones(length(stategrid[:x]), length(stategrid[:ν])), 
+                   :p => ones(length(stategrid[:x]), length(stategrid[:ν]))
+                   )
+y, result, distance = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))

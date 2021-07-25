@@ -4,11 +4,9 @@ Base.@kwdef  struct CampbellCochraneModel
     # consumption process parameters
     μ::Float64 = 0.0189
     σ::Float64 = 0.015
-
     # utility
     γ::Float64 = 2.0
     ρ::Float64 = 0.116
-
     # habit
     κs::Float64 = 0.138
     b::Float64 = 0.0
@@ -24,13 +22,10 @@ function initialize_stategrid(m::CampbellCochraneModel; smin = -300.0, n = 1000)
     smax =  sbar + 0.5 * (1 - Sbar^2)
     # corresponds to Grid 3 in Wachter (2005)
     shigh = log.(range(0.0, stop = exp(smax), length = div(n, 10)))
-    slow = range(smin, stop = shigh[2], length = n - div(n, 10))
+    slow = range(smin, shigh[2], length = n - div(n, 10))
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
-function initialize_y(m::CampbellCochraneModel, stategrid)
-    OrderedDict(:p => ones(length(stategrid[:s])))
-end
 	
 function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, γ, ρ, κs, b) = m
@@ -61,14 +56,14 @@ end
 # Campbell Cochrane (1999)
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
+yend = OrderedDict(:p => ones(length(stategrid[:s])))
+y, result, distance = pdesolve(m, stategrid, yend)
 
 
 
 # Wachter (2005) calibration
 # m = CampbellCochraneModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011)
 # stategrid = initialize_stategrid(m)
-# y0 = initialize_y(m, stategrid)
-# y, result, distance = pdesolve(m, stategrid, y0)
+# yend = OrderedDict(:p => ones(length(stategrid[:s])))
+# y, result, distance = pdesolve(m, stategrid, yend)
 

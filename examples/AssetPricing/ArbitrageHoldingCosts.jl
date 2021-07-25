@@ -2,29 +2,13 @@ using EconPDEs, Distributions
 
 # Arbitrage With Holding Costs: A Utility-Based Approach
 # Author(s): Bruce Tuckman and Jean-Luc Vila
-
-struct ArbitrageHoldingCosts
-    c::Float64
-    r::Float64
-    ρ::Float64 
-    σ::Float64 
-    a::Float64 
-    T::Float64
-end
-
-function ArbitrageHoldingCosts(;c = 0.06, r = 0.09,  ρ = 5.42, σ = 0.88, a = 26.72, T = 100)
-    ArbitrageHoldingCosts(c, r, ρ, σ, a, T)
-end
-
-function initialize_stategrid(m::ArbitrageHoldingCosts; n = 200)
-    d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
-    zmin = quantile(d, 0.00001)
-    zmax = quantile(d, 0.99999)
-    OrderedDict(:z => range(zmin, stop = zmax, length = n))
-end
-
-function initialize_y(m::ArbitrageHoldingCosts, stategrid::OrderedDict)
-    OrderedDict(:F => zeros(length(stategrid[:z])))
+Base.@kwdef struct ArbitrageHoldingCosts
+    c::Float64 = 0.06
+    r::Float64 = 0.09
+    ρ::Float64 = 5.42
+    σ::Float64 = 26.72
+    a::Float64 = 26.72
+    T::Float64 = 100
 end
 
 function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
@@ -59,9 +43,10 @@ end
 
 m = ArbitrageHoldingCosts()
 τs = range(m.T, stop = 0, length = 100)
-stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0, τs)
+d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
+stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = 200))
+yend = OrderedDict(:F => zeros(length(stategrid[:z])))
+y, result, distance = pdesolve(m, stategrid, yend, τs)
 
 
 ### reproduce Fig 2

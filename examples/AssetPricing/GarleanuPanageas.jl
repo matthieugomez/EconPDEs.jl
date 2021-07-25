@@ -1,50 +1,38 @@
 using EconPDEs
 
-struct GarleanuPanageasModel
+Base.@kwdef struct GarleanuPanageasModel
 
   # utility function
-  γA::Float64 
-  ψA::Float64
-  γB::Float64 
-  ψB::Float64 
-  ρ::Float64
-  δ::Float64
+  γA::Float64 = 1.5
+  ψA::Float64 = 0.7
+  γB::Float64 = 10.0
+  ψB::Float64 = 0.05
+  ρ::Float64 = 0.001
+  δ::Float64 = 0.02
 
   # proportion a
-  νA::Float64
+  νA::Float64 = 0.01
 
   # consumption
-  μ::Float64
-  σ::Float64
+  μ::Float64 = 0.02
+  σ::Float64 = 0.041
 
   # earning function
-  B1::Float64
-  δ1::Float64
-  B2::Float64
-  δ2::Float64
-  ω::Float64
-end
-
-function GarleanuPanageasModel(;γA  = 1.5, ψA = 0.7, γB = 10.0, ψB = 0.05, ρ = 0.001, δ = 0.02, νA = 0.01, μ = 0.02, σ = 0.041, B1 = 30.72, δ1 = 0.0525, B2 = -30.29, δ2 = 0.0611, ω = 0.92)
-  scale = δ / (δ + δ1) * B1 + δ / (δ + δ2) * B2
-  B1 = B1 / scale
-  B2 = B2 / scale
-  GarleanuPanageasModel(γA , ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω)
-end
-
-function initialize_stategrid(m::GarleanuPanageasModel; n = 200)
-  OrderedDict(:x => range(0.0, stop = 1.0, length = n))
-end
-
-function initialize_y(m::GarleanuPanageasModel, stategrid::OrderedDict)
-    x = ones(length(stategrid[:x]))
-    OrderedDict(:pA => x, :pB => x, :ϕ1 => x, :ϕ2 => x)
+  B1::Float64 = 30.72
+  δ1::Float64 = 0.0525
+  B2::Float64 = -30.29
+  δ2::Float64 = 0.0611
+  ω::Float64 = 0.92
 end
 
 function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   (; γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω) = m  
   (; x) = state
   (; pA, pAx, pAxx, pB, pBx, pBxx, ϕ1, ϕ1x, ϕ1xx, ϕ2, ϕ2x, ϕ2xx) = y
+
+  scale = δ / (δ + δ1) * B1 + δ / (δ + δ2) * B2
+  B1 = B1 / scale
+  B2 = B2 / scale
   # pA is wealth / consumption ratio of agent A
   # pB is wealth / consumption ratio of agent B
   # ϕ1 is value of claim that promises B_1ωexp(-(δ+δ1)(s-t))C_s/C_t for s ≥ t
@@ -84,6 +72,9 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = GarleanuPanageasModel()
-stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
+stategrid = OrderedDict(:x => range(0.0, 1.0, length = 50))
+yend = OrderedDict(:pA => ones(length(stategrid[:x])), 
+                  :pB => ones(length(stategrid[:x])), 
+                  :ϕ1 => ones(length(stategrid[:x])), 
+                  :ϕ2 => ones(length(stategrid[:x])))
+y, result, distance = pdesolve(m, stategrid, yend)

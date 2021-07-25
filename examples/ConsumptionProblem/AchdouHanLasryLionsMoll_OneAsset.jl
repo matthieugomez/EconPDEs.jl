@@ -20,21 +20,6 @@ function AchdouHanLasryLionsMollModel(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.
     AchdouHanLasryLionsMollModel(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-function initialize_stategrid(m::AchdouHanLasryLionsMollModel; yn = 10, an = 100)
-    κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
-
-    distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
-    ymin = quantile(distribution, 0.001)
-    ymax = quantile(distribution, 0.999)
-    ys = range(ymin, stop = ymax, length = yn)
-    as = range(amin, stop = amax, length = an)
-    OrderedDict(:y => ys, :a => as)
-end
-
-function initialize_y(m::AchdouHanLasryLionsMollModel, stategrid)
-    OrderedDict(:v => [log(y + max(a, 0.0)) for y in stategrid[:y], a in stategrid[:a]])
-end
-
 function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     (; κy, σy, ybar, r, ρ, γ, amin, amax) = m    
     (; y, a) = state
@@ -55,10 +40,13 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     return (vt,), (μy, μa)
 end
 
-# m = AchdouHanLasryLionsMollModel()
-# stategrid = initialize_stategrid(m)
-# y0 = initialize_y(m, stategrid)
-# y, result, distance = pdesolve(m, stategrid, y0)
+m = AchdouHanLasryLionsMollModel()
+distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
+stategrid = OrderedDict(:y => range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10), 
+                        :a =>  range(m.amin, m.amax, length = 100)
+                        )
+yend = OrderedDict(:v => [log(y + max(a, 0.0)) for y in stategrid[:y], a in stategrid[:a]])
+y, result, distance = pdesolve(m, stategrid, yend)
 
 
 # Check marginal value of wealth converges to 1.0 at infinity

@@ -1,26 +1,15 @@
 using EconPDEs
 
-mutable struct WangWangYangModel
-    μ::Float64 
-    σ::Float64
-    r::Float64
-    ρ::Float64  
-    γ::Float64 
-    ψ::Float64
-    wmax::Float64
+Base.@kwdef mutable struct WangWangYangModel
+    μ::Float64 = 0.01
+    σ::Float64 = 0.1
+    r::Float64 = 0.05
+    ρ::Float64 = 0.06
+    γ::Float64 = 2.0
+    ψ::Float64 = 0.5
+    wmax::Float64 = 5000.0
 end
 
-function WangWangYangModel(;μ = 0.01, σ = 0.1, r = 0.05, ρ = 0.06, γ = 2, ψ = 0.5, wmax = 5000.0)
-    WangWangYangModel(μ, σ, r, ρ, γ, ψ, wmax)
-end
-
-function initialize_stategrid(m::WangWangYangModel; n = 1000)
-    OrderedDict(:w => range(0.0, stop = m.wmax, length = n))
-end
-
-function initialize_y(m::WangWangYangModel, stategrid)
-    OrderedDict(:p => 1 .+stategrid[:w])
-end
     
 function (m::WangWangYangModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, r, ρ, γ, ψ, wmax, wn) = m
@@ -111,10 +100,9 @@ end
 
 using Interpolations, Plots
 m = WangWangYangModel()
-stategrid = initialize_stategrid(m)
-m.wmax = maximum(stategrid[:w])
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0, bc = OrderedDict(:pw => (1.0, 1.0)))
+stategrid = OrderedDict(:w => range(0.0, m.wmax, length = n))
+yend = OrderedDict(:p => 1 .+stategrid[:w])
+y, result, distance = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
 Csitp = interpolate((stategrid[:w],), result[:c], Gridded(Linear()))
 Psitp = interpolate((stategrid[:w],), result[:p], Gridded(Linear()))
 Pwsitp = interpolate((stategrid[:w],), result[:pw], Gridded(Linear()))

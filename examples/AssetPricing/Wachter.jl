@@ -1,36 +1,24 @@
 using EconPDEs, Distributions
 
-struct WachterModel{T<: Distribution}
+Base.@kwdef struct WachterModel{T<: Distribution}
     # consumption process parameters
-    μ::Float64 
-    σ::Float64
+    μ::Float64 = 0.025
+    σ::Float64 = 0.02
 
     # idiosyncratic
-    λbar::Float64
-    κλ::Float64
-    νλ::Float64
-    ZDistribution::T
-
+    λbar::Float64 = 0.0355
+    κλ::Float64 = 0.08
+    νλ::Float64 = 0.067
+    ZDistribution::T = Normal(-0.4, 0.25) #from Ian Martin higher order cumulants paper
+    
     # utility parameters
-    ρ::Float64  
-    γ::Float64 
-    ψ::Float64
-    ϕ::Float64
+    ρ::Float64 = 0.012
+    γ::Float64 = 3.0
+    ψ::Float64 = 1.1
+    ϕ::Float64 = 2.6
 end
 
-# distirbution of jump comes from Ian Martin higher order cumulants paper
-function WachterModel(;μ = 0.025, σ = 0.02, λbar = 0.0355, κλ = 0.08, νλ = 0.067, ZDistribution = Normal(-0.4, 0.25), ρ = 0.012, γ = 3.0, ψ = 1.1, ϕ = 2.6)
-    WachterModel(μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ)
-end
 
-function initialize_stategrid(m::WachterModel; n = 30)
-    (; μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ) = m
-    OrderedDict(:λ => range(0.0, stop = 0.1, length = n))
-end
-
-function initialize_y(m::WachterModel, stategrid::OrderedDict)
-    OrderedDict(:p => ones(length(stategrid[:λ])))
-end
 
 function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ) = m
@@ -58,9 +46,9 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = WachterModel()
-stategrid = initialize_stategrid(m)
-y0 = initialize_y(m, stategrid)
-y, result, distance = pdesolve(m, stategrid, y0)
+stategrid = OrderedDict(:λ => range(0.0, 0.1, length = 30))
+yend =  OrderedDict(:p => ones(length(stategrid[:λ])))
+y, result, distance = pdesolve(m, stategrid, yend)
 
 #========================================================================================
 

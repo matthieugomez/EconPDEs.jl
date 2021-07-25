@@ -33,7 +33,6 @@ for x in (:WangWangYang, :AchdouHanLasryLionsMoll_OneAsset, :AchdouHanLasryLions
 		println("\t\033[1m\033[32mPASSED\033[0m: $(x)")
 	catch e
 		println("\t\033[1m\033[31mFAILED\033[0m: $(x)")
-		showerror(stdout, e, backtrace())
 		rethrow(e)
 	end
 end

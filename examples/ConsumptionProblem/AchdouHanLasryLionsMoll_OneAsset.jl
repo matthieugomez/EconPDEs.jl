@@ -36,9 +36,9 @@ function initialize_y(m::AchdouHanLasryLionsMollModel, stategrid)
 end
 
 function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
-    κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
-    y, a = state.y, state.a
-    v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
+    (; κy, σy, ybar, r, ρ, γ, amin, amax) = m    
+    (; y, a) = state
+    (; v, vy, va, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
     va = max(va, eps())
     
@@ -52,7 +52,7 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     end
 
     vt = c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v
-    return (vt,), (μy, μa), (v = v, c = c, va = va, vy = vy, y = y, a = a, μa = μa, vaa = vaa)
+    return (vt,), (μy, μa)
 end
 
 # m = AchdouHanLasryLionsMollModel()

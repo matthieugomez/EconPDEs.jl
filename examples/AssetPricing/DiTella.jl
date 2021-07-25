@@ -38,9 +38,9 @@ function initialize_y(m::DiTellaModel, stategrid::OrderedDict)
 end
 
 function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
-  γ = m.γ ; ψ = m.ψ ; ρ = m.ρ ; τ = m.τ ; A = m.A ; σ = m.σ ; ϕ = m.ϕ ; νbar = m.νbar ; κν = m.κν ; σνbar = m.σνbar
-  x, ν = state.x, state.ν
-  pA, pAx, pAν, pAxx, pAxν, pAνν, pB, pBx, pBν, pBxx, pBxν, pBνν, p, px, pν, pxx, pxν, pνν = y.pA, y.pAx, y.pAν, y.pAxx, y.pAxν, y.pAνν, y.pB, y.pBx, y.pBν, y.pBxx, y.pBxν, y.pBνν, y.p, y.px, y.pν, y.pxx, y.pxν, y.pνν
+  (; γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar) = m  
+  (; x, ν) = state
+  (; pA, pAx, pAν, pAxx, pAxν, pAνν, pB, pBx, pBν, pBxx, pBxν, pBνν, p, px, pν, pxx, pxν, pνν) = y
 
   # drift and volatility of state variable ν
   g = p / (2 * A)
@@ -72,7 +72,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   # algebraic constraint
   pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 
-  return (pAt, pBt, pt), (μX, μν), (μX = μX, μν = μν, p = p, pA = pA, pB = pB, κ = κ, r = r, σX = σX)
+  return (pAt, pBt, pt), (μX, μν)
 end
 
 m = DiTellaModel()

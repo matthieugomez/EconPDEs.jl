@@ -28,9 +28,9 @@ function initialize_y(m::ArbitrageHoldingCosts, stategrid::OrderedDict)
 end
 
 function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
-    c = m.c ; r = m.r ; ρ = m.ρ ; σ = m.σ ; a = m.a ; T = m.T
-    z = state.z
-    F, Fz, Fzz = y.F, y.Fz, y.Fzz
+    (; c, r, ρ, σ, a, T) = m
+    (; z) = state
+    (; F, Fz, Fzz) = y
     ϕ = z * (1 + z^2)^(-1/2)
     ϕz = (1 + z^2)^(-3/2)
     ϕzz = - 3 * z * (1 + z^2)^(-5/2)
@@ -54,7 +54,7 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
     end
     # otherwise i = 0.0 and value of μ does not matter
     Ft = (μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2) 
-    return (Ft,), (-ρ * z,), (F = F, i = i, I = i / (sτ * ϕz * exp(r * (T - τ))), x  = sτ * ϕ, I_myopic = i_myopic / (sτ * ϕz * exp(r * (T - τ))), I_hedging = Fz / a / (sτ * ϕz * exp(r * (T - τ))))
+    return (Ft,), (-ρ * z,)
 end
 
 m = ArbitrageHoldingCosts()

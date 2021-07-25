@@ -34,12 +34,11 @@ end
 # p = ρ / γ + (1- 1/γ) * (r + α * κ + α σ^2)
 
 function (m::ConstraintModel)(state::NamedTuple, y::NamedTuple)
-  γ = m.γ ; ψ = m.ψ ; ρ = m.ρ ; δ = m.δ ; ν = m.ν ; μ = m.μ ; σ = m.σ
-  x = state.x
+  (;γ, ψ, ρ, δ, ν, μ, σ) = m  
+  (; x) = state
+  (; pA, pAx, pAxx, pB, pBx, pBxx) = y
   # pA is wealth / consumption ratio of agent A
   # pB is wealth / consumption ratio of agent B
-  pA = y.pA ; pAx = y.pAx ; pAxx = y.pAxx ; pB = y.pB ; pBx = y.pBx ; pBxx = y.pBxx
-
   # Market price of risk κ
   Γ = 1 / (x / γA + (1 - x) / γB)
   p = x * pA + (1 - x) * pB
@@ -71,7 +70,7 @@ function (m::ConstraintModel)(state::NamedTuple, y::NamedTuple)
   ϕ1t = ϕ1 * (B1 * ω / ϕ1 + (μ - δ - δ1) + μϕ1 + σ * σϕ1 - r - κ * (σϕ1 + σ))
   ϕ2t = ϕ2 * (B2 * ω / ϕ2 + (μ - δ - δ2) + μϕ2 + σ * σϕ2 - r - κ * (σϕ2 + σ))
 
-  return (pAt, pBt, ϕ1t, ϕ2t), (μx, ), (μx = μx, p = p, pA = pA, pB = pB, κ = κ, r = r, σx = σx)
+  return (pAt, pBt, ϕ1t, ϕ2t), (μx, )
 end
 
 m = ConstraintModel()

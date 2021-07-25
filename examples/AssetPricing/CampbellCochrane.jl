@@ -33,9 +33,9 @@ function initialize_y(m::CampbellCochraneModel, stategrid)
 end
 	
 function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
-    μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
-    s = state.s
-    p, ps, pss = y.p, y.ps, y.pss
+    (; μ, σ, γ, ρ, κs, b) = m
+    (; s) = state
+    (; p, ps, pss) = y
     
     # drift and volatility of  s and p
     Sbar = σ * sqrt(γ / (κs - b / γ))
@@ -54,7 +54,7 @@ function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-    return (pt,), (μs, ), (p = p, κ = κ, λ = λ, r = r, σp = σp, μs = μs, σs = σs)
+    return (pt,), (μs, )
 end
 
 

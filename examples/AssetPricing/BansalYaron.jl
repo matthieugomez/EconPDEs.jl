@@ -20,8 +20,7 @@ function BansalYaronModel(;μbar = 0.018, vbar = 0.00073, κμ = 0.252, νμ = 0
 end
 
 function initialize_stategrid(m::BansalYaronModel; μn = 30, vn = 30)
-    μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
-
+    (; μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ) = m
     σ = sqrt(νμ^2 * vbar / (2 * κμ))
     μmin = quantile(Normal(μbar, σ), 0.025)
     μmax = quantile(Normal(μbar, σ), 0.975)
@@ -40,9 +39,9 @@ function initialize_y(m::BansalYaronModel, stategrid::OrderedDict)
 end
 
 function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
-    μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
-    μ, v = state.μ, state.v
-    p, pμ, pv, pμμ, pμv, pvv = y.p, y.pμ, y.pv, y.pμμ, y.pμv, y.pvv
+    (; μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ) = m
+    (; μ, v) = state
+    (; p, pμ, pv, pμμ, pμv, pvv) = y
     
     # drift and volatility of c, μ, σ, p
     μc = μ
@@ -69,7 +68,7 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     pt = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
     #pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
-    return (pt,), (μμ, μv), (p = p, r = r, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, σμ = σμ, σμ_Zv = 0.0, σv_Zμ = 0.0, σv = σv, μ = μ, v = v, σμ2 = σμ^2, σv2 = σv^2, σμv = 0.0, μμ = μμ, μv = μv, σp2 = σp2, σp_Zμ = σp_Zμ, σp_Zv = σp_Zv)
+    return (pt,), (μμ, μv)
 end
 
 # Bansal Yaron (2004)

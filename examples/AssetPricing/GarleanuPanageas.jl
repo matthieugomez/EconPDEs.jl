@@ -42,14 +42,13 @@ function initialize_y(m::GarleanuPanageasModel, stategrid::OrderedDict)
 end
 
 function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
-  γA = m.γA ; ψA = m.ψA ; γB = m.γB ; ψB = m.ψB ; ρ = m.ρ ; δ = m.δ ; νA = m.νA ; μ = m.μ ; σ = m.σ; B1 = m.B1 ; δ1 = m.δ1 ; B2 = m.B2 ; δ2 = m.δ2 ; ω = m.ω
-  x = state.x
+  (; γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω) = m  
+  (; x) = state
+  (; pA, pAx, pAxx, pB, pBx, pBxx, ϕ1, ϕ1x, ϕ1xx, ϕ2, ϕ2x, ϕ2xx) = y
   # pA is wealth / consumption ratio of agent A
   # pB is wealth / consumption ratio of agent B
   # ϕ1 is value of claim that promises B_1ωexp(-(δ+δ1)(s-t))C_s/C_t for s ≥ t
   # ϕ2 is value of claim that promises B_2ωexp(-(δ+δ2)(s-t))C_s/C_t for s ≥ t
-  pA = y.pA ; pAx = y.pAx ; pAxx = y.pAxx ; pB = y.pB ; pBx = y.pBx ; pBxx = y.pBxx ; ϕ1 = y.ϕ1 ; ϕ1x = y.ϕ1x ; ϕ1xx = y.ϕ1xx ; ϕ2 = y.ϕ2 ; ϕ2x = y.ϕ2x ; ϕ2xx = y.ϕ2xx
-
   # Market price of risk κ
   Γ = 1 / (x / γA + (1 - x) / γB)
   p = x * pA + (1 - x) * pB

@@ -45,9 +45,9 @@ function initialize_y(m::HaddadModel, stategrid::OrderedDict)
 end
 
 function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
-  μbar = m.μbar ; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; αbar = m.αbar ; λ = m.λ ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
-  μ, v = state.μ, state.v
-  p, pμ, pv, pμμ, pμv, pvv = y.p, y.pμ, y.pv, y.pμμ, y.pμv, y.pvv
+  (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
+  (; μ, v) = state
+  (; p, pμ, pv, pμμ, pμv, pvv) = y
 
   # drift and volatility of μ, ν, p
   μc = μ
@@ -77,7 +77,7 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
 
   out = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2 * (1 - (αstar - 1)^2)) + μp + (0.5 * (1 / ψ - γ) / (1 - 1 / ψ) + 0.5 * γ * (1 - 1 / ψ) * (αstar - 1)^2) * σp2)
 
-  return (out,) , (μμ, μv), (p = p, κ_Zc = κ_Zc, κ_Zμ = κ_Zμ, κ_Zv = κ_Zv, αstar = αstar)
+  return (out,) , (μμ, μv)
 end
 
 m = HaddadModel()

@@ -23,8 +23,7 @@ function AchdouHanLasryLionsMoll_TwoAssetsModel(;κy = 0.1, ybar = 1.0, σy = 0.
 end
 
 function initialize_stategrid(m::AchdouHanLasryLionsMoll_TwoAssetsModel; yn = 5, an = 100)
-    κy = m.κy ; ybar = m.ybar ; σy = m.σy  ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
-
+    (; κy, σy, ybar, r, μR, σR, ρ, γ, amin, amax) = m
     distribution = Gamma(2 * κy * ybar / σy^2, σy^2 / (2 * κy))
     ymin = quantile(distribution, 0.001)
     ymax = quantile(distribution, 0.999)
@@ -38,9 +37,9 @@ function initialize_y(m::AchdouHanLasryLionsMoll_TwoAssetsModel, stategrid::Orde
 end
 
 function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::NamedTuple)
-    κy = m.κy ; σy = m.σy ; ybar = m.ybar ; r = m.r ; μR = m.μR ; σR = m.σR ; ρ = m.ρ ; γ = m.γ ; amin = m.amin ; amax = m.amax
-    y, a = state.y, state.a
-    v, vy, va, vyy, vya, vaa = value.v, value.vy, value.va, value.vyy, value.vya, value.vaa
+    (; κy, σy, ybar, r, μR, σR, ρ, γ, amin, amax) = m
+    (; y, a) = state
+    (; v, vy, va, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
     va = max(va, eps())
     

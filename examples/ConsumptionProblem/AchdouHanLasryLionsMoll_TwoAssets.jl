@@ -50,8 +50,8 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::N
     k = clamp(k, 0.0, a - amin)
     μa = y + r * a + (μR - r) * k - c
     σa = k * σR
-    vt = c^(1 - γ) / (1 - γ) + va * μa + 0.5 * vaa * σa^2 + vy * μy + 0.5 * vyy * σy^2 - ρ * v
-    return (vt,), (μy, μa), (v = v, c = c, k = k, va = va, vaa = vaa, vy = vy, y = y, a = a, μa = μa)
+    vdot = c^(1 - γ) / (1 - γ) + va * μa + 0.5 * vaa * σa^2 + vy * μy + 0.5 * vyy * σy^2 - ρ * v
+    return (vdot,), (μy, μa), (; v, c, k, va, vaa, vy, y, a, μa)
 end
 
 

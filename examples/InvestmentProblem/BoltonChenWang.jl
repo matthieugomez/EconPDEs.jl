@@ -17,9 +17,9 @@ function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
   (; w) = state
   (; v, vw, vww) = y
   i = 1 / θ * (v / vw - w - 1)
-  vt = (i - δ) * (v - vw * w) + ((r - λ) * w + A - i - θ * i^2 / 2) * vw + σ^2 / 2 * vww - r * v
+  vdot = (i - δ) * (v - vw * w) + ((r - λ) * w + A - i - θ * i^2 / 2) * vw + σ^2 / 2 * vww - r * v
   μw = (r - λ) * w + A - i - θ * i^2 / 2 - (i - δ) * w
-  return (vt,), (μw, ), (v = v, vw = vw, vww = vww, w = w)
+  return (vdot,), (μw, ), (; v, vw, vww, w)
 end
 
 m = BoltonChenWangModel()

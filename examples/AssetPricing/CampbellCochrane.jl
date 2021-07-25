@@ -49,7 +49,7 @@ function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
 
     # PDE
     pt = p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
-    return (pt,), (μs, )
+    return (pt,), (μs,)
 end
 
 

@@ -1,5 +1,4 @@
 using EconPDEs
-using Parameters
 
 struct LelandModel{T<:Real}
     # consumption process parameters

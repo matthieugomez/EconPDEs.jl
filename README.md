@@ -36,7 +36,7 @@ stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 # Define an initial guess for the value functions
 # An OrderedDict in which each key corresponds to a value function to solve for, 
 # specified as an array with the same dimension as the state space
-y0 = OrderedDict(:V => ones(500))
+solend = OrderedDict(:V => ones(500))
 
 # Define a function that encodes the PDE. 
 # The function takes three arguments:
@@ -44,7 +44,7 @@ y0 = OrderedDict(:V => ones(500))
 # 2. A named tuple giving the value function(s) (as well as its derivatives)
 # at the current value of the state. 
 # 3. (Optional) Current time t
-# It returns two tuples:
+# It must return two tuples:
 # 1. a tuple with the opposite of the time derivative of each value function
 # 2. a tuple with the drift of each state variable (internally used for upwinding)
 function f(state::NamedTuple, sol::NamedTuple)
@@ -57,16 +57,16 @@ end
 # The function `pdesolve` takes four arguments:
 # 1. the function encoding the PDE
 # 2. the discretized state space
-# 3. the initial guess for the value functions
-# 4. a time grid with decreasing values 
-@time pdesolve(f, stategrid, y0, range(1000, stop = 0, length = 100))
-#> 0.220390 seconds (3.07 M allocations: 219.883 MiB, 18.28% gc time)
+# 3. the terminal value function
+# 4. a time grid
+@time pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
+#> 0.170882 seconds (2.81 M allocations: 118.651 MiB, 12.53% gc time)
 
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
-@time pdesolve(f, stategrid, y0)
-#>  0.018544 seconds (301.91 k allocations: 20.860 MiB)
+@time pdesolve(f, stategrid, solend)
+#> 0.012886 seconds (232.59 k allocations: 8.926 MiB)
 ```
 
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 

@@ -1,4 +1,5 @@
 other
 *.sublime2Terminal.jl
 .DS_Store
+examples/AssetPricing/constraint.jl
 

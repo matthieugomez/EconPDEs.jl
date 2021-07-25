@@ -1,7 +1,6 @@
 using EconPDEs, Distributions
 
-# Arbitrage With Holding Costs: A Utility-Based Approach
-# Author(s): Bruce Tuckman and Jean-Luc Vila
+# Arbitrage With Holding Costs: A Utility-Based Approach (Bruce Tuckman and Jean-Luc Vila)
 Base.@kwdef struct ArbitrageHoldingCosts
     c::Float64 = 0.06
     r::Float64 = 0.09
@@ -42,10 +41,10 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
 end
 
 m = ArbitrageHoldingCosts()
-τs = range(0, m.T, length = 100)
 d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
 stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = 200))
 yend = OrderedDict(:F => zeros(length(stategrid[:z])))
+τs = range(0, m.T, length = 100)
 y, result, distance = pdesolve(m, stategrid, yend, τs)
 
 

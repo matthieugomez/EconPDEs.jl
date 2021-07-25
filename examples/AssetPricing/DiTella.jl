@@ -60,10 +60,10 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = DiTellaModel()
+xs = range(0.01, 0.99, length = 80)
 distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κν))
-stategrid = OrderedDict(:x => range(0.01, 0.99, length = 80), 
-                        :ν => range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10)
-                        )
+νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10)
+stategrid = OrderedDict(:x => xs, :ν => νs)
 yend = OrderedDict(:pA => ones(length(stategrid[:x]), length(stategrid[:ν])), 
                    :pB => ones(length(stategrid[:x]), length(stategrid[:ν])), 
                    :p => ones(length(stategrid[:x]), length(stategrid[:ν]))

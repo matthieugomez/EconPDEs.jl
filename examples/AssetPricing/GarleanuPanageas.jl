@@ -72,7 +72,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = GarleanuPanageasModel()
-stategrid = OrderedDict(:x => range(0.0, 1.0, length = 50))
+stategrid = OrderedDict(:x => range(0.0, 1.0, length = 200))
 yend = OrderedDict(:pA => ones(length(stategrid[:x])), 
                   :pB => ones(length(stategrid[:x])), 
                   :ϕ1 => ones(length(stategrid[:x])), 

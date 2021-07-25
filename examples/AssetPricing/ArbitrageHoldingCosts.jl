@@ -42,7 +42,7 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
 end
 
 m = ArbitrageHoldingCosts()
-τs = range(m.T, stop = 0, length = 100)
+τs = range(0, m.T, length = 100)
 d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
 stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = 200))
 yend = OrderedDict(:F => zeros(length(stategrid[:z])))

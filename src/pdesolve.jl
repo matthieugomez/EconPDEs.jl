@@ -12,7 +12,7 @@
        μ is a tuple of length F with the value for the drift of the state variable at the state
     * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
     * yend is an OrderedDict that, for each function, associates an initial guess (or a terminal value to start the backward iteration with)
-    * τs (optional) is a time grid on which to solve the pde on
+    * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
 """
 function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, kwargs...)
     Tsolution = Type{tuple(keys(yend)...)}
@@ -21,7 +21,7 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(yend[k])) for k in keys(yend))
     if τs isa AbstractVector
         y = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(yend))
-        issorted(reverse(τs)) || throw("The set of times must be decreasing.")
+        issorted(τs) || throw("The set of times must be increasing.")
     else
         y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(yend))
     end
@@ -34,7 +34,7 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
 
     # prepare dict
     if τs isa AbstractVector
-        apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[1]) : apm
+        apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
         a_keys = get_keys(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
     else
         a_keys = get_keys(apm, stategrid, Tsolution, yend_M, bc_M)
@@ -55,11 +55,11 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     if τs isa AbstractVector
         y_M = yend_M
         distance = 0.0
-        for iτ in 1:length(τs)
+        for iτ in length(τs):(-1):1
             a_keys !== nothing && _setindex!(a, iτ, localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
             _setindex!(y, iτ, y_M)
-            if iτ < length(τs)
-                y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ+1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+            if iτ > 1
+                y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
                 y_M = reshape(y_M, ysize...)
             end
         end

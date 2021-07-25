@@ -5,7 +5,9 @@ using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatri
 ## Load files
 ##
 ##############################################################################
+
 include("finiteschemesolve.jl")
+include("utils.jl")
 include("pdesolve.jl")
 
 ##############################################################################

@@ -1,5 +1,5 @@
 module EconPDEs
-using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatrices, SparseDiffTools, FiniteDiff
+using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatrices, SparseDiffTools, FiniteDiff, Printf
 ##############################################################################
 ##
 ## Load files
@@ -28,7 +28,7 @@ function Base.iterate(x::EconPDEResult, state = nothing)
 	elseif state == 1
 		return (x.residual_norm, 2)
 	elseif state == 2
-		return (x.additional, 2)
+		return (x.additional, 3)
 	end
 end
 

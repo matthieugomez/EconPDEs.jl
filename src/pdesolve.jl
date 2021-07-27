@@ -14,7 +14,7 @@
     * yend is an OrderedDict that, for each function, associates an initial guess (or a terminal value to start the backward iteration with)
     * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
 """
-function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, kwargs...)
+function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, kwargs...)
     Tsolution = Type{tuple(keys(yend)...)}
     stategrid = StateGrid(grid)
     all(length.(values(yend)) .== prod(size(stategrid))) || throw("The length of initial guess (e.g. terminal value) does not equal the length of the state space")
@@ -55,17 +55,25 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     if τs isa AbstractVector
         y_M = yend_M
         residual_norms = zeros(length(τs))
+        if verbose
+            @printf "    Time Residual\n"
+            @printf "-------- --------\n"
+        end
+
         for iτ in length(τs):(-1):1
             a_keys !== nothing && _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
             _setindex!(ys[iτ], y_M)
             if iτ > 1
                 y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+                if verbose
+                    @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
+                end
                 y_M = reshape(y_M, ysize...)
             end
         end
         return EconPDEResult(ys, residual_norms, as)
     else
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, verbose = verbose, kwargs... )
         y_M = reshape(y_M, ysize...)
         _setindex!(y, y_M)
         if a_keys !== nothing

@@ -36,30 +36,36 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     ypost = y0
     ydot = zero(y0)
     F!(ydot, ypost)
-    distance = norm(ydot) / length(ydot)
-    isnan(distance) && throw("F! returns NaN with the initial value")
+    residual_norm = norm(ydot) / length(ydot)
+    isnan(residual_norm) && throw("F! returns NaN with the initial value")
     if Δ == Inf
-        ypost, distance = implicit_timestep(F!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
+        ypost, residual_norm = implicit_timestep(F!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
     else
         coef = 1.0
-        olddistance = distance
+        oldresidual_norm = residual_norm
         iter = 0
-        while (iter < iterations) & (Δ >= minΔ) & (distance > maxdist)
+        if verbose
+            @printf "Iter   TimeStep   Residual\n"
+            @printf "---- ---------- ----------\n"
+        end
+        while (iter < iterations) & (Δ >= minΔ) & (residual_norm > maxdist)
             iter += 1
-            y, nldistance = implicit_timestep(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ, reformulation = reformulation)
+            y, nlresidual_norm = implicit_timestep(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ, reformulation = reformulation)
             F!(ydot, y)
             if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
-                mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for distance calculation
-                distance, olddistance = norm(ydot .* (mask))/sum(mask), distance
+                mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for residual_norm calculation
+                residual_norm, oldresidual_norm = norm(ydot .* (mask))/sum(mask), residual_norm
             else
-                distance, olddistance = norm(ydot) / length(ydot), distance
+                residual_norm, oldresidual_norm = norm(ydot) / length(ydot), residual_norm
             end
-            distance = isnan(distance) ? Inf : distance
-            if nldistance <= maxdist
+            residual_norm = isnan(residual_norm) ? Inf : residual_norm
+            if nlresidual_norm <= maxdist
                 # if the implicit time step is correctly solved
-                verbose && @show iter, Δ, distance
-                coef = (distance <= olddistance) ? scale * coef : 1.0
-                Δ = Δ * coef * olddistance / distance
+                if verbose
+                    @printf "%4d %8.4e %8.4e\n" iter Δ residual_norm
+                end
+                coef = (residual_norm <= oldresidual_norm) ? scale * coef : 1.0
+                Δ = Δ * coef * oldresidual_norm / residual_norm
                 ypost, y = y, ypost
             else
                 # verbose && @show iter, Δ, NaN
@@ -67,12 +73,12 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 # revert and diminish the time step
                 coef = 1.0
                 Δ = Δ / 10
-                distance = olddistance
+                residual_norm = oldresidual_norm
             end
         end
     end
-    verbose && ((distance > maxdist) | (Δ < minΔ)) && @warn "Iteration did not converge"
-    return ypost, distance
+    verbose && ((residual_norm > maxdist) | (Δ < minΔ)) && @warn "Iteration did not converge"
+    return ypost, residual_norm
 end
 
 

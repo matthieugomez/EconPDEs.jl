@@ -51,7 +51,7 @@ y, residual_norm = pdesolve(m, stategrid, yend)
 
 # finite horizon over 20 years
 yend = OrderedDict(:v => [max(a + y)^(1-m.γ)/(1-m.γ) for y in stategrid[:y], a in stategrid[:a]]) 
-τs = range(0, stop = 100, step = 0.1)
+τs = range(0, stop = 100, step = 1)
 ys, results, distances = pdesolve(m, stategrid, yend, τs)
 
 

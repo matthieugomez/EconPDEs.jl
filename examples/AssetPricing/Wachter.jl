@@ -49,7 +49,7 @@ m = WachterModel()
 λn = 30
 stategrid = OrderedDict(:λ => range(0.0, 0.1, length = λn))
 yend =  OrderedDict(:p => ones(λn))
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)
 
 #========================================================================================
 

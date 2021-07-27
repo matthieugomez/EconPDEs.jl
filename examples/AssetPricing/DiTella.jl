@@ -67,4 +67,4 @@ distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κ
 νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = νn)
 stategrid = OrderedDict(:x => xs, :ν => νs)
 yend = OrderedDict(:pA => ones(xn, νn), :pB => ones(xn, νn), :p => ones(xn, νn))
-y, result, distance = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))
+y, residual_norm = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))

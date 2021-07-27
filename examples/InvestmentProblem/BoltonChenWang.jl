@@ -25,7 +25,7 @@ end
 m = BoltonChenWangModel()
 stategrid = OrderedDict(:w => range(0.0, 0.3, length = 100))
 yend = OrderedDict(:v => stategrid[:w])
-y, result, distance = pdesolve(m, stategrid, yend; bc = OrderedDict(:vw => (1.5, 1.0)))
+y, residual_norm = pdesolve(m, stategrid, yend; bc = OrderedDict(:vw => (1.5, 1.0)))
 
 #========================================================================================
 

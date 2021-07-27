@@ -59,7 +59,7 @@ m = BansalYaronModel()
 vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = νn)
 stategrid = OrderedDict(:μ => μs, :v => vs)
 yend = OrderedDict(:p => ones(μn, νn))
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)
 
 # Bansal Yaron (2009)
 ## m = BansalYaronModel(μbar = 0.018, vbar = 0.00062, κμ = 0.3, νμ = 0.456, κv = 0.012, νv = 0.00472, ρ = 0.0132, γ = 10, ψ = 1.5)

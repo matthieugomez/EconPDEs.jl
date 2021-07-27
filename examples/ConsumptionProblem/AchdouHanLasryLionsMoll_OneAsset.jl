@@ -46,7 +46,7 @@ stategrid = OrderedDict(:y => range(quantile(distribution, 0.001), quantile(dist
                         :a =>  range(m.amin, m.amax, length = 100)
                         )
 yend = OrderedDict(:v => [log(y + max(a, 0.0)) for y in stategrid[:y], a in stategrid[:a]])
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)
 
 
 # finite horizon over 20 years

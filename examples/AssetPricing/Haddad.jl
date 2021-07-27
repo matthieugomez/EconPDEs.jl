@@ -76,4 +76,4 @@ m = HaddadModel()
 vn = 30
 stategrid = initialize_stategrid(m; μn = μn, vn = vn)
 yend = OrderedDict(:p => ones(μn, vn))
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)

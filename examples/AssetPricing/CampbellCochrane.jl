@@ -57,7 +57,7 @@ end
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
 yend = OrderedDict(:p => ones(length(stategrid[:s])))
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)
 
 
 # Wachter (2005) calibration

@@ -49,13 +49,13 @@ end
 # 2. the discretized state space
 # 3. the terminal value function
 # 4. a time grid
-@time pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
+ys, residual_norms = pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
 #> 0.170882 seconds (2.81 M allocations: 118.651 MiB, 12.53% gc time)
 
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
-@time pdesolve(f, stategrid, solend)
+y, residual_norm =  pdesolve(f, stategrid, solend)
 #> 0.012886 seconds (232.59 k allocations: 8.926 MiB)
 ```
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 

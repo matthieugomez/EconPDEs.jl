@@ -8,6 +8,32 @@ using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatri
 
 include("finiteschemesolve.jl")
 include("utils.jl")
+
+
+struct EconPDEResult
+	zero
+	residual_norm
+	additional
+end
+
+function Base.show(io::IO, x::EconPDEResult)
+    show(io, "Residual_norm",  x.residual_norm, "\n")
+    show(io, x.zero)
+    return
+end
+
+function Base.iterate(x::EconPDEResult, state = nothing)
+	if state === nothing
+		return (x.zero, 1)
+	elseif state == 1
+		return (x.residual_norm, 2)
+	elseif state == 2
+		return (x.additional, 2)
+	end
+end
+
+
+
 include("pdesolve.jl")
 
 ##############################################################################
@@ -19,3 +45,8 @@ export OrderedDict,
 finiteschemesolve,
 pdesolve
 end
+
+
+
+
+

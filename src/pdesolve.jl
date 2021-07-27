@@ -54,25 +54,25 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     # iterate on time
     if τs isa AbstractVector
         y_M = yend_M
-        distances = zeros(length(τs))
+        residual_norms = zeros(length(τs))
         for iτ in length(τs):(-1):1
             a_keys !== nothing && _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
             _setindex!(ys[iτ], y_M)
             if iτ > 1
-                y_M, distances[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
                 y_M = reshape(y_M, ysize...)
             end
         end
-        return ys, as, distances
+        return EconPDEResult(ys, residual_norms, as)
     else
-        y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
         y_M = reshape(y_M, ysize...)
         _setindex!(y, y_M)
         if a_keys !== nothing
             _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
             a = merge(y, a)
         end
-        return y, a, distance
+        return EconPDEResult(y, residual_norm, a)
     end
 end
 

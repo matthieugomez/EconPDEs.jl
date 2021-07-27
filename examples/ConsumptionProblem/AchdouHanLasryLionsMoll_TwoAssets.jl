@@ -61,7 +61,7 @@ ys = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length 
 as = range(m.amin, m.amax, length = 100)
 stategrid = OrderedDict(:y => ys, :a => as)
 yend = OrderedDict(:v => [log(y + a) for y in stategrid[:y], a in stategrid[:a]])
-y, result, distance = pdesolve(m, stategrid, yend)
+y, residual_norm = pdesolve(m, stategrid, yend)
 # 
 # # Important: check marginal value of wealth converges to 1.0
 # # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. This is interesting. Maybe it means there should be a better way to have bordering condition at top

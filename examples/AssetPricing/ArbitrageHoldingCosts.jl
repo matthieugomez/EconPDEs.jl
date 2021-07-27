@@ -30,12 +30,6 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
         i = iS
         μ = μS
     end
-    if z >= 0
-        i_myopic = max(0, i - Fz / a)
-    else
-        i_myopic = min(0, i - Fz / a)
-    end
-    # otherwise i = 0.0 and value of μ does not matter
     Ft = (μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2) 
     return (Ft,), (-ρ * z,)
 end

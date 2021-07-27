@@ -20,8 +20,8 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     all(length.(values(yend)) .== prod(size(stategrid))) || throw("The length of initial guess (e.g. terminal value) does not equal the length of the state space")
     is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(yend[k])) for k in keys(yend))
     if τs isa AbstractVector
-        y = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(x => Array{Float64}(undef, (size(stategrid)..., length(τs))) for x in keys(yend))
         issorted(τs) || throw("The set of times must be increasing.")
+        ys = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(yend)) for t in τs]
     else
         y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(yend))
     end
@@ -36,14 +36,14 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     if τs isa AbstractVector
         apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
         a_keys = get_keys(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
+        as = nothing
+        if a_keys !== nothing
+           as = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys) for a_key in a_keys]
+        end
     else
         a_keys = get_keys(apm, stategrid, Tsolution, yend_M, bc_M)
-    end
-    a = nothing
-    if a_keys !== nothing
-        if τs isa AbstractVector
-           a = OrderedDict{Symbol, Array{Float64, ndims(stategrid) + 1}}(a_key => Array{Float64}(undef, size(stategrid)..., length(τs)) for a_key in a_keys)
-        else
+        a = nothing
+        if a_keys !== nothing
             a = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
         end
     end
@@ -54,22 +54,22 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
     # iterate on time
     if τs isa AbstractVector
         y_M = yend_M
-        distance = 0.0
+        distances = zeros(length(τs))
         for iτ in length(τs):(-1):1
-            a_keys !== nothing && _setindex!(a, iτ, localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
-            _setindex!(y, iτ, y_M)
+            a_keys !== nothing && _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
+            _setindex!(ys[iτ], y_M)
             if iτ > 1
-                y_M, newdistance = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+                y_M, distances[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
                 y_M = reshape(y_M, ysize...)
             end
         end
-        return y, a, distance
+        return ys, as, distances
     else
         y_M, distance = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, kwargs... )
         y_M = reshape(y_M, ysize...)
-        _setindex!(y, 1, y_M)
+        _setindex!(y, y_M)
         if a_keys !== nothing
-            _setindex!(a, 1, apm, stategrid, Tsolution, y_M, bc_M)
+            _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
             a = merge(y, a)
         end
         return y, a, distance
@@ -137,16 +137,16 @@ function sparsity_jac(stategrid::StateGrid, yend::OrderedDict)
     end
 end
 
-function _setindex!(y::OrderedDict, iτ::Integer, y_M::AbstractArray)
+function _setindex!(y::OrderedDict, y_M::AbstractArray)
     N = ndims(y_M) - 1
     i = 0
     for v in values(y)
         i += 1
-        v[(Colon() for _ in 1:N)..., iτ] = y_M[(Colon() for _ in 1:N)..., i]
+        v[(Colon() for _ in 1:N)...] = y_M[(Colon() for _ in 1:N)..., i]
     end
 end
 
-function _setindex!(a::OrderedDict, iτ::Integer, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     for i in eachindex(stategrid)
          state = stategrid[i]
          solution = derive(Tsolution, stategrid, y_M, i, bc_M)
@@ -154,7 +154,7 @@ function _setindex!(a::OrderedDict, iτ::Integer, apm, stategrid::StateGrid, Tso
          solution = derive(Tsolution, stategrid, y_M, i, bc_M, apm(state, solution)[2])
          outi = apm(state, solution)[3]
          for (k, v) in zip(values(a), values(outi))
-            k[i, iτ] = v
+            k[i] = v
          end
      end
  end

@@ -23,7 +23,7 @@ function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
   i = (μw_up >= 0) ? i_up : i_down
   μw = (μw_up >= 0) ? μw_up : μw_down
   vw = (vw_up >= 0) ? vw_up : vw_down
-  vt = (i - δ) * (v - vw * w) + ((r - λ) * w + A - i - θ * i^2 / 2) * vw + σ^2 / 2 * vww - r * v
+  vt = - ((i - δ) * (v - vw * w) + ((r - λ) * w + A - i - θ * i^2 / 2) * vw + σ^2 / 2 * vww - r * v)
   return (vt,), (; v, vw, vww, w)
 end
 

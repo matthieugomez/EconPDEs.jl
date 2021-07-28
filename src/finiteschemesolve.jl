@@ -6,7 +6,7 @@
 
 # Implicit time step
 function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth)
-    F_helper!(ydot, y) = (F!(ydot, y) ; ydot .+= .!is_algebraic .* (ypost .- y) ./ Δ; ydot .*= -1)
+    F_helper!(ydot, y) = (F!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
     # sign flipped for HJBVI: The HJBVI is min{-ydot, y - y̲}=0, so when y==y̲, ydot ≤ 0
     # (remember here ydot = u + ∂y/∂x dx - ρy + ẏ)
     # while the sign convention in mcpsolve is when y==y̲, ydot>=0. 

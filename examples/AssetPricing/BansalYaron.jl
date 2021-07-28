@@ -45,7 +45,7 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     r = ρ + μc / ψ - (1 + 1 / ψ) / 2 * γ * σc^2 - (γ * ψ - 1) / (2 * (ψ - 1)) * σp2
     
     # Market Pricing
-    pt = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
+    pt = -(p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv))
     #pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
     return (pt,)

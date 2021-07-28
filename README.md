@@ -33,16 +33,16 @@ solend = OrderedDict(:V => ones(500))
 # 2. A named tuple giving the value function(s) (as well as its derivatives)
 # at the current value of the state. 
 # 3. (Optional) Current time t
-# It must return a tuple with the opposite of the time derivative of each value function
+# It must return a tuple with the time derivative of each value function
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
 	(; μ) = state
-	(; V, Vμ_plus, Vμ_down, Vμμ) = sol
+	(; V, Vμ_up, Vμ_down, Vμμ) = sol
 	#upwinding
 	Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
-	Vt = 1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
-	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V
-	(Vt,), (θμ * (μbar - μ),)
+	Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
+	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
+	(Vt,)
 end
 
 # The function `pdesolve` takes four arguments:
@@ -51,13 +51,11 @@ end
 # 3. the terminal value function
 # 4. a time grid
 ys, residual_norms = pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
-#> 0.170882 seconds (2.81 M allocations: 118.651 MiB, 12.53% gc time)
 
 # To solve directly for the stationary solution, 
 # i.e. the solution of the PDE with ∂tV = 0,
 # simply omit the time grid
 y, residual_norm =  pdesolve(f, stategrid, solend)
-#> 0.012886 seconds (232.59 k allocations: 8.926 MiB)
 ```
 More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 

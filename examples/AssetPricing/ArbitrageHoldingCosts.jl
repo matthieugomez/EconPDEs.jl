@@ -31,7 +31,7 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
         i = iS
         μ = μS
     end
-    Ft = (μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2) 
+    Ft = - ((μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2))
     return (Ft,)
 end
 

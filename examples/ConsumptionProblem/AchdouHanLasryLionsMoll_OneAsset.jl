@@ -45,7 +45,7 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
         μa = 0.0
     end
 
-    vt = c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v
+    vt = - (c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v)
     return (vt,)
 end
 

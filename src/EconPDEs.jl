@@ -9,26 +9,24 @@ using LinearAlgebra, SparseArrays, NLsolve, OrderedCollections, BlockBandedMatri
 include("finiteschemesolve.jl")
 include("utils.jl")
 
-
 struct EconPDEResult
-	zero
-	residual_norm
-	additional
+	zero 			# solution
+	residual_norm   # norm of ydot for solution
+	optional        # Optional terms returned in the third argument of the function passed to pdesolve
 end
 
 function Base.show(io::IO, x::EconPDEResult)
     show(io, "Residual_norm",  x.residual_norm, "\n")
     show(io, x.zero)
-    return
 end
 
-function Base.iterate(x::EconPDEResult, state = nothing)
-	if state === nothing
-		return (x.zero, 1)
-	elseif state == 1
-		return (x.residual_norm, 2)
+function Base.iterate(x::EconPDEResult, state = 1)
+	if state == 1
+		return (x.zero, 2)
 	elseif state == 2
-		return (x.additional, 3)
+		return (x.residual_norm, 3)
+	elseif state == 3
+		return (x.optional, 4)
 	end
 end
 

@@ -38,7 +38,7 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
         a_keys = get_keys(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
         as = nothing
         if a_keys !== nothing
-           as = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys) for a_key in a_keys]
+           as = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys) for τ in τs]
         end
     else
         a_keys = get_keys(apm, stategrid, Tsolution, yend_M, bc_M)
@@ -61,8 +61,11 @@ function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing,
         end
 
         for iτ in length(τs):(-1):1
-            a_keys !== nothing && _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
             _setindex!(ys[iτ], y_M)
+            if a_keys !== nothing
+                _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
+                as[iτ] = merge(ys[iτ], as[iτ])
+            end
             if iτ > 1
                 y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
                 if verbose

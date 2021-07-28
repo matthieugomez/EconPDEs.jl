@@ -23,11 +23,12 @@ end
 function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ) = m
     (; λ) = state
-    (; p, pλ, pλλ) = y
+    (; p, pλ_up, pλ_down, pλλ) = y
 
     # Drift and volatility of λ, p
     μλ = κλ * (λbar - λ)
     σλ = νλ * sqrt(λ)
+    pλ = (μλ >= 0) ? pλ_up : pλ_down
     μp = pλ / p * μλ + 0.5 * pλλ / p * σλ^2 
     σp_Zλ = pλ / p * σλ
 
@@ -42,7 +43,7 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     # Market Pricing
     pt = p * (1 / p  + μ + μp + λ * (mgf(ZDistribution, 1) - 1) - r - κ_Zc * σ - κ_Zλ * σp_Zλ - η)
     
-    return (pt,), (μλ,)
+    return (pt,)
 end
 
 m = WachterModel()

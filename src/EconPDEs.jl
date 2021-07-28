@@ -16,9 +16,12 @@ struct EconPDEResult
 end
 
 function Base.show(io::IO, x::EconPDEResult)
-    show(io, "Residual_norm",  x.residual_norm, "\n")
-    show(io, x.zero)
+    println(io, "Residual_norm: ",  x.residual_norm)
+    println(io, "Zero: ", x.zero)
 end
+
+Base.show(io::IO, m::MIME"text/plain", x::EconPDEResult) = show(io, x)
+
 
 function Base.iterate(x::EconPDEResult, state = 1)
 	if state == 1

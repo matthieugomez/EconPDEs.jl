@@ -4,12 +4,11 @@
     solves a system of pdes with an arbitrary number of functions and up to state variable. Denote  F the number of functions to solve for and S the number of state variables.
 
     ### Arguments
-    *  f: is a function (state, y) -> (out, μ) 
-    where 
+    *  f: is a function (state, y) -> out
+    where: 
        state is a tuple of real numbers of  length S (for the state values)
        y is a tuple of real numbers of length F * 3 with the functions as well as their first and second derivatives at the state
        out is a tuple of length F with the value of the time derivatives of the functions at the state 
-       μ is a tuple of length F with the value for the drift of the state variable at the state
     * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
     * yend is an OrderedDict that, for each function, associates an initial guess (or a terminal value to start the backward iteration with)
     * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
@@ -114,7 +113,7 @@ function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M
     i0 = first(eachindex(stategrid))
     solution = derive(Tsolution, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], solution)
-    return (length(result) == 3) ? keys(result[3]) : nothing
+    return (length(result) == 2) ? keys(result[2]) : nothing
 end
 
 function localize(apm, τ::Number)
@@ -161,9 +160,7 @@ function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::A
     for i in eachindex(stategrid)
          state = stategrid[i]
          solution = derive(Tsolution, stategrid, y_M, i, bc_M)
-         # upwind
-         solution = derive(Tsolution, stategrid, y_M, i, bc_M, apm(state, solution)[2])
-         outi = apm(state, solution)[3]
+         outi = apm(state, solution)[2]
          for (k, v) in zip(values(a), values(outi))
             k[i] = v
          end
@@ -173,11 +170,12 @@ function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::A
  function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
      for i in eachindex(stategrid)
          solution = derive(Tsolution, stategrid, y_M, i, bc_M)
-         outi, drifti, = apm(stategrid[i], solution)
-         solution = derive(Tsolution, stategrid, y_M, i, bc_M, drifti)
-         outi, drifti, = apm(stategrid[i], solution)
-         isa(outi, Number) && @error "The pde function must returns a tuple of tuples, not a tuple of numbers"
-         _setindex!(ydot_M, outi, i)
+         outi = apm(stategrid[i], solution)
+         if isa(outi[1], Number)
+            _setindex!(ydot_M, outi, i)
+        else
+            _setindex!(ydot_M, outi[1], i)
+        end
      end
      return ydot_M
  end

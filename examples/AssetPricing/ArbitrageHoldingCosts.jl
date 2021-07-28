@@ -13,7 +13,8 @@ end
 function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
     (; c, r, ρ, σ, a, T) = m
     (; z) = state
-    (; F, Fz, Fzz) = y
+    (; F, Fz_up, Fz_down, Fzz) = y
+    Fz = (z >= 0) ? Fz_up : Fz_down
     ϕ = z * (1 + z^2)^(-1/2)
     ϕz = (1 + z^2)^(-3/2)
     ϕzz = - 3 * z * (1 + z^2)^(-5/2)
@@ -31,7 +32,7 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
         μ = μS
     end
     Ft = (μ + σ^2 * Fz) * a * i - 0.5 * σ^2 * (a * i)^2 - ρ * z * Fz + 0.5 * σ^2 * (Fzz - Fz^2) 
-    return (Ft,), (-ρ * z,)
+    return (Ft,)
 end
 
 m = ArbitrageHoldingCosts()

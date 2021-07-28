@@ -12,11 +12,12 @@ end
 function (m::LelandModel)(state::NamedTuple, y::NamedTuple)
     (; r, μ, σ, C, τ) = m
     (; δ) = state
-    (; E, Eδ, Eδδ) = y
+    (; E, Eδ_up, Eδ_down, Eδδ) = y
     μδ, σδ = μ * δ, σ * δ
+    Eδ = (μδ >= 0) ? Eδ_up : Eδ_down
     f = δ - (1 - τ) * C
     Et = f + Eδ * μδ + 0.5 * Eδδ * σδ^2 - r * E
-    return (Et,), (μδ,)
+    return (Et,)
 end
 
 m = LelandModel()

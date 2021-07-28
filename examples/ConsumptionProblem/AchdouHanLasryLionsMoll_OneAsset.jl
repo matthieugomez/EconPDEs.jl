@@ -23,13 +23,22 @@ end
 function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     (; κy, σy, ybar, r, ρ, γ, amin, amax) = m    
     (; y, a) = state
-    (; v, vy, va, vyy, vya, vaa) = value
+    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
-    va = max(va, eps())
+    vy = (μy >= 0) ? vy_up : vy_down
+    va_up = max(va_up, eps())
+    va_down = max(va_down, eps())
     
     # There is no second derivative at 0 so just specify first order derivative
-    c = va^(-1 / γ)
-    μa = y + r * a - c
+    c_up = va_up^(-1 / γ)
+    μa_up = y + r * a - c_up
+    c_down = va_down^(-1 / γ)
+    μa_down = y + r * a - c_down
+
+    va = (μa_up >= 0) ? va_up : va_down
+    c = (μa_up >= 0) ? c_up : c_down
+    μa = (μa_up >= 0) ? μa_up : μa_down
+
     if (a ≈ amin) && (μa <= 0.0)
         va = (y + r * amin)^(-γ)
         c = y + r * amin
@@ -37,7 +46,7 @@ function (m::AchdouHanLasryLionsMollModel)(state::NamedTuple, value::NamedTuple)
     end
 
     vt = c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v
-    return (vt,), (μy, μa)
+    return (vt,)
 end
 
 m = AchdouHanLasryLionsMollModel()

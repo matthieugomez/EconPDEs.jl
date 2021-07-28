@@ -33,14 +33,16 @@ solend = OrderedDict(:V => ones(500))
 # 2. A named tuple giving the value function(s) (as well as its derivatives)
 # at the current value of the state. 
 # 3. (Optional) Current time t
-# It must return two tuples:
-# 1. a tuple with the opposite of the time derivative of each value function
-# 2. a tuple with the drift of each state variable (internally used for upwinding)
+# It must return a tuple with the opposite of the time derivative of each value function
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
-	Vt = 1  - ρ * sol.V + (1 - 1 / ψ) * (state.μ - 0.5 * γ * ϑ) * sol.V + θμ * (μbar - state.μ) * sol.Vμ +
-	0.5 * νμ^2 * ϑ * sol.Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * sol.Vμ^2/sol.V
-	(Vt,), (θμ * (μbar - state.μ),)
+	(; μ) = state
+	(; V, Vμ_plus, Vμ_down, Vμμ) = sol
+	#upwinding
+	Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
+	Vt = 1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
+	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V
+	(Vt,), (θμ * (μbar - μ),)
 end
 
 # The function `pdesolve` takes four arguments:

@@ -41,7 +41,7 @@ end
 function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
   (; μ, v) = state
-  (; p, pμ, pv, pμμ, pμv, pvv) = y
+  (; p, pμ_up, pμ_down, pv_up, pv_down, pμμ, pμv, pvv) = y
 
   # drift and volatility of μ, ν, p
   μc = μ
@@ -49,6 +49,9 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   μμ = κμ * (μbar - μ)
   σμ = νμ * sqrt(v)
   μv = κv * (vbar - v)
+
+  pμ = (μμ >= 0) ? pμ_up : pμ_down
+  pv = (νμ >= 0) ? pv_up : pv_down 
   σv = νv * sqrt(v) 
   σp_Zμ = pμ / p * σμ
   σp_Zv = pv / p * σv
@@ -68,7 +71,7 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   #out = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
 
   pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2 * (1 - (αstar - 1)^2)) + μp + (0.5 * (1 / ψ - γ) / (1 - 1 / ψ) + 0.5 * γ * (1 - 1 / ψ) * (αstar - 1)^2) * σp2)
-  return (pt,), (μμ, μv)
+  return (pt,)
 end
 
 m = HaddadModel()

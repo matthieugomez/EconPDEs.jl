@@ -15,13 +15,16 @@ function (m::WangWangYangModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, r, ρ, γ, ψ, wmax) = m
     (; w) = state
     (; p, pw_up, pw_down, pww) = y
-    c_up = (r + ψ * (ρ - r)) * p * pw_up^(-ψ)
-    c_down = (r + ψ * (ρ - r)) * p * pw_down^(-ψ)
-    μw_up = (r - μ + σ^2) * w + 1 - c_up
-    μw_down = (r - μ + σ^2) * w + 1 - c_down
-    μw = (μw_up >= 0) ? μw_up : μw_down
-    c = (μw_up >= 0) ? c_up : c_down
-    pw = (μw_up >= 0) ? pw_up : pw_down
+    pw = pw_up
+    iter = 0
+    @label start
+    c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
+    μw = (r - μ + σ^2) * w + 1 - c
+    if (iter == 0) & (μw <= 0)
+        iter += 1
+        pw = pw_down
+        @goto start
+    end
 
    #  One only needs a ghost node if μw <= 0 (since w^2p_ww = 0). In this case, we obtain a formula for pw so that c <= 1
     if w ≈ 0.0 && μw <= 0.0

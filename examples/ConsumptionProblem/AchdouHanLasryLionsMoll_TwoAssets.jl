@@ -24,24 +24,19 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::N
     (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
     vy = (μy >= 0) ? vy_up : vy_down
-    va_up = max(va_up, eps())    
-    c_up = va_up^(-1 / γ)
-    k_up = (μR - r) / σR^2 * (- va_up / vaa)
-    k_up = clamp(k_up, 0.0, a - amin)
-    μa_up = y + r * a + (μR - r) * k_up - c_up
-
-    va_up = max(va_up, eps())    
-    c_down = va_down^(-1 / γ)
-    k_down = (μR - r) / σR^2 * (- va_down / vaa)
-    k_down = clamp(k_down, 0.0, a - amin)
-    μa_down = y + r * a + (μR - r) * k_down - c_down
-
-    va = (μa_up >= 0) ? va_up : va_down
-    c = (μa_up >= 0) ?  c_up : c_down
-    k = (μa_up >= 0) ?  k_up : k_down
-    k = (μa_up >= 0) ?  k_up : k_down
-    μa = (μa_up >= 0) ? μa_up : μa_down
-
+    va = va_up
+    iter = 0
+    @label start
+    va = max(va, eps())    
+    c = va^(-1 / γ)
+    k = (μR - r) / σR^2 * (- va / vaa)
+    k = clamp(k, 0.0, a - amin)
+    μa = y + r * a + (μR - r) * k - c
+    if (iter == 0) & (μa <= 0)
+        iter += 1
+        va = va_down
+        @goto start
+    end
     σa = k * σR
     # There is no second derivative at 0 so just specify first order derivative
     if (a ≈ amin) && (μa <= 0.0)

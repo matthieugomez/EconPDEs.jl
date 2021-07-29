@@ -38,7 +38,6 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   pAx, pBx, px = pAx_up, pBx_up, px_up
   iter = 0
   @label start
-  iter += 1
   σX = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx / pA - pBx / pB))
   σpA = pAx / pA * σX + pAν / pA * σν
   σpB = pBx / pB * σX + pBν / pB * σν
@@ -50,7 +49,8 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
   # Interest rate r
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
-  if (iter == 1) & (μX <= 0)
+  if (iter == 0) & (μX <= 0)
+    iter += 1
     pAx, pBx, px = pAx_down, pBx_down, px_down
     @goto start
   end

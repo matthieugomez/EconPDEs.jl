@@ -16,13 +16,16 @@ function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
   (; r, δ, A, σ, θ, λ, l, γ, ϕ) = m
   (; w) = state
   (; v, vw_up, vw_down, vww) = y
-  i_up = 1 / θ * (v / vw_up - w - 1)
-  i_down = 1 / θ * (v / vw_down - w - 1)
-  μw_up = (r - λ) * w + A - i_up - θ * i_up^2 / 2 - (i_up - δ) * w
-  μw_down = (r - λ) * w + A - i_down - θ * i_up^2 / 2 - (i_down - δ) * w
-  i = (μw_up >= 0) ? i_up : i_down
-  μw = (μw_up >= 0) ? μw_up : μw_down
-  vw = (vw_up >= 0) ? vw_up : vw_down
+  vw = vw_up
+  iter = 0
+  @label start
+  i = 1 / θ * (v / vw - w - 1)
+  μw = (r - λ) * w + A - i - θ * i^2 / 2 - (i - δ) * w
+  if (iter == 0) & (μw <= 0)
+    iter += 1
+    vw = vw_down
+    @goto start
+  end
   vt = - ((i - δ) * (v - vw * w) + ((r - λ) * w + A - i - θ * i^2 / 2) * vw + σ^2 / 2 * vww - r * v)
   return (; vt), (; v, vw, vww, w)
 end

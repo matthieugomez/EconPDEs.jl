@@ -41,7 +41,6 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   pAx, pBx, ϕ1x, ϕ2x = pAx_up, pBx_up, ϕ1x_up, ϕ2x_up
   iter = 0
   @label start
-  iter += 1
   Γ = 1 / (x / γA + (1 - x) / γB)
   p = x * pA + (1 - x) * pB
   σx = σ * x * (Γ / γA - 1) / (1 + Γ * x * (1 - x) / (γA * γB) * ((1 - γB * ψB) / (ψB - 1) * (pBx / pB) - (1 - γA * ψA) / (ψA - 1) * (pAx / pA)))
@@ -59,7 +58,8 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   μCA = ψA * (r - ρ) + mcA
   μCB = ψB * (r - ρ) + mcB
   μx = x * (μCA - δ - μ) + δ * νA / pA * (ϕ1 + ϕ2) - σ * σx  
-  if (iter == 1) & (μx <= 0)
+  if (iter == 0) & (μx <= 0)
+    iter += 1
     pAx, pBx, ϕ1x, ϕ2x = pAx_down, pBx_down, ϕ1x_down, ϕ2x_down
     @goto start
   end

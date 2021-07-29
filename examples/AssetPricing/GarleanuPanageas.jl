@@ -52,7 +52,6 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   κ = Γ * (σ - x * (1 - γA * ψA) / (γA * (ψA - 1)) * σpA - (1 - x) * (1 - γB * ψB) / (γB * (ψB - 1)) * σpB)
   σCA = κ / γA + (1 - γA * ψA) / (γA * (ψA - 1)) * σpA
   σCB = κ / γB + (1 - γB * ψB) / (γB * (ψB - 1)) * σpB
-  # Interest rate r
   # A.16 Equation in Garleanu Panageas has a typo
   mcA = κ^2 * (1 + ψA) / (2 * γA) + (1 - ψA * γA) / (γA * (ψA - 1)) * κ * σpA - (1 - γA * ψA) / (2 * γA * (ψA - 1)) * σpA^2
   mcB = κ^2 * (1 + ψB) / (2 * γB) + (1 - ψB * γB) / (γB * (ψB - 1)) * κ * σpB - (1 - γB * ψB) / (2 * γB * (ψB - 1)) * σpB^2
@@ -60,7 +59,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   μCA = ψA * (r - ρ) + mcA
   μCB = ψB * (r - ρ) + mcB
   μx = x * (μCA - δ - μ) + δ * νA / pA * (ϕ1 + ϕ2) - σ * σx  
-  if (μx <= 0) & (iter <= 1)
+  if (iter == 1) & (μx <= 0)
     pAx, pBx, ϕ1x, ϕ2x = pAx_down, pBx_down, ϕ1x_down, ϕ2x_down
     @goto start
   end

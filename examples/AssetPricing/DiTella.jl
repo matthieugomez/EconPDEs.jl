@@ -39,7 +39,6 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   iter = 0
   @label start
   iter += 1
- # Market price of risk κ
   σX = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx / pA - pBx / pB))
   σpA = pAx / pA * σX + pAν / pA * σν
   σpB = pBx / pB * σX + pBν / pB * σν
@@ -51,7 +50,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
   # Interest rate r
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
-  if (μX <= 0) & (iter <= 1)
+  if (iter == 1) & (μX <= 0)
     pAx, pBx, px = pAx_down, pBx_down, px_down
     @goto start
   end
@@ -65,8 +64,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   pAt = - pA * (1 / pA  + (ψ - 1) * τ / (1 - γ) * ((pA / pB)^((1 - γ) / (1 - ψ)) - 1) - ψ * ρ + (ψ - 1) * (r + κ * σA + κν * νA) + μpA - (ψ - 1) * γ / 2 * (σA^2 + νA^2) + (2 - ψ - γ) / (2 * (ψ - 1)) * σpA^2 + (1 - γ) * σpA * σA)
   pBt = - pB * (1 / pB - ψ * ρ + (ψ - 1) * (r + κ * σB) + μpB - (ψ - 1) * γ / 2 * σB^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpB^2 + (1 - γ) * σpB * σB)
   # algebraic constraint
-  pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
-
+  pt = - p * ((1 - i) / p - x / pA - (1 - x) / pB)
   return (; pAt, pBt, pt)
 end
 

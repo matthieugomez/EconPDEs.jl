@@ -19,12 +19,12 @@ Let us solve the PDE for the price-dividend ratio in the Long Run Risk model wit
 using EconPDEs
 
 # Define a discretized state space
-# An OrderedDict in which each key corresponds to a dimension of the state space.
+# An OrderedDict in which each key corresponds to a state variable:
 stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
 
 # Define an initial guess for the value functions
 # An OrderedDict in which each key corresponds to a value function to solve for, 
-# specified as an array with the same dimension as the state space
+# specified as an array with as many dimensions as there are state variables
 solend = OrderedDict(:V => ones(500))
 
 # Define a function that encodes the PDE. 
@@ -33,7 +33,7 @@ solend = OrderedDict(:V => ones(500))
 # 2. A named tuple giving the value function(s) (as well as its derivatives)
 # at the current value of the state. 
 # 3. (Optional) Current time t
-# It must return a tuple with the time derivative of each value function
+# It must return a tuple with the time derivative corresponding to each value function
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
 	(; μ) = state

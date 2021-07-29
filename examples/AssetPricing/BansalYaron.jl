@@ -29,7 +29,7 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     μv = κv * (vbar - v)
     σv = νv * sqrt(v) 
     pμ = (μμ >= 0) ? pμ_up : pμ_down
-    pv = (νμ >= 0) ? pv_up : pv_down 
+    pv = (μv >= 0) ? pv_up : pv_down 
     σp_Zμ = pμ / p * σμ
     σp_Zv = pv / p * σv
     σp2 = σp_Zμ^2 + σp_Zv^2

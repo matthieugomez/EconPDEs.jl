@@ -1,4 +1,4 @@
-PWD /Users/Matthieu/Dropbox/Github/EconPDEs.jl/src
+PWD /Users/matthieugomez/Dropbox/Github/EconPDEs/examples
 INPUT /usr/local/texlive/2016/texmf.cnf
 INPUT /usr/local/texlive/2016/texmf-dist/web2c/texmf.cnf
 INPUT /usr/local/texlive/2016/texmf-var/web2c/pdftex/pdflatex.fmt
@@ -142,12 +142,11 @@ INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm1
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm7.tfm
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/public/esint/esint10.tfm
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/public/esint/esint10.tfm
-INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm0700.tfm
-INPUT /usr/local/texlive/2016/texmf-var/fonts/map/pdftex/updmap/pdftex.map
 INPUT details.bbl
 INPUT details.bbl
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm1440.tfm
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecbx1440.tfm
+INPUT /usr/local/texlive/2016/texmf-var/fonts/map/pdftex/updmap/pdftex.map
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecti1000.tfm
 INPUT details.aux
 INPUT ./details.out
@@ -163,8 +162,6 @@ INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pf
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfcc1200.pfb
-INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0600.pfb
-INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0700.pfb
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0800.pfb
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb
 INPUT /usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb

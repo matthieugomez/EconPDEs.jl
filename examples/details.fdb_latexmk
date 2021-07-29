@@ -1,20 +1,19 @@
 # Fdb version 3
-["bibtex details"] 1554487308 "details.aux" "details.bbl" "details" 1554487309
+["bibtex details"] 1627521372 "details.aux" "details.bbl" "details" 1627521505
   "/usr/local/texlive/2016/texmf-dist/bibtex/bst/economic/aer.bst" 1389482635 26812 2ae6e48450a8c17a93d98067b7084a7a ""
   "bib.bib" 1509390774 57262 83f7dd682af7e02b98967bfff7de65c7 ""
-  "details.aux" 1554487308 2165 26bfd1007904b1423b6aa451abfae00d ""
+  "details.aux" 1627521505 1478 a1fd370d18bbc11c8ddce4317743073a ""
   "details.bcf" 0 -1 0 ""
   (generated)
   "details.bbl"
   "details.blg"
-["pdflatex"] 1554487308 "details.tex" "details.pdf" "details" 1554487309
+["pdflatex"] 1627521505 "details.tex" "details.pdf" "details" 1627521505
   "/usr/local/texlive/2016/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/map/fontname/texfonts.map" 1272929888 3287 e6b82fe08f5336d4d5ebc73fb1152e87 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecbx1000.tfm" 1136768653 3584 2d666ecf6d466d8b007246bc2f94d9da ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecbx1440.tfm" 1136768653 3584 13049b61b922a28b158a38aeff75ee9b ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/eccc1200.tfm" 1136768653 3072 1e3dcc56ea731d0f3645bbefe8c8608c ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm0600.tfm" 1136768653 3584 291a5713401683441e0a8c8f4417b17b ""
-  "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm0700.tfm" 1136768653 3584 cf973739aac7ab6247f9150296af7954 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm0800.tfm" 1136768653 3584 49064b465390a8e316a3c8417a050403 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm1000.tfm" 1136768653 3584 adb004a0c8e7c46ee66cad73671f37b4 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/tfm/jknappen/ec/ecrm1200.tfm" 1136768653 3584 f80ddd985bd00e29e9a6047ebd9d4781 ""
@@ -50,8 +49,6 @@
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfbx1000.pfb" 1215737283 145408 43d44302ca7d82d487f511f83e309505 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb" 1215737283 135942 859a90cad7494a1e79c94baf546d7de5 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfcc1200.pfb" 1215737283 108594 1a08a22405bc37650b977f219cc3597d ""
-  "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0600.pfb" 1215737283 162624 9dcc92cd3b1dfe2ecc80e6da7f2eb6bd ""
-  "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0700.pfb" 1215737283 154599 ded6d7c21788a8930eadc7fef7518942 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm0800.pfb" 1215737283 164227 3df942b4ff2124425d8fb1b6d3e01c7a ""
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb" 1215737283 138258 6525c253f16cededa14c7fd0da7f67b2 ""
   "/usr/local/texlive/2016/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb" 1215737283 136101 f533469f523533d38317ab5729d00c8a ""
@@ -104,12 +101,12 @@
   "/usr/local/texlive/2016/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1471372306 1888048 f2c5faed5981a516f406b2ccc20bff71 ""
   "/usr/local/texlive/2016/texmf-var/web2c/pdftex/pdflatex.fmt" 1463979169 3873397 413fbfbbedb8e719ddc392043a7add02 ""
   "/usr/local/texlive/2016/texmf.cnf" 1463979140 577 2938757e76f31531e65cc647e3507693 ""
-  "details.aux" 1554487308 2165 26bfd1007904b1423b6aa451abfae00d ""
-  "details.bbl" 1554487308 1375 231dae86c7b34e476957f93adb3ceb4f "bibtex details"
-  "details.out" 1554487308 0 d41d8cd98f00b204e9800998ecf8427e ""
-  "details.tex" 1554487307 4878 abee71099d46d309e7610f2bd089b9f5 ""
+  "details.aux" 1627521505 1478 a1fd370d18bbc11c8ddce4317743073a ""
+  "details.bbl" 1627521372 678 b3ad07a1401c4934da92c546be933336 "bibtex details"
+  "details.out" 1627521505 0 d41d8cd98f00b204e9800998ecf8427e ""
+  "details.tex" 1627521504 2734 6471febb2c46dfe66154680b19a83c77 ""
   (generated)
-  "details.log"
   "details.out"
-  "details.pdf"
   "details.aux"
+  "details.pdf"
+  "details.log"

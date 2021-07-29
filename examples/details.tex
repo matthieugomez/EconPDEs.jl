@@ -21,53 +21,32 @@ anchorcolor=darkblue,citecolor=darkblue}
 	\maketitle
 	This package \href{https://github.com/matthieugomez/EconPDEs.jl}{EconPDEs.jl} introduces a fast and robust way to solve systems of PDEs + algebraic equations (i.e. DAEs) associated with economic models. This note details the underlying algorithm. 
 	\paragraph{Difference with \citet{achdou2014heterogeneous}}
-	 \citet{achdou2014heterogeneous} focus on quasi-linear PDEs of the form
+	 \citet{achdou2014heterogeneous} focus on linear PDEs of the form
 	\begin{align*}
-		0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V
+0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V + \partial_t V
 	\end{align*}
 	In contrast, the package solves non-linear PDEs of the form
 		\begin{align*}
-			0&=f_1(V)  + f_2(x, \partial_x V)  + f_3(x, \partial_x V) \partial_{xx} V
+			0&=f_1(V)  + f_2(x, \partial_x V)  + f_3(x, \partial_x V) \partial_{xx} V+ \partial_t V
 		\end{align*}
 
 	
 
 	\paragraph{Step 1: Write Finite Difference Scheme}
-	The system of PDEs is written on a state space grid and derivatives are substituted by finite difference approximations. As in \citet{achdou2014heterogeneous},  first order derivatives are upwinded. This allows to naturally handle boudnary counditions at the frontiers of the state space. This also tends to make the scheme monotonous.
+	The system of PDEs is written on a state space grid and derivatives are substituted by finite difference approximations. As in \citet{achdou2014heterogeneous},  first order derivatives are upwinded. This helps to ensure that the boundary counditions are satisfied, as well as making the scheme monotonous.
 
 	\paragraph{Step 2: Solve Finite Difference Scheme}
 
-	Denote $V$  the solution of the PDE and denote $F(V)$ the finite difference scheme corresponding to a model. The goal is to find $V$ such that $F(V) = 0$. The package includes a solver especially written for these finite different schemes. This method is most similar to a method used in the fluid dynamics literature. In this context, it is called the Pseudo-Transient Continuation method, and is denoted $\Psi tc$. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}.\par
-	To understand the intuition for the method, note that the existing literature in economics solves for $V$ using using one of the two methods:
-
-	\begin{enumerate}
-		\item Non-linear solver. The method solves for the non-linear system $F (V ) = 0$. A Newton-Raphson update takes the form
-		\begin{align}
-			\label{1}
-			0 &= F(y_{t}) + J_{F}(v_t) (v_{t+1} - v_t)
-		\end{align}
-		The issue with this method is that it requires the initial guess to be sufficiently close to the solution.\footnote{This method is usded, for instance, by \citet{garleanu2015young}}
-		\item ODE solver . The method solves for the ODE $F(V) = \dot{V}$. The solution of $F(V)=0$ is obtained with $T\rightarrow +\infty$. \footnote{See, for instance, \citet{ditellabalance}, \citet{silva2015risk}.}
-		With a simple explicit Euler method, updates take the form
-		\begin{align}
-			\label{2}
-			0&= F(v_t) - \frac{1}{\Delta} (v_{t+1} -y_{t})
-		\end{align}
-		This method tends to be slow, and does not always converge, depending on the ODE chosen.
-	\end{enumerate}
+	Denote $V_t$  the solution of the PDE. We can alwyays write the HJB is $0 =F(V_t) + \partial_t V$. 
 	I propose to solve for $V$ using a fully implicit Euler method.  Updates take the form 
 	\begin{align*}
-		\forall t \leq T \hspace{1cm} 0&= F(v_{t+1}) - \frac{1}{\Delta}(v_{t+1} -y_{t})
+		\forall t \leq T \hspace{1cm} 0&= F(V_{t+1}) + \frac{1}{\Delta}(V_{t+1} -V_{t})
 	\end{align*}
-	Each time step now requires to solve a non-linear equation. I solve this non-linear equation using a Newton-Raphson method. These inner iterations therefore take the form
-	\begin{align}
-		\label{inner}
-		\forall i \leq I \hspace{1cm}	0 &= F(y_{t}^i) - \frac{1}{\Delta}(y_{t}^{i} -y_{t}) + (J_{F}(v_t^i) -  \frac{1}{\Delta})(y^{i+1}_{t} - v_t^i)
-	\end{align}
-	We know that the Newton-Raphson method converges if the initial guess is close enough to the solution. Since $y_{t}$ converges towards $v_{t+1}$ as $\Delta$ tends to zero, one can always choose $\Delta$ low enough so that the inner steps converge.Therefore, I adjust $\Delta$ as follows. If the inner iterations do not converge, I decrease $\Delta$. When the inner iteration converges, I increase $\Delta$. \par
-	The update \cref{inner} can be see as weighted average of the Newton-Raphson step \cref{1} and of the explicit Euler step \cref{2}.  After a few sucessful implicit time steps, $\Delta$ is large and therefore the algorithm becomes like Newton-Rapshon. In particular, the convergence is quadratic around the solution. \par
-	The algorithm with $I=1$ and $\Delta$ constant corresponds to \citet{achdou2014heterogeneous}. Allowing $I > 1$ and adjusting $\Delta$  are important to ensure convergence in case on non-linear PDEs.
+	Each time step requires to solve a non-linear equation, which is solved using a Newton-Raphson method. 
 
+	If the Newton-Raphson step is not successful, I decrease $\Delta$ (since this non-linear step converges if the guess is sufficiently close to the solution). If it is successful, I increase $\Delta$, to speed up the algorithm.
+
+	This method is most similar to a method used in the fluid dynamics literature. In this context, it is called the Pseudo-Transient Continuation method, and is denoted $\Psi tc$. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}.\par
 
 
 

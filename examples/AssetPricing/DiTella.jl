@@ -35,39 +35,26 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   pBν = (μν >= 0) ? pBν_up : pBν_down
   pν = (μν >= 0) ? pν_up : pν_down
 
+  pAx, pBx, px = pAx_up, pBx_up, px_up
+  iter = 0
+  @label start
+  iter += 1
  # Market price of risk κ
-  σX_up = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx_up / pA - pBx_up / pB))
-  σX_down = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx_down / pA - pBx_down / pB))
-  σpA_up = pAx_up / pA * σX_up + pAν / pA * σν
-  σpA_down = pAx_down / pA * σX_down + pAν / pA * σν
-  σpB_up = pBx_up / pB * σX_up + pBν / pB * σν
-  σpB_down = pBx_down / pB * σX_down + pBν / pB * σν
-  σp_up = px_up / p * σX_up + pν / p * σν
-  σp_down = px_down / p * σX_down + pν / p * σν
-  κ_up = (σp_up + σ - (1 - γ) / (γ * (ψ - 1)) * (x * σpA_up + (1 - x) * σpB_up)) / (1 / γ)
-  κ_down = (σp_down + σ - (1 - γ) / (γ * (ψ - 1)) * (x * σpA_down + (1 - x) * σpB_down)) / (1 / γ)
+  σX = x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAν / pA - pBν / pB) * σν / (1 - x * (1 - x) * (1 - γ) / (γ * (ψ - 1)) * (pAx / pA - pBx / pB))
+  σpA = pAx / pA * σX + pAν / pA * σν
+  σpB = pBx / pB * σX + pBν / pB * σν
+  σp = px / p * σX + pν / p * σν
+  κ = (σp + σ - (1 - γ) / (γ * (ψ - 1)) * (x * σpA + (1 - x) * σpB)) / (1 / γ)
   κν = γ * ϕ * ν / x
-  σA_up = κ_up / γ + (1 - γ) / (γ * (ψ - 1)) * σpA_up
-  σA_down = κ_down / γ + (1 - γ) / (γ * (ψ - 1)) * σpA_down
+  σA = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpA
   νA = κν / γ
-  σB_up = κ_up / γ + (1 - γ) / (γ * (ψ - 1)) * σpB_up
-  σB_down = κ_down / γ + (1 - γ) / (γ * (ψ - 1)) * σpB_down
-
+  σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
   # Interest rate r
-  μX_up = x * (1 - x) * ((σA_up * κ_up + νA * κν - 1 / pA - τ) - (σB_up * κ_up -  1 / pB + τ * x / (1 - x)) - (σA_up - σB_up) * (σ + σp_up))
-  μX_down = x * (1 - x) * ((σA_down * κ_down + νA * κν - 1 / pA - τ) - (σB_down * κ_down -  1 / pB + τ * x / (1 - x)) - (σA_down - σB_down) * (σ + σp_down))
-
-  pAx = (μX_up >= 0) ? pAx_up : pAx_down
-  pBx = (μX_up >= 0) ? pBx_up : pBx_down
-  px =  (μX_up >= 0) ? px_up : px_down
-  σpA = (μX_up >= 0) ? σpA_up : σpA_down
-  σpB = (μX_up >= 0) ? σpB_up : σpB_down
-  σp =  (μX_up >= 0) ? σp_up : σp_down
-  σA =  (μX_up >= 0) ? σA_up : σA_down
-  σB =  (μX_up >= 0) ? σB_up : σB_down
-  κ =   (μX_up >= 0) ? κ_up : κ_down
-  σX =  (μX_up >= 0) ? σX_up : σX_down
-  μX =  (μX_up >= 0) ? μX_up : μX_down
+  μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
+  if (μX <= 0) & (iter <= 1)
+    pAx, pBx, px = pAx_down, pBx_down, px_down
+    @goto start
+  end
 
   μpA = pAx / pA * μX + pAν / pA * μν + 0.5 * pAxx / pA * σX^2 + 0.5 * pAνν / pA * σν^2 + pAxν / pA * σX * σν
   μpB = pBx / pB * μX + pBν / pB * μν + 0.5 * pBxx / pB * σX^2 + 0.5 * pBνν / pB * σν^2 + pBxν / pB * σX * σν

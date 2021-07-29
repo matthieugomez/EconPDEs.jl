@@ -167,9 +167,9 @@ INPUT /usr/local/texlive/2020/texmf-dist/fonts/tfm/public/esint/esint10.tfm
 INPUT /usr/local/texlive/2020/texmf-dist/fonts/tfm/public/esint/esint10.tfm
 INPUT details.bbl
 INPUT details.bbl
+INPUT /usr/local/texlive/2020/texmf-var/fonts/map/pdftex/updmap/pdftex.map
 INPUT /usr/local/texlive/2020/texmf-dist/fonts/tfm/jknappen/ec/ecrm1440.tfm
 INPUT /usr/local/texlive/2020/texmf-dist/fonts/tfm/jknappen/ec/ecbx1440.tfm
-INPUT /usr/local/texlive/2020/texmf-var/fonts/map/pdftex/updmap/pdftex.map
 INPUT /usr/local/texlive/2020/texmf-dist/fonts/tfm/jknappen/ec/ecti1000.tfm
 INPUT details.aux
 INPUT ./details.out

@@ -41,7 +41,11 @@ anchorcolor=darkblue,citecolor=darkblue}
 	\begin{align*}
 		0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V + \partial_t V
 	\end{align*}
-	In this case, there is no need for non-linear step and one can solve the PDE using explicit Euler methods
+	whereas I am interesed in semi-linear PDEs
+	\begin{align*}
+		0&=f_1(V)  + f_2(x, \partial_x V) \partial_x V  + f_3(x, \partial_x V) \partial_{xx} V + \partial_t V
+	\end{align*}
+	In this case, it is often impossible to find a monotonous scheme, and one needs to switch to non-linear methods.
 
 
 

@@ -58,7 +58,8 @@ end
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
 yend = OrderedDict(:p => ones(length(stategrid[:s])))
-y, residual_norm = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, yend)
+@assert result.residual_norm <= 1e-5
 
 
 # Wachter (2005) calibration

@@ -40,4 +40,5 @@ end
 m = WangWangYangModel()
 stategrid = OrderedDict(:w => range(0.0, m.wmax, length = 100))
 yend = OrderedDict(:p => 1 .+ stategrid[:w])
-y, residual_norm = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
+result = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
+@assert result.residual_norm <= 1e-5

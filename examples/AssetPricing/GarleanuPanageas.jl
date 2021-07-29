@@ -82,4 +82,5 @@ m = GarleanuPanageasModel()
 xn = 200
 stategrid = OrderedDict(:x => range(0.0, 1.0, length = xn))
 yend = OrderedDict(:pA => ones(xn), :pB => ones(xn), :ϕ1 => ones(xn), :ϕ2 => ones(xn))
-y, residual_norm = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, yend)
+@assert result.residual_norm <= 1e-5

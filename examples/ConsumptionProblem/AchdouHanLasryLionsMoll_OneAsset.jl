@@ -53,13 +53,14 @@ stategrid = OrderedDict(:y => range(quantile(distribution, 0.001), quantile(dist
                         :a =>  range(m.amin, m.amax, length = 100)
                         )
 yend = OrderedDict(:v => [log(y + max(a, 0.0)) for y in stategrid[:y], a in stategrid[:a]])
-y, residual_norm = pdesolve(m, stategrid, yend)
-
+result = pdesolve(m, stategrid, yend)
+@assert result.residual_norm <= 1e-5
 
 # finite horizon over 20 years
 yend = OrderedDict(:v => [max(a + y)^(1-m.γ)/(1-m.γ) for y in stategrid[:y], a in stategrid[:a]]) 
 τs = range(0, stop = 100, step = 1)
-ys, results, distances = pdesolve(m, stategrid, yend, τs)
+result  = pdesolve(m, stategrid, yend, τs)
+@assert maximum(result.residual_norm) <= 1e-5
 
 
 # Check marginal value of wealth converges to 1.0 at infinity

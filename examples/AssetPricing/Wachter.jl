@@ -50,7 +50,9 @@ m = WachterModel()
 λn = 30
 stategrid = OrderedDict(:λ => range(0.0, 0.1, length = λn))
 yend =  OrderedDict(:p => ones(λn))
-y, residual_norm = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, yend)
+@assert result.residual_norm <= 1e-5
+
 
 #========================================================================================
 
@@ -61,7 +63,6 @@ Solve for levered equity claim
 function pde_levered(m, state, y, r, κ_Zc, κ_Zλ)
     μ = m.μ ; σ = m.σ ; λbar = m.λbar ; κλ = m.κλ ; νλ = m.νλ ; ZDistribution = m.ZDistribution ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ ; ϕ = m.ϕ
     λ = state.λ
-
     pe, peλ_up, peλ_down, peλλ = y.pe, y.peλ, y.peλλ
     μλ = κλ * (λbar - λ)
     σλ = νλ * sqrt(λ)

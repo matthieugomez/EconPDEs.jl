@@ -33,29 +33,28 @@ end
 m = BoltonChenWangModel()
 stategrid = OrderedDict(:w => range(0.0, 0.3, length = 100))
 yend = OrderedDict(:v => stategrid[:w])
-y, residual_norm = pdesolve(m, stategrid, yend; bc = OrderedDict(:vw => (1.5, 1.0)))
+result = pdesolve(m, stategrid, yend; bc = OrderedDict(:vw => (1.5, 1.0)))
+@assert result.residual_norm <= 1e-5
 
 #========================================================================================
 
 Iterate on boundary conditions until the solution satisfies the conditions given in Bolton Chen Wang (2009)
 
 ========================================================================================#
-
+using NLsolve
 function f(m, x, stategrid, y)
-  y, result, distance = pdesolve(m, stategrid, y; bc = OrderedDict(:vw => (x[1], x[2])))
-  u1, u2, w = result[:v], result[:vw], result[:w]
-  out = zeros(4)
-  mi = argmin(abs.(1 + m.γ .- u2))
-  out[1] = u2[mi] - 1 - m.γ
-  out[2] =  u1[mi] - m.ϕ - (1 + m.γ) * w[mi] - u1[1]
-  wi = argmin(abs.(1 .-u2))
-  out[3] = u2[wi] - 1
-  i = 1 / m.θ * (u1[wi] - w[wi] - 1)
-  out[4] = m.r * u1[wi] - (i - m.δ) * (u1[wi] - w[wi]) - ((m.r - m.λ) * w[wi] + m.A - i - m.θ * i^2 / 2)
+  result = pdesolve(m, stategrid, y; bc = OrderedDict(:vw => (x[1], x[2])), verbose = false)
+  v, vw, w = result.optional[:v], result.optional[:vw], result.optional[:w]
+  out = zeros(2)
+  mi = argmin(abs.(1 + m.γ .- vw))
+  out[1] =  v[mi] - m.ϕ - (1 + m.γ) * w[mi] - v[1]
+  wi = argmin(abs.(1 .- vw))
+  i = 1 / m.θ * (v[wi] - w[wi] - 1)
+  out[2] = m.r * v[wi] - (i - m.δ) * (v[wi] - w[wi]) - ((m.r - m.λ) * w[wi] + m.A - i - m.θ * i^2 / 2)
   return out
 end
-# using LeastSquaresOptim
-# newsol = optimize(x -> f(m, x, stategrid, y0), [1.0,  1.0], Dogleg())
-# y, result, distance = pdesolve(m, stategrid, y0; bc = OrderedDict(:vw => (newsol.minimizer[1],newsol.minimizer[2])))
+
+newsol = nlsolve(x -> f(m, x, stategrid, yend), [1.0,  1.0])
+result = pdesolve(m, stategrid, yend; bc = OrderedDict(:vw => (newsol.zero[1], newsol.zero[2])))
 
 

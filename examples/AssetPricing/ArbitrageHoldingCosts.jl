@@ -41,8 +41,8 @@ d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
 stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = zn))
 yend = OrderedDict(:F => zeros(zn))
 τs = range(0, m.T, length = 100)
-ys, residual_norms = pdesolve(m, stategrid, yend, τs)
-residual_norm = maximum(residual_norms)
+result = pdesolve(m, stategrid, yend, τs)
+residual_norm = maximum(result.residual_norm)
 
 ### reproduce Fig 2
 #d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))

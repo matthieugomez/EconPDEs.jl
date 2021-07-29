@@ -25,7 +25,8 @@ stategrid = OrderedDict(:δ => [0:0.005:0.2;])
 yend = OrderedDict(:E => [max(δ / (m.r - m.μ) - (1 - m.τ) * m.C / m.r, 0.0) for δ in stategrid[:δ]])
 y̲ = zeros(length(stategrid[:δ]))
 bc = OrderedDict(:Eδ => (0.0, 1 / (m.r - m.μ),))
-y, residual_norm = pdesolve(m, stategrid, yend; y̲ = y̲, bc = bc, reformulation = :smooth)
+result = pdesolve(m, stategrid, yend; y̲ = y̲, bc = bc, reformulation = :smooth)
+@assert result.residual_norm <= 1e-5
 
 
 """

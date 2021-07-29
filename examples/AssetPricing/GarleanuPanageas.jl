@@ -103,7 +103,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   ϕ1t = - ϕ1 * (B1 * ω / ϕ1 + (μ - δ - δ1) + μϕ1 + σ * σϕ1 - r - κ * (σϕ1 + σ))
   ϕ2t = - ϕ2 * (B2 * ω / ϕ2 + (μ - δ - δ2) + μϕ2 + σ * σϕ2 - r - κ * (σϕ2 + σ))
 
-  return (pAt, pBt, ϕ1t, ϕ2t)
+  return (; pAt, pBt, ϕ1t, ϕ2t)
 end
 
 m = GarleanuPanageasModel()

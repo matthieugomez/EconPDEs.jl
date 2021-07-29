@@ -8,7 +8,7 @@
     where: 
        state is a tuple of real numbers of  length S (for the state values)
        y is a tuple of real numbers of length F * 3 with the functions as well as their first and second derivatives at the state
-       out is a tuple of length F with the value of the time derivatives of the functions at the state 
+       out is a named tuple of length F with the value of the time derivatives of the functions at the state 
     * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
     * yend is an OrderedDict that, for each function, associates an initial guess (or a terminal value to start the backward iteration with)
     * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
@@ -168,22 +168,24 @@ function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::A
  end
 
  function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
+     Tt = [Symbol(v, :t) for v in Tsolution.parameters[1]]
      for i in eachindex(stategrid)
          solution = derive(Tsolution, stategrid, y_M, i, bc_M)
          outi = apm(stategrid[i], solution)
          if isa(outi[1], Number)
-            _setindex!(ydot_M, outi, i)
+            _setindex!(ydot_M, Tsolution, outi, i)
         else
-            _setindex!(ydot_M, outi[1], i)
+            _setindex!(ydot_M, Tsolution, outi[1], i)
         end
      end
      return ydot_M
  end
 
- @generated function _setindex!(ydot_M::AbstractArray, outi::NTuple{N, T}, i::CartesianIndex) where {N, T}
+ @generated function _setindex!(ydot_M::AbstractArray, ::Type{Tsolution}, outi::NamedTuple, i::CartesianIndex) where {Tsolution}
+     N = length(Tsolution.parameters[1])
      quote
           $(Expr(:meta, :inline))
-          $(Expr(:block, [:(setindex!(ydot_M, outi[$k], i, $k)) for k in 1:N]...))
+          $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(Tsolution.parameters[1][k], :t))), :i, k) for k in 1:N]...))
      end
  end
 

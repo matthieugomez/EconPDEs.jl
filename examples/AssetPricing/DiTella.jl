@@ -80,7 +80,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   # algebraic constraint
   pt = p * ((1 - i) / p - x / pA - (1 - x) / pB)
 
-  return (pAt, pBt, pt)
+  return (; pAt, pBt, pt)
 end
 
 m = DiTellaModel()

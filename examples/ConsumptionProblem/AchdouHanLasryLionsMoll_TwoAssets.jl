@@ -64,7 +64,7 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::N
     μa = y + r * a + (μR - r) * k - c
     σa = k * σR
     vt = - (c^(1 - γ) / (1 - γ) + va * μa + 0.5 * vaa * σa^2 + vy * μy + 0.5 * vyy * σy^2 - ρ * v)
-    return (; vt,), (; v, c, k, va, vaa, vy, y, a, μa)
+    return (; vt), (; v, c, k, va, vaa, vy, y, a, μa)
 end
 
 

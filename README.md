@@ -44,7 +44,7 @@ function f(state::NamedTuple, sol::NamedTuple)
 	Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
 	Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
 	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
-	(; Vt,)
+	(; Vt)
 end
 
 # The function `pdesolve` takes four arguments:

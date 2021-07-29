@@ -17,7 +17,7 @@ function (m::LelandModel)(state::NamedTuple, y::NamedTuple)
     Eδ = (μδ >= 0) ? Eδ_up : Eδ_down
     f = δ - (1 - τ) * C
     Et = - (f + Eδ * μδ + 0.5 * Eδδ * σδ^2 - r * E)
-    return (; Et,)
+    return (; Et)
 end
 
 m = LelandModel()

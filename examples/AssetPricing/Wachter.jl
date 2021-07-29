@@ -43,7 +43,7 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     # Market Pricing
     pt = - p * (1 / p  + μ + μp + λ * (mgf(ZDistribution, 1) - 1) - r - κ_Zc * σ - κ_Zλ * σp_Zλ - η)
     
-    return (; pt,)
+    return (; pt)
 end
 
 m = WachterModel()
@@ -70,7 +70,7 @@ function pde_levered(m, state, y, r, κ_Zc, κ_Zλ)
     σpe_Zλ = peλ / pe * σλ
     η =  λ * (mgf(ZDistribution, ϕ) - 1 + mgf(ZDistribution, -γ) - 1 - (mgf(ZDistribution, ϕ - γ) - 1))
     pet = pe * (1 / pe  + μ + μpe + λ * (mgf(ZDistribution, ϕ) - 1) - r(λ) - κ_Zc(λ) * ϕ * σ - κ_Zλ(λ) * σpe_Zλ - η)
-    return (; pet,)
+    return (; pet)
 end
 #using Interpolations
 #r = interpolate((state[:λ],), result[:r], Gridded(Linear()))

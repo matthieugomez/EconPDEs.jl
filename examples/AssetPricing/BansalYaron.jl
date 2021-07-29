@@ -48,7 +48,7 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     pt = -(p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv))
     #pt = p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2) + μp + 0.5 * (1 / ψ - γ) / (1 - 1 / ψ) * σp2)
 
-    return (;pt,)
+    return (; pt)
 end
 
 # Bansal Yaron (2004)

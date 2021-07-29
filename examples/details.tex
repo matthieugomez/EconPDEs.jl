@@ -20,33 +20,28 @@ anchorcolor=darkblue,citecolor=darkblue}
 	\date{\today}
 	\maketitle
 	This package \href{https://github.com/matthieugomez/EconPDEs.jl}{EconPDEs.jl} introduces a fast and robust way to solve systems of PDEs + algebraic equations (i.e. DAEs) associated with economic models. This note details the underlying algorithm. 
-	\paragraph{Difference with \citet{achdou2014heterogeneous}}
-	 \citet{achdou2014heterogeneous} focus on linear PDEs of the form
-	\begin{align*}
-0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V + \partial_t V
-	\end{align*}
-	In contrast, the package solves non-linear PDEs of the form
-		\begin{align*}
-			0&=f_1(V)  + f_2(x, \partial_x V)  + f_3(x, \partial_x V) \partial_{xx} V+ \partial_t V
-		\end{align*}
-
-	
 
 	\paragraph{Step 1: Write Finite Difference Scheme}
-	The system of PDEs is written on a state space grid and derivatives are substituted by finite difference approximations. As in \citet{achdou2014heterogeneous},  first order derivatives are upwinded. This helps to ensure that the boundary counditions are satisfied, as well as making the scheme monotonous.
+	The system of PDEs is written on a state space grid and derivatives are substituted by finite difference approximations. As in \citet{achdou2014heterogeneous},  first order derivatives are upwinded. This ensures that boundary counditions are satisfied, and this helps making the scheme monotonous.
 
 	\paragraph{Step 2: Solve Finite Difference Scheme}
 
-	Denote $V_t$  the solution of the PDE. We can alwyays write the HJB is $0 =F(V_t) + \partial_t V$. 
-	I propose to solve for $V$ using a fully implicit Euler method.  Updates take the form 
+	Denote $V_t$  the solution of the PDE. We can alwyays write the HJB is $\partial_t V =G(V_t)$. 
+	I propose to solve for $V$ using a fully implicit Euler method.  Given $V_{t+1}$, $V_t$ is solved using:
 	\begin{align*}
-		\forall t \leq T \hspace{1cm} 0&= F(V_{t+1}) + \frac{1}{\Delta}(V_{t+1} -V_{t})
+		 \frac{1}{\Delta}(V_{t+1} -V_{t})&= G(V_{t})
 	\end{align*}
 	Each time step requires to solve a non-linear equation, which is solved using a Newton-Raphson method. 
 
 	If the Newton-Raphson step is not successful, I decrease $\Delta$ (since this non-linear step converges if the guess is sufficiently close to the solution). If it is successful, I increase $\Delta$, to speed up the algorithm.
 
 	This method is most similar to a method used in the fluid dynamics literature. In this context, it is called the Pseudo-Transient Continuation method, and is denoted $\Psi tc$. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}.\par
+
+	\paragraph{Difference with \citet{achdou2014heterogeneous}} 	 \citet{achdou2014heterogeneous} focus on linear PDEs of the form
+	\begin{align*}
+		0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V + \partial_t V
+	\end{align*}
+	In this case, there is no need for non-linear step and one can solve the PDE using explicit Euler methods
 
 
 

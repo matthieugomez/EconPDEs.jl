@@ -5,37 +5,37 @@
 ##############################################################################
 
 # Implicit time step
-function implicit_timestep(F!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth)
-    F_helper!(ydot, y) = (F!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth)
+    G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
     if J0 == nothing
-        result = nlsolve(F_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
+        result = nlsolve(G_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
         if autodiff == :forward
-            jac_cache = ForwardColorJacCache(F_helper!, deepcopy(ypost); colorvec = colorvec, sparsity = J0)
-            j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, F_helper!, y, jac_cache)
+            jac_cache = ForwardColorJacCache(G_helper!, deepcopy(ypost); colorvec = colorvec, sparsity = J0)
+            j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, G_helper!, y, jac_cache)
         else
-            j_helper! = (J, y) -> FiniteDiff.finite_difference_jacobian!(J, F_helper!, y; colorvec = colorvec)
+            j_helper! = (J, y) -> FiniteDiff.finite_difference_jacobian!(J, G_helper!, y; colorvec = colorvec)
         end
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
             # using mcpsolve if lower/upper bounds are given
-            result = mcpsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
+            result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
         else
-            result = nlsolve(OnceDifferentiable(F_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
+            result = nlsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
         end
     end
     return result.zero, result.residual_norm
 end
 
 # Solve for steady state
-function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing), minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth)
+function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing), minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth)
     ypost = y0
     ydot = zero(y0)
-    F!(ydot, ypost)
+    G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
-    isnan(residual_norm) && throw("F! returns NaN with the initial value")
+    isnan(residual_norm) && throw("G! returns NaN with the initial value")
     if Δ == Inf
-        ypost, residual_norm = implicit_timestep(F!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
+        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
     else
         coef = 1.0
         oldresidual_norm = residual_norm
@@ -46,8 +46,8 @@ function finiteschemesolve(F!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
         while (iter < iterations) & (Δ >= minΔ) & (residual_norm > maxdist)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(F!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ, reformulation = reformulation)
-            F!(ydot, y)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ, reformulation = reformulation)
+            G!(ydot, y)
             if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
                 mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for residual_norm calculation
                 residual_norm, oldresidual_norm = norm(ydot .* (mask))/sum(mask), residual_norm

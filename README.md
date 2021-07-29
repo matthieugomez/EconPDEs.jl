@@ -76,12 +76,6 @@ Optimal stopping problems are also supported, as exemplified in [Leland.jl](exam
 where `S(x)` is the value of exercising the option. Notice the traditional "value matching" (`S(x̲)=v(x̲)`) and "smooth pasting" (`S'(x̲)=v'(x̲)`) conditions are implied in the HJBVI formulation. See [the deck of notes from Ben Moll on stopping time problems](https://benjaminmoll.com/codes/) for more details. The `S(x)` can be provided to the solver as a vector defined on the grid via the keyword `y̲` (or `ȳ` as the upper bound for cost minimization problems).
 
 
-## Breaking Changes for 1.0
-The 1.0 release has a number of breaking changes:
-- The first argument of `pdesolve` (the function encoding the PDE) must accept directional first derivatives and it must return a named tuple of time derivatives 
-- The fourth argument of `pdesolve` (the time grid) must be in increasing order
-- `pdesolve` now returns a type with fieldnames `zero` (for the solution) and `residual_norm` (for the norm of residuals)
-
 # Examples
 The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of models:
 - *Habit Model* (Campbell Cochrane (1999) and Wachter (2005))

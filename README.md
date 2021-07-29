@@ -80,6 +80,7 @@ where `S(x)` is the value of exercising the option. Notice the traditional "valu
 The 1.0 release has a number of breaking changes:
 - The first argument of `pdesolve` (the function encoding the PDE) must accept directional first derivatives and it must return a named tuple of time derivatives 
 - The fourth argument of `pdesolve` (the time grid) must be in increasing order
+- `pdesolve` now returns a type with fieldnames `zero` (for the solution) and `residual_norm` (for the norm of residuals)
 
 # Examples
 The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of models:

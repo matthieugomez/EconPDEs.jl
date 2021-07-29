@@ -19,8 +19,9 @@ Let us solve the PDE for the price-dividend ratio in the Long Run Risk model wit
 using EconPDEs
 
 # Define a discretized state space
-# An OrderedDict in which each key corresponds to a state variable:
-stategrid = OrderedDict(:μ => range(-0.05, stop = 0.1, length = 500))
+# An OrderedDict in which each key corresponds to a state variable
+# Grids can be non-homogeneous
+stategrid = OrderedDict(:μ => range(-0.05, 0.1, length = 500))
 
 # Define an initial guess for the value functions
 # An OrderedDict in which each key corresponds to a value function to solve for, 
@@ -33,12 +34,13 @@ solend = OrderedDict(:V => ones(500))
 # 2. A named tuple giving the value function(s) (as well as its derivatives)
 # at the current value of the state. 
 # 3. (Optional) Current time t
-# It must return a tuple with the time derivative corresponding to each value function
+# It must return a tuple with the time derivatives
 function f(state::NamedTuple, sol::NamedTuple)
 	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
 	(; μ) = state
 	(; V, Vμ_up, Vμ_down, Vμμ) = sol
-	#upwinding
+	# note that pdesolve will directly compute the derivatives of the valuefunction.
+	# up and down correspond to the upward and downard derivative obtained by first difference
 	Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
 	Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
 	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
@@ -49,7 +51,7 @@ end
 # 1. the function encoding the PDE
 # 2. the discretized state space
 # 3. the terminal value function
-# 4. a time grid
+# 4. (Optional) a time grid
 ys, residual_norms = pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
 
 # To solve directly for the stationary solution, 

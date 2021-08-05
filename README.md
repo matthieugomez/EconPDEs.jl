@@ -69,6 +69,15 @@ When solving a PDE using a finite scheme approach, one needs to specify the valu
 
 By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
 
+## EconPDEs v1.0.0
+The 1.0 release has the following set of breaking changes:
+
+1. The first argument of pdesolve (the function encoding the PDE) must accept directional first derivatives and it must return a named tuple of time derivatives
+2. The fourth argument of pdesolve (the time grid) must be in increasing order
+3. pdesolve now returns a type with fieldnames zero (for the solution) and residual_norm (for the norm of residuals)
+
+See the updated examples for the new syntax.
+
 ## Optimal Stopping
 Optimal stopping problems are also supported, as exemplified in [Leland.jl](examples/OptimalStoppingTime/Leland.jl). These problems are solved with "HJB variational inequality" (HJBVI), i.e.:
 

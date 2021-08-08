@@ -1,12 +1,12 @@
 # Fdb version 3
-["bibtex details"] 1627560274 "details.aux" "details.bbl" "details" 1627560275
+["bibtex details"] 1628427874 "details.aux" "details.bbl" "details" 1628428018
   "/usr/local/texlive/2020/texmf-dist/bibtex/bst/economic/aer.bst" 1389482635 26812 2ae6e48450a8c17a93d98067b7084a7a ""
   "bib.bib" 1509390774 57262 83f7dd682af7e02b98967bfff7de65c7 ""
-  "details.aux" 1627560275 1435 58d8c718fdf5f12f35e858da51f9a0e5 "pdflatex"
+  "details.aux" 1628428017 1862 24633584153491a4cc80283c214fba3c "pdflatex"
   (generated)
   "details.blg"
   "details.bbl"
-["pdflatex"] 1627560274 "details.tex" "details.pdf" "details" 1627560275
+["pdflatex"] 1628428017 "details.tex" "details.pdf" "details" 1628428018
   "/usr/local/texlive/2020/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -114,12 +114,12 @@
   "/usr/local/texlive/2020/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1586288239 4811913 0be9a7e86c70a26e5e3042966bcd7097 ""
   "/usr/local/texlive/2020/texmf-var/web2c/pdftex/pdflatex.fmt" 1586288259 2432462 fd0fa20e9a3cb5f8169fd0ba1c955158 ""
   "/usr/local/texlive/2020/texmf.cnf" 1586288231 577 d60164b4589a341208aff7a667fbbdcb ""
-  "details.aux" 1627560275 1435 58d8c718fdf5f12f35e858da51f9a0e5 "pdflatex"
-  "details.bbl" 1627560274 678 b3ad07a1401c4934da92c546be933336 "bibtex details"
-  "details.out" 1627560274 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  "details.tex" 1627560272 2806 90884de34f290edc1c0f68a67666bc85 ""
+  "details.aux" 1628428017 1862 24633584153491a4cc80283c214fba3c "pdflatex"
+  "details.bbl" 1628427874 678 b3ad07a1401c4934da92c546be933336 "bibtex details"
+  "details.out" 1628428017 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "details.tex" 1628428016 3920 5602164ffe47d92afb440b3079ad0fce ""
   (generated)
   "details.pdf"
+  "details.out"
   "details.aux"
   "details.log"
-  "details.out"

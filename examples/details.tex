@@ -15,41 +15,43 @@ anchorcolor=darkblue,citecolor=darkblue}
 \usepackage[capitalise, noabbrev]{cleveref}
 
 \begin{document}
-	\title{Solving PDEs Associated with Economic Models}
+	\title{Solving PDEs with Backward Implicit Time Steps}
 	\author{\large{\textsc{Matthieu Gomez \thanks{I thank Valentin Haddad, Ben Moll, and Dejanir Silva for useful discussions.}}}}
 	\date{\today}
 	\maketitle
-	This package \href{https://github.com/matthieugomez/EconPDEs.jl}{EconPDEs.jl} introduces a fast and robust way to solve systems of PDEs + algebraic equations (i.e. DAEs) associated with economic models. This note details the underlying algorithm. 
+	This package \href{https://github.com/matthieugomez/EconPDEs.jl}{EconPDEs.jl} introduces a fast and robust way to solve systems of PDEs + algebraic equations (i.e. DAEs) associated with economic models. It builds on the method presented in \citet{achdou2014heterogeneous}, but extends it to handle non-linearities.
 
-	\paragraph{Step 1: Write Finite Difference Scheme}
-	The system of PDEs is written on a state space grid and derivatives are substituted by finite difference approximations. As in \citet{achdou2014heterogeneous},  first order derivatives are upwinded. This ensures that boundary counditions are satisfied, and this helps making the scheme monotonous.
+	Consider a PDE of the form
+	\begin{align}\label{pde}
+		0&=f_0(x, V)  + f_1(x, \partial_x V) \partial_x V  + f_2(x, \partial_x V) \partial_{xx} V +  \partial_t V
+	\end{align}
 
-	\paragraph{Step 2: Solve Finite Difference Scheme}
+	As in \citet{achdou2014heterogeneous}, I first discretize the state $x$ on a grid and I approximate derivatives $\partial_x V_t$ and $\partial_{xx} V_t$ using finite difference approximations. First order derivatives are upwinded, which helps with convergence and ensures that boundary counditions are satisfied.
 
-	Denote $V_t$  the solution of the PDE. We can alwyays write the HJB is $\partial_t V =G(V_t)$. 
-	I propose to solve for $V$ using a fully implicit Euler method.  Given $V_{t+1}$, $V_t$ is solved using:
-	\begin{align*}
-		 \frac{1}{\Delta}(V_{t+1} -V_{t})&= G(V_{t})
-	\end{align*}
-	Each time step requires to solve a non-linear equation, which is solved using a Newton-Raphson method. 
-
-	If the Newton-Raphson step is not successful, I decrease $\Delta$ (since this non-linear step converges if the guess is sufficiently close to the solution). If it is successful, I increase $\Delta$, to speed up the algorithm.
-
-	This method is most similar to a method used in the fluid dynamics literature. In this context, it is called the Pseudo-Transient Continuation method, and is denoted $\Psi tc$. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}.\par
-
-	\paragraph{Difference with \citet{achdou2014heterogeneous}} 	 \citet{achdou2014heterogeneous} focus on linear PDEs of the form
-	\begin{align*}
-		0&=f_1(V)  + f_2(x) \partial_x V  + f_3(x) \partial_{xx} V + \partial_t V
-	\end{align*}
-	whereas I am interesed in semi-linear PDEs
-	\begin{align*}
-		0&=f_1(V)  + f_2(x, \partial_x V) \partial_x V  + f_3(x, \partial_x V) \partial_{xx} V + \partial_t V
-	\end{align*}
-	In this case, it is often impossible to find a monotonous scheme, and one needs to switch to non-linear methods.
+	Given $V_{t+1}$, I solve for $V_t$ using a backward implicit time step:
+	\begin{align}\label{fs1}
+		0&=f_0(x, V_t)  + f_1(x, \partial_x V_t) \partial_x V_t  + f_2(x, \partial_x V_t) \partial_{xx} V_t +   \frac{1}{\Delta}(V_{t+1} -V_{t})
+	\end{align}
+	This non-linear equation is solved using a Newton-Raphson method. 	Julia packages ForwardDiff and SparseDiffTools are used to compute the (sparse) Jacobian of (\ref{fs1}) automatically.
 
 
 
-		
+	\paragraph{Difference with \citet{achdou2014heterogeneous}}  \citet{achdou2014heterogeneous} propose to solve the PDE (\ref{pde}) using a backward \emph{semi}-implicit time steps of the form:
+	\begin{align}\label{fs2}
+		0&=f_0(x, V_t)  + f_1(x, \partial_x V_{t+1}) \partial_x V_t  + f_2(x, \partial_x V_{t+1}) \partial_{xx} V_t +  \frac{1}{\Delta}(V_{t+1} -V_{t})
+	\end{align}
+	Compared to (\ref{fs1}), each time step corresponds to a \emph{linear} equation in $V_t$. This makes it easier to solve each step, since one only needs to invert a matrix. However, this simplification makes the method less robust: one can show that the associated scheme is typically non monotonous, unless $f_1$ and $f_2$ do not depend on the value function.
+
+
+	\paragraph{Stationary Solution} In most cases, one is only interested in the stationary solution of the PDE (\ref{pde}), i.e.,
+	\begin{align}\label{pde2}
+		0&=f_0(x, V)  + f_1(x, \partial_x V) \partial_x V  + f_2(x, \partial_x V) \partial_{xx} V 
+	\end{align}
+	In this case, I use the same method, but I adapt the time step $\Delta$ over time. More precisely, if the backward time step (\ref{fs1}) is successful (i.e., the Newton-Raphson method converges), $\Delta$ is increased; otherwise, it is decreased. This method ensures converges since, the Newton-Raphson method always converges for $\Delta$ small enough. Yet, it does not sacrifice speed: as $\Delta \to \infty$, the method becomes equivalent to a non-linear solver for the PDE, which ensures quadratic convergence around the solution. 
+
+	The idea of adapting $\Delta$ comes from the Pseudo-Transient Continuation method used in the fluid dynamics literature. Formal conditions for the convergence of the algorithm are given in  \citet{kelley1998convergence}. \par
+
+	\paragraph{Applications} Empirically, I find the method to be fast and robust --- the examples folder shows that the algorithm solves a wide range of asset pricing models.
 	\bibliography{bib}
 	\bibliographystyle{aer}
 \end{document}

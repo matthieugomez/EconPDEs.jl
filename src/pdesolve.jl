@@ -9,76 +9,64 @@
        state is a tuple of real numbers of  length S (for the state values)
        y is a tuple of real numbers of length F * 3 with the functions as well as their first and second derivatives at the state
        out is a named tuple of length F with the value of the time derivatives of the functions at the state 
-    * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
-    * yend is an OrderedDict that, for each function, associates an initial guess (or a terminal value to start the backward iteration with)
+    * grid is an NamedTuple that, for each state, associates an AbstractVector (for the grid)
+    * yend is an NamedTuple that gives the terminal value of each function in the system of PDEs
     * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
 """
-function pdesolve(apm, grid::OrderedDict, yend::OrderedDict, τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, kwargs...)
-    Tsolution = Type{tuple(keys(yend)...)}
-    stategrid = StateGrid(grid)
-    all(length.(values(yend)) .== prod(size(stategrid))) || throw("The length of initial guess (e.g. terminal value) does not equal the length of the state space")
-    is_algebraic = OrderedDict(k => fill(is_algebraic[k], size(yend[k])) for k in keys(yend))
+function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, kwargs...)
+    stategrid = StateGrid(NamedTuple(grid))
+    S = size(stategrid)
+    all(size(v) == S for v in values(yend)) || throw(ArgumentError("The length of initial guess (e.g. terminal value) does not equal the length of the state space"))
+    all(keys(is_algebraic) .== keys(yend)) || throw(ArgumentError("the terminal guess yend and the is_algebric keyword argument must have the same names"))
+    is_algebraic = OrderedDict(first(p) => fill(last(p), S) for p in pairs(is_algebraic))
     if τs isa AbstractVector
-        issorted(τs) || throw("The set of times must be increasing.")
-        ys = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(yend)) for t in τs]
+        issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
+        ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(yend)) for t in τs]
     else
-        y = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(x =>  Array{Float64}(undef, size(stategrid)) for x in keys(yend))
+        y = OrderedDict(first(p) => collect(last(p)) for p in pairs(yend))
     end
-
     # convert to Matrix
-    yend_M = _Array(yend)
-    ysize = size(yend_M)
-    is_algebraic_M = _Array(is_algebraic)
-    bc_M = _Array_bc(bc, yend_M, yend, grid)
-
-    # prepare dict
-    if τs isa AbstractVector
-        apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
-        a_keys = get_keys(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
-        as = nothing
-        if a_keys !== nothing
-           as = [OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys) for τ in τs]
-        end
-    else
-        a_keys = get_keys(apm, stategrid, Tsolution, yend_M, bc_M)
-        a = nothing
-        if a_keys !== nothing
-            a = OrderedDict{Symbol, Array{Float64, ndims(stategrid)}}(a_key => Array{Float64}(undef, size(stategrid)) for a_key in a_keys)
-        end
-    end
+    yend_M = catlast(values(yend))
+    is_algebraic_M = catlast(values(is_algebraic))
+    bc_M = _Array_bc(bc, yend, grid)
 
     # create sparsity
     J0c = sparsity_jac(stategrid, yend)
+    Tsolution = Type{tuple(keys(yend)...)}
 
     # iterate on time
     if τs isa AbstractVector
+        apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
+        a = get_a(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
+        as = (a === nothing) ? nothing : [deepcopy(a) for τ in τs]
         y_M = yend_M
         residual_norms = zeros(length(τs))
         if verbose
             @printf "    Time Residual\n"
             @printf "-------- --------\n"
         end
-
         for iτ in length(τs):(-1):1
             _setindex!(ys[iτ], y_M)
-            if a_keys !== nothing
-                _setindex!(as[iτ], localize(apm, τs[iτ]), stategrid, Tsolution, y_M, bc_M)
+            apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[iτ]) : apm
+            if a !== nothing
+                _setindex!(as[iτ], apm_onestep, stategrid, Tsolution, y_M, bc_M)
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(localize(apm, τs[iτ]), stategrid, Tsolution, ydot, y, bc_M, ysize), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
                 end
-                y_M = reshape(y_M, ysize...)
+                y_M = reshape(y_M, size(yend_M)...)
             end
         end
         return EconPDEResult(ys, residual_norms, as)
     else
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, ysize), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, verbose = verbose, kwargs... )
-        y_M = reshape(y_M, ysize...)
+        a = get_a(apm, stategrid, Tsolution, yend_M, bc_M)
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, verbose = verbose, kwargs... )
+        y_M = reshape(y_M, size(yend_M)...)
         _setindex!(y, y_M)
-        if a_keys !== nothing
+        if a !== nothing
             _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
             a = merge(y, a)
         end
@@ -89,14 +77,13 @@ end
 
 
 
-_Array(yend) = cat(collect.(values(yend))...; dims = ndims(first(values(yend))) + 1)
+catlast(iter) = cat(iter...; dims = ndims(first(iter)) + 1)
 
-function _Array_bc(bc, yend_M, yend, grid)
-    bc_M = zero(yend_M)
-    k = 0
-    for yname in keys(yend)
-        k += 1
-        keys_grid = collect(keys(grid))
+_Array_bc(::Nothing, yend, grid) = zeros(size(first(values(yend)))..., length(yend))
+function _Array_bc(bc, yend, grid)
+    keys_grid = collect(keys(grid))
+    bc_M = _Array_bc(nothing, yend, grid)
+    for (k, yname) in enumerate(keys(yend))
         if length(keys_grid) == 1
             bc_M[1, k], bc_M[end, k] = bc[Symbol(yname, keys_grid[1])]
         elseif length(keys_grid) == 2
@@ -106,27 +93,20 @@ function _Array_bc(bc, yend_M, yend, grid)
     end
     return bc_M
 end
-_Array_bc(::Nothing, yend_M, yend, grid) = zero(yend_M)
 
 
-function get_keys(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     i0 = first(eachindex(stategrid))
-    solution = derive(Tsolution, stategrid, y_M, i0, bc_M)
-    result = apm(stategrid[i0], solution)
-    return (length(result) == 2) ? keys(result[2]) : nothing
-end
-
-function localize(apm, τ::Number)
-    if hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number})
-        (state, grid) -> apm(state, grid, τ)
-    elseif hasmethod(apm, Tuple{NamedTuple, NamedTuple})
-        apm
+    derivatives = differentiate(Tsolution, stategrid, y_M, i0, bc_M)
+    result = apm(stategrid[i0], derivatives)
+    if length(result) == 1
+        return nothing
     else
-        throw("The function encoding the PDE must accept NamedTuples for arguments")
+        return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(result[2]))
     end
 end
 
-function sparsity_jac(stategrid::StateGrid, yend::OrderedDict)
+function sparsity_jac(stategrid::StateGrid, @nospecialize(yend))
     s = size(stategrid)
     l = prod(s)
     t = (ndims(stategrid), length(yend) > 1)
@@ -147,30 +127,34 @@ function sparsity_jac(stategrid::StateGrid, yend::OrderedDict)
     end
 end
 
-function _setindex!(y::OrderedDict, y_M::AbstractArray)
-    N = ndims(y_M) - 1
-    i = 0
-    for v in values(y)
-        i += 1
-        v[(Colon() for _ in 1:N)...] = y_M[(Colon() for _ in 1:N)..., i]
+function _setindex!(@nospecialize(y), y_M::AbstractArray)
+    for (i, v) in enumerate(values(y))
+        v[:] = selectdim(y_M, ndims(y_M), i)
     end
 end
 
-function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
     for i in eachindex(stategrid)
-         state = stategrid[i]
-         solution = derive(Tsolution, stategrid, y_M, i, bc_M)
-         outi = apm(state, solution)[2]
+         solution = differentiate(Tsolution, stategrid, y_M, i, bc_M)
+         outi = apm(stategrid[i], solution)[2]
          for (k, v) in zip(values(a), values(outi))
             k[i] = v
          end
      end
  end
 
+
+ # create hjb! that accepts and returns AbstractVector rather than AbstractArrays
+ function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
+     y_M = reshape(y, ysize...)
+     ydot_M = reshape(ydot, ysize...)
+     vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
+ end
+
  function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
      Tt = [Symbol(v, :t) for v in Tsolution.parameters[1]]
      for i in eachindex(stategrid)
-         solution = derive(Tsolution, stategrid, y_M, i, bc_M)
+         solution = differentiate(Tsolution, stategrid, y_M, i, bc_M)
          outi = apm(stategrid[i], solution)
          if isa(outi[1], Number)
             _setindex!(ydot_M, Tsolution, outi, i)
@@ -187,13 +171,6 @@ function _setindex!(a::OrderedDict, apm, stategrid::StateGrid, Tsolution, y_M::A
           $(Expr(:meta, :inline))
           $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(Tsolution.parameters[1][k], :t))), :i, k) for k in 1:N]...))
      end
- end
-
- # create hjb! that accepts and returns AbstractVector rather than AbstractArrays
- function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
-     y_M = reshape(y, ysize...)
-     ydot_M = reshape(ydot, ysize...)
-     vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
  end
 
 

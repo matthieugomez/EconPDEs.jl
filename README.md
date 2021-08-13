@@ -22,12 +22,12 @@ using EconPDEs
 # Define a discretized state space
 # An OrderedDict in which each key corresponds to a state variable
 # Grids can be non-homogeneous
-stategrid = OrderedDict(:μ => range(-0.05, 0.1, length = 500))
+stategrid = (;μ = range(-0.05, 0.1, length = 500))
 
 # Define an initial guess for the value functions
 # An OrderedDict in which each key corresponds to a value function to solve for, 
 # specified as an array with as many dimensions as there are state variables
-solend = OrderedDict(:V => ones(500))
+solend = (; V = ones(500))
 
 # Define a function that encodes the PDE. 
 # The function takes three arguments:

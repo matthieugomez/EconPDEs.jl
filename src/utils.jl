@@ -10,7 +10,6 @@ end
 function StateGrid(x::NamedTuple{Names, <: NTuple{N, <: AbstractVector{T}}}) where {Names, N, T}
     StateGrid{T, N, typeof(x)}(x)
 end
-StateGrid(x::OrderedDict) = StateGrid((;x...))
 function Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V}
     NamedTuple{Names, NTuple{N, T}}
 end
@@ -26,7 +25,7 @@ Derive
 
 ========================================================================================#
 # 1 state variable
-@generated function derive(::Type{Tsolution}, grid::StateGrid{T1, 1, <: NamedTuple{N}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, N, T}
+@generated function differentiate(::Type{Tsolution}, grid::StateGrid{T1, 1, <: NamedTuple{N}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, N, T}
     statename = N[1]
     expr = Expr[]
     for k in 1:length(Tsolution.parameters[1])
@@ -48,7 +47,7 @@ Derive
 end
 
 # 2 state variables
-@generated function derive(::Type{Tsolution}, grid::StateGrid{T1, 2, <: NamedTuple{N}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, N, T}
+@generated function differentiate(::Type{Tsolution}, grid::StateGrid{T1, 2, <: NamedTuple{N}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, N, T}
     statename1 = N[1]
     statename2 = N[2]
     expr = Expr[]

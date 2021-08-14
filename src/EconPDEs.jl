@@ -22,7 +22,6 @@ end
 
 Base.show(io::IO, m::MIME"text/plain", x::EconPDEResult) = show(io, x)
 
-
 function Base.iterate(x::EconPDEResult, state = 1)
 	if state == 1
 		return (x.zero, 2)
@@ -32,8 +31,6 @@ function Base.iterate(x::EconPDEResult, state = 1)
 		return (x.optional, 4)
 	end
 end
-
-
 
 include("pdesolve.jl")
 

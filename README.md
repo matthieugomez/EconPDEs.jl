@@ -37,15 +37,15 @@ solend = (; V = ones(500))
 # 3. (Optional) Current time t
 # It must return a named tuple with the time derivatives
 function f(state::NamedTuple, sol::NamedTuple)
-	μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
-	(; μ) = state
-	(; V, Vμ_up, Vμ_down, Vμμ) = sol
-	# note that pdesolve will directly compute the derivatives of the valuefunction.
-	# up and down correspond to the upward and downard derivative obtained by first difference
-	Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
-	Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
-	0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
-	(; Vt)
+           μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
+           μ = state.μ
+           V, Vμ_up, Vμ_down, Vμμ = sol.V, sol.Vμ_up, sol.Vμ_down, sol.Vμμ
+           # note that pdesolve will directly compute the derivatives of the valuefunction.
+           # up and down correspond to the upward and downard derivative obtained by first difference
+           Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
+           Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
+           0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
+           (Vt = Vt)
 end
 
 # The function `pdesolve` takes four arguments:

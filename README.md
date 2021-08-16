@@ -22,12 +22,12 @@ using EconPDEs
 # Define a discretized state space
 # An OrderedDict in which each key corresponds to a state variable
 # Grids can be non-homogeneous
-stategrid = (;μ = range(-0.05, 0.1, length = 500))
+stategrid = OrderedDict(:μ => range(-0.05, 0.1, length = 500))
 
 # Define an initial guess for the value functions
 # An OrderedDict in which each key corresponds to a value function to solve for, 
 # specified as an array with as many dimensions as there are state variables
-solend = (; V = ones(500))
+solend = OrderedDict(:V => ones(500))
 
 # Define a function that encodes the PDE. 
 # The function takes three arguments:
@@ -45,7 +45,7 @@ function f(state::NamedTuple, sol::NamedTuple)
            Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
            Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
            0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
-           (Vt = Vt)
+           (Vt = Vt,)
 end
 
 # The function `pdesolve` takes four arguments:

@@ -9,12 +9,11 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SparseDiffTools = "47a9eef4-7e08-11e9-0b38-333d64bd3804"
 
 [compat]
-BlockBandedMatrices = "0.7, 0.8, 0.9, 0.10"
+BlockBandedMatrices = "0.7, 0.8, 0.9, 0.10, 0.11"
 FiniteDiff = "2"
 NLsolve = "1, 2, 3, 4"
 OrderedCollections = "1"

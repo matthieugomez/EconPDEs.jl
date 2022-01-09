@@ -15,7 +15,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             jac_cache = ForwardColorJacCache(G_helper!, deepcopy(ypost); colorvec = colorvec, sparsity = J0)
             j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, G_helper!, y, jac_cache)
         else
-            j_helper! = (J, y) -> FiniteDiff.finite_difference_jacobian!(J, G_helper!, y; colorvec = colorvec)
+            j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y; colorvec = colorvec)
         end
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
             # using mcpsolve if lower/upper bounds are given

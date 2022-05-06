@@ -1,5 +1,5 @@
 """
-StrateGrid(x::NamedTuple)
+StateGrid(x::NamedTuple)
 
 Let x = (k1 = v1, k2 = v2, ...., kN = vN) be a NamedTuple of AbstractVectors for state space, 
 StateGrid(x) returns an AbstractArray M such that 
@@ -24,9 +24,13 @@ Base.getindex(stategrid::StateGrid, x::Symbol) = stategrid.x[x]
 
 #========================================================================================
 
-Derive
+Differentiate
 
 ========================================================================================#
+module Legacy
+
+import ..StateGrid
+
 # 1 state variable
 @generated function differentiate(::Type{Tsolution}, grid::StateGrid{T1, 1, <: NamedTuple{N}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, N, T}
     statename = N[1]
@@ -79,3 +83,4 @@ end
     end
 end
 
+end

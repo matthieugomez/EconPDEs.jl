@@ -6,6 +6,9 @@ using OrderedCollections: OrderedDict
 using BlockBandedMatrices: BandedBlockBandedMatrix, Ones
 using SparseDiffTools: ForwardColorJacCache, matrix_colors, forwarddiff_color_jacobian!
 using FiniteDiff: finite_difference_jacobian!
+using InvertedIndices: Not
+import NamedTupleTools: delete # also merge
+
 using Printf: @printf
 ##############################################################################
 ##
@@ -15,6 +18,7 @@ using Printf: @printf
 
 include("finiteschemesolve.jl")
 include("utils.jl")
+include("differentiate.jl")
 
 struct EconPDEResult
 	zero 			# solution

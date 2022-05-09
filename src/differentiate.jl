@@ -19,11 +19,10 @@ function differentiate(Tsolution, grid::StateGrid{<: Any, 1, <: NamedTuple}, y, 
         yk = selectdim(y, n_states+1, k)
         bck = selectdim(bc, n_states+1, k)
 
-    	Δx = Δgrid(grid, i)
-
-		va = Δy(yk, bck, i, Δx, solname, statename)
-		
-		(; solname => yk[Tuple(inds)...], va...)
+        Δx = Δgrid(grid, i)
+        va = Δy(yk, bck, i, Δx, solname, statename)
+        
+        (; solname => yk[Tuple(inds)...], va...)
     end
 
     merge(nts...)
@@ -96,7 +95,7 @@ function differentiate(Tsolution, grid::StateGrid{<: Any, 3, <: NamedTuple}, y, 
             state_drop = statenames[dim_drop]
             
             sub_grids = delete(grids, state_drop)
-            sub_inds = inds[Not(dim_drop)]
+            sub_inds = [Tuple(inds)...][Not(dim_drop)]
             sub_y  = selectdim(yk,  dim_drop, i_drop)
             sub_bc = selectdim(bck, dim_drop, i_drop)
             sub_statenames = filter(!=(state_drop), statenames)

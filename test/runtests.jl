@@ -3,7 +3,7 @@ using Test
 
 println("Running tests:")
 
-for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :ArbitrageHoldingCosts)
+for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :TuckmanVila)
 	try
 		include("../examples/AssetPricing/$(x).jl")
 		println("\t\033[1m\033[32mPASSED\033[0m: $(x)")

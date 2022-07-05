@@ -1,3 +1,5 @@
+# Bansal Yaron (2004) "Risks for the Long Run: A Potential Resolution of Asset Pricing Puzzles"
+
 using EconPDEs, Distributions
 
 Base.@kwdef struct BansalYaronModel
@@ -15,6 +17,19 @@ Base.@kwdef struct BansalYaronModel
     ψ::Float64 = 1.5
 end
 
+function initialize_stategrid(m::BansalYaronModel; μn = 30, vn = 30)
+    μdistribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
+    μs = range(quantile(μdistribution, 0.025), quantile(μdistribution, 0.975), length = μn)
+    νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
+    vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = vn)
+    OrderedDict(:μ => μs, :v => vs)
+end
+
+function initialize_y(m::BansalYaronModel, stategrid)
+    μn = length(stategrid[:μ])
+    vn = length(stategrid[:v])
+    OrderedDict(:p => ones(μn, vn))
+end
 
 function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     (; μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ) = m
@@ -28,8 +43,11 @@ function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     σμ = νμ * sqrt(v)
     μv = κv * (vbar - v)
     σv = νv * sqrt(v) 
+    
+    # upwinding
     pμ = (μμ >= 0) ? pμ_up : pμ_down
     pv = (μv >= 0) ? pv_up : pv_down 
+
     σp_Zμ = pμ / p * σμ
     σp_Zv = pv / p * σv
     σp2 = σp_Zμ^2 + σp_Zv^2
@@ -53,18 +71,12 @@ end
 
 # Bansal Yaron (2004)
 m = BansalYaronModel()
-μn = 30
-νn = 30
-μdistribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
-μs = range(quantile(μdistribution, 0.025), quantile(μdistribution, 0.975), length = μn)
-νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = νn)
-stategrid = OrderedDict(:μ => μs, :v => vs)
-yend = OrderedDict(:p => ones(μn, νn))
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
 
-# Bansal Yaron (2009)
+# Bansal Yaron (2009) Calibration
 ## m = BansalYaronModel(μbar = 0.018, vbar = 0.00062, κμ = 0.3, νμ = 0.456, κv = 0.012, νv = 0.00472, ρ = 0.0132, γ = 10, ψ = 1.5)
 ## stategrid = initialize_stategrid(m)
 ## yend = OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))

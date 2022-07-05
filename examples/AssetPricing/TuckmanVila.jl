@@ -1,7 +1,7 @@
 using EconPDEs, Distributions
 
-# Arbitrage With Holding Costs: A Utility-Based Approach (Bruce Tuckman and Jean-Luc Vila)
-Base.@kwdef struct ArbitrageHoldingCosts
+# Tuckman Vila (1992) JF Arbitrage With Holding Costs: A Utility-Based Approach
+Base.@kwdef struct TuckmanVilaModel
     c::Float64 = 0.06
     r::Float64 = 0.09
     ρ::Float64 = 5.42
@@ -10,7 +10,17 @@ Base.@kwdef struct ArbitrageHoldingCosts
     T::Float64 = 100
 end
 
-function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number)
+function initialize_stategrid(m::TuckmanVilaModel; zn = 200)
+    d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
+    OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = zn))
+end
+
+function initialize_y(m::TuckmanVilaModel, stategrid)
+    zn = length(stategrid[:z])
+    OrderedDict(:F => zeros(zn))
+end
+
+function (m::TuckmanVilaModel)(state::NamedTuple, y::NamedTuple, τ::Number)
     (; c, r, ρ, σ, a, T) = m
     (; z) = state
     (; F, Fz_up, Fz_down, Fzz) = y
@@ -35,11 +45,9 @@ function (m::ArbitrageHoldingCosts)(state::NamedTuple, y::NamedTuple, τ::Number
     return (; Ft)
 end
 
-m = ArbitrageHoldingCosts()
-zn = 200
-d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
-stategrid = OrderedDict(:z => range(quantile(d, 0.00001), quantile(d, 0.99999), length = zn))
-yend = OrderedDict(:F => zeros(zn))
+m = TuckmanVilaModel()
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
 τs = range(0, m.T, length = 100)
 result = pdesolve(m, stategrid, yend, τs)
 residual_norm = maximum(result.residual_norm)

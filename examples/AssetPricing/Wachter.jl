@@ -1,5 +1,6 @@
 using EconPDEs, Distributions
 
+# Wachter (2013) Can time‐varying risk of rare disasters explain aggregate stock market volatility?
 Base.@kwdef struct WachterModel{T<: Distribution}
     # consumption process parameters
     μ::Float64 = 0.025
@@ -9,7 +10,7 @@ Base.@kwdef struct WachterModel{T<: Distribution}
     λbar::Float64 = 0.0355
     κλ::Float64 = 0.08
     νλ::Float64 = 0.067
-    ZDistribution::T = Normal(-0.4, 0.25) #from Ian Martin higher order cumulants paper
+    ZDistribution::T = Normal(-0.4, 0.25) # from Ian Martin higher order cumulants paper
     
     # utility parameters
     ρ::Float64 = 0.012
@@ -18,6 +19,14 @@ Base.@kwdef struct WachterModel{T<: Distribution}
     ϕ::Float64 = 2.6
 end
 
+function initialize_stategrid(m::WachterModel; λn = 30)
+  OrderedDict(:λ => range(0.0, 0.1, length = λn))
+end
+
+function initialize_y(m::WachterModel, stategrid)
+    λn = length(stategrid[:λ])
+    OrderedDict(:p => ones(λn))
+end
 
 
 function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
@@ -28,6 +37,7 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
     # Drift and volatility of λ, p
     μλ = κλ * (λbar - λ)
     σλ = νλ * sqrt(λ)
+    # upwinding
     pλ = (μλ >= 0) ? pλ_up : pλ_down
     μp = pλ / p * μλ + 0.5 * pλλ / p * σλ^2 
     σp_Zλ = pλ / p * σλ
@@ -47,34 +57,6 @@ function (m::WachterModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = WachterModel()
-λn = 30
-stategrid = OrderedDict(:λ => range(0.0, 0.1, length = λn))
-yend =  OrderedDict(:p => ones(λn))
-result = pdesolve(m, stategrid, yend)
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
 @assert result.residual_norm <= 1e-5
-
-
-#========================================================================================
-
-Solve for levered equity claim
-
-========================================================================================#
- 
-function pde_levered(m, state, y, r, κ_Zc, κ_Zλ)
-    μ = m.μ ; σ = m.σ ; λbar = m.λbar ; κλ = m.κλ ; νλ = m.νλ ; ZDistribution = m.ZDistribution ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ ; ϕ = m.ϕ
-    λ = state.λ
-    pe, peλ_up, peλ_down, peλλ = y.pe, y.peλ, y.peλλ
-    μλ = κλ * (λbar - λ)
-    σλ = νλ * sqrt(λ)
-    peλ = (μλ >= 0) ? peλ_up : peλ_down
-    μpe = peλ / pe * μλ + 0.5 * peλλ / pe * σλ^2 
-    σpe_Zλ = peλ / pe * σλ
-    η =  λ * (mgf(ZDistribution, ϕ) - 1 + mgf(ZDistribution, -γ) - 1 - (mgf(ZDistribution, ϕ - γ) - 1))
-    pet = pe * (1 / pe  + μ + μpe + λ * (mgf(ZDistribution, ϕ) - 1) - r(λ) - κ_Zc(λ) * ϕ * σ - κ_Zλ(λ) * σpe_Zλ - η)
-    return (; pet)
-end
-#using Interpolations
-#r = interpolate((state[:λ],), result[:r], Gridded(Linear()))
-#κ_Zc = interpolate((state[:λ],), result[:κ_Zc], Gridded(Linear()))
-#κ_Zλ = interpolate((state[:λ],), result[:κ_Zλ], Gridded(Linear()))
-#y2, _, distance =  pdesolve((state, y) -> pde_levered(m, state, y, r, κ_Zc, κ_Zλ), stategrid, OrderedDict(:pe => y[:p]))

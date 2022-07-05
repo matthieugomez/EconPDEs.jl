@@ -1,6 +1,8 @@
+# Campbell Cochrane (1999) "By Force of Habit: A Consumption‐Based Explanation of Aggregate Stock Market Behavior"
+
 using EconPDEs
 
-Base.@kwdef  struct CampbellCochraneModel
+Base.@kwdef struct CampbellCochraneModel
     # consumption process parameters
     μ::Float64 = 0.0189
     σ::Float64 = 0.015
@@ -10,13 +12,14 @@ Base.@kwdef  struct CampbellCochraneModel
     # habit
     κs::Float64 = 0.138
     b::Float64 = 0.0
+
+    # Persistence κs is chosen so that monthly simulation of the model matches processes in CC (1999)
+    # ρ = 12 * (1 - 0.89^(1/12))
+    # κs = 12 * (1 - 0.87^(1/12))
 end
-# I choose persistence so that monthly simulation of the model matches processes in CC (1999)
-# ρ = 12 * (1 - 0.89^(1/12))
-# κs = 12 * (1 - 0.87^(1/12))
 
 function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
-    μ = m.μ ; σ = m.σ ; γ = m.γ ; ρ = m.ρ ; κs = m.κs ; b = m.b
+    (; μ, σ, γ, ρ, κs, b) = m
     Sbar = σ * sqrt(γ / (κs - b / γ))
     sbar = log.(Sbar)
     smax =  sbar + 0.5 * (1 - Sbar^2)
@@ -26,6 +29,9 @@ function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
+function initialize_y(m::CampbellCochraneModel, stategrid)
+    OrderedDict(:p => ones(length(stategrid[:s])))
+end
 	
 function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, γ, ρ, κs, b) = m
@@ -54,13 +60,11 @@ function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
 end
 
 
-# Campbell Cochrane (1999)
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
-yend = OrderedDict(:p => ones(length(stategrid[:s])))
+yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
-
 
 # Wachter (2005) calibration
 # m = CampbellCochraneModel(μ = 0.022, σ = 0.0086, γ = 2.0, ρ = 0.073, κs = 0.116, b = 0.011)

@@ -1,3 +1,5 @@
+# DiTella (2017) JPE "Uncertainty Shocks and Balance Sheet Recessions"
+
 using EconPDEs, Distributions
 
 Base.@kwdef mutable struct DiTellaModel
@@ -20,6 +22,18 @@ Base.@kwdef mutable struct DiTellaModel
   σνbar::Float64 = -0.13
 end
 
+function initialize_stategrid(m::DiTellaModel; xn = 30, νn = 30)
+  xs = range(0.01, 0.99, length = xn)
+  distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κν))
+  νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = νn)
+  OrderedDict(:x => xs, :ν => νs)
+end
+
+function initialize_y(m::DiTellaModel, stategrid)
+  xn = length(stategrid[:x])
+  νn = length(stategrid[:ν])
+  OrderedDict(:pA => ones(xn, νn), :pB => ones(xn, νn), :p => ones(xn, νn))
+end
 
 function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   (; γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar) = m  
@@ -47,8 +61,11 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   σA = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpA
   νA = κν / γ
   σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
+  
   # Interest rate r
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
+
+  # upwinding
   if (iter == 0) & (μX <= 0)
     iter += 1
     pAx, pBx, px = pAx_down, pBx_down, px_down
@@ -69,12 +86,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = DiTellaModel()
-xn = 80
-νn = 10
-xs = range(0.01, 0.99, length = xn)
-distribution = Gamma(2 * m.κν * m.νbar / m.σνbar^2, m.σνbar^2 / (2 * m.κν))
-νs = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = νn)
-stategrid = OrderedDict(:x => xs, :ν => νs)
-yend = OrderedDict(:pA => ones(xn, νn), :pB => ones(xn, νn), :p => ones(xn, νn))
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))
 @assert result.residual_norm <= 1e-5

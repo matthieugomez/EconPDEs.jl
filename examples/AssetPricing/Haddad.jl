@@ -1,4 +1,7 @@
+# Haddad WP "Concentrated Ownership and Equilibrium Asset Prices"
+
 using EconPDEs, Distributions
+
 
 Base.@kwdef struct HaddadModel
   # consumption process parameters
@@ -21,7 +24,7 @@ end
 
 
 function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
-  μbar = m.μbar; vbar = m.vbar ; κμ = m.κμ ; νμ = m.νμ ; κv = m.κv ; νv = m.νv ; αbar = m.αbar ; λ = m.λ ; ρ = m.ρ ; γ = m.γ ; ψ = m.ψ
+  (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
 
   σ = sqrt(νμ^2 * vbar / (2 * κμ))
   μmin = quantile(Normal(μbar, σ), 0.001)
@@ -36,7 +39,13 @@ function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
 
   OrderedDict(:μ => μs, :v => vs)
 end
-  
+
+function initialize_y(m::HaddadModel, stategrid)
+  μn = length(stategrid[:μ])
+  vn = length(stategrid[:v])
+  OrderedDict(:p => ones(μn, vn))
+end
+
 
 function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
@@ -75,9 +84,7 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = HaddadModel()
-μn = 30
-vn = 30
-stategrid = initialize_stategrid(m; μn = μn, vn = vn)
-yend = OrderedDict(:p => ones(μn, vn))
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5

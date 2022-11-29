@@ -14,7 +14,7 @@ for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella
 	end
 end
 
-for x in (:WangWangYang, :AchdouHanLasryLionsMoll_OneAsset, :AchdouHanLasryLionsMoll_TwoAssets)
+for x in (:AchdouHanLasryLionsMoll_TwoStates,:AchdouHanLasryLionsMoll_Diffusion, :AchdouHanLasryLionsMoll_DiffusionTwoAssets)
 	try
 		include("../examples/ConsumptionProblem/$(x).jl")
 		println("\t\033[1m\033[32mPASSED\033[0m: $(x)")

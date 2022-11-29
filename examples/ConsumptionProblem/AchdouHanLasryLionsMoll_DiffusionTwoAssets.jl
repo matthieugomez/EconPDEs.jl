@@ -1,6 +1,6 @@
 using EconPDEs, Distributions
 
-Base.@kwdef struct AchdouHanLasryLionsMoll_TwoAssetsModel
+Base.@kwdef struct AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel
     # income process parameters
     κy::Float64 = 0.1 
     ybar::Float64 = 1.0
@@ -18,12 +18,13 @@ Base.@kwdef struct AchdouHanLasryLionsMoll_TwoAssetsModel
     amax::Float64 = 1000.0
 end
 
-function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::NamedTuple)
+function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple, value::NamedTuple)
     (; κy, σy, ybar, r, μR, σR, ρ, γ, amin, amax) = m
     (; y, a) = state
     (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
     vy = (μy >= 0) ? vy_up : vy_down
+    
     va = va_up
     iter = 0
     @label start
@@ -40,9 +41,9 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::N
     σa = k * σR
     # There is no second derivative at 0 so just specify first order derivative
     if (a ≈ amin) && (μa <= 0.0)
-        va = (y + r * amin)^(-γ)
+        va = (y + r * a)^(-γ)
         k = 0.0
-        c = y + r * amin
+        c = y + r * a
         μa = 0.0
     end
     # this branch is unnecessary when individuals dissave at the top (default)
@@ -63,12 +64,12 @@ function (m::AchdouHanLasryLionsMoll_TwoAssetsModel)(state::NamedTuple, value::N
 end
 
 
-m = AchdouHanLasryLionsMoll_TwoAssetsModel()
+m = AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel()
 distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
 ys = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 5)
 as = range(m.amin, m.amax, length = 100)
 stategrid = OrderedDict(:y => ys, :a => as)
-yend = OrderedDict(:v => [log(y + a) for y in stategrid[:y], a in stategrid[:a]])
+yend = OrderedDict(:v => [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 y, residual_norm = pdesolve(m, stategrid, yend)
 # 
 # # Important: check marginal value of wealth converges to 1.0

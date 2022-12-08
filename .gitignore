@@ -3,3 +3,5 @@ other
 .DS_Store
 examples/AssetPricing/constraint.jl
 
+
+Manifest.toml

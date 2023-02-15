@@ -91,7 +91,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = GarleanuPanageasModel()
-stategrid = initialize_stategrid(m)
+stategrid = initialize_stategrid(m; xn = 1000)
 yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5

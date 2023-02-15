@@ -1,5 +1,5 @@
 module EconPDEs
-using LinearAlgebra: Tridiagonal, norm
+using LinearAlgebra: Tridiagonal, norm, I
 using SparseArrays: sparse
 using NLsolve: OnceDifferentiable, nlsolve, mcpsolve
 using OrderedCollections: OrderedDict 

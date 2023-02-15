@@ -9,6 +9,9 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
     if J0 == nothing
+        if method == :linearization
+            method == :newton
+        end
         result = nlsolve(G_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff)
     else
         if autodiff == :forward
@@ -20,11 +23,19 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
             # using mcpsolve if lower/upper bounds are given
             result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
+            zero, residual_norm = result.zero, result.residual_norm
+        elseif method == :linearization
+            finite_difference_jacobian!(J0, G!, ypost; colorvec = colorvec)
+            GV = deepcopy(ypost)
+            G!(GV, ypost)
+            zero = (I + Δ .* J0) \ (ypost .- Δ .* (GV .- J0 * ypost))
+            residual_norm = 0.0
         else
             result = nlsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method)
+            zero, residual_norm = result.zero, result.residual_norm
         end
     end
-    return result.zero, result.residual_norm
+    return zero, residual_norm
 end
 
 # Solve for steady state

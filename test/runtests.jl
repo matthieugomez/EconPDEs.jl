@@ -4,7 +4,7 @@ for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella
 	@testset "$x" begin include("../examples/AssetPricing/$(x).jl") end
 end
 
-for x in (:AchdouHanLasryLionsMoll_Diffusion, :AchdouHanLasryLionsMoll_DiffusionTwoAssets)
+for x in (:AchdouHanLasryLionsMoll_Diffusion, :AchdouHanLasryLionsMoll_DiffusionTwoAssets, :AchdouHanLasryLionsMoll_TwoStates, :WangWangYang)
 	@testset "$x" begin include("../examples/ConsumptionProblem/$(x).jl") end
 end
 

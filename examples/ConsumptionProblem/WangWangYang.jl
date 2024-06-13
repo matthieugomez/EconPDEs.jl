@@ -45,9 +45,6 @@ result = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
 @assert result.residual_norm <= 1e-5
 
 
-
-
-
 # Alternative solution bypassing pdesolve
 # just encode the PDE has a vector equation
 using InfinitesimalGenerators

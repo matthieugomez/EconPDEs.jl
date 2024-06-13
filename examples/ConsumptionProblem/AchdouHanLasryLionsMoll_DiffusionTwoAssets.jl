@@ -73,7 +73,7 @@ yend = OrderedDict(:v => [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y 
 y, residual_norm = pdesolve(m, stategrid, yend)
 # 
 # # Important: check marginal value of wealth converges to 1.0
-# # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. This is interesting. Maybe it means there should be a better way to have bordering condition at top
+# # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. 
 # b = ((m.r + (m.ρ - m.r)/m.γ - (1-m.γ) / (2 * m.γ) * (m.μR - m.r)^2 / (m.γ * m.σR^2)))^(1/(1 - 1/m.γ))
 # pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
 

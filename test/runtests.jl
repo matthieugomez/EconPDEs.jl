@@ -16,5 +16,3 @@ end
 for x in (:Leland, )
 	@testset "$x" begin include("../examples/OptimalStoppingTime/$(x).jl") end
 end
-
-

@@ -118,3 +118,38 @@ end
     end
 end
 
+
+
+# 1 state variable
+@generated function differentiate2(::Type{Tsolution}, grid::StateGrid{T1, 1, <: NamedTuple{N}}, y::AbstractArray{T}, bc) where {Tsolution, T1, N, T}
+    statename = N[1]
+    expr = Expr[]
+    for k in 1:length(Tsolution.parameters[1])
+        solname = Tsolution.parameters[1][k]
+        push!(expr, Expr(:(=), solname, :(v[$k])))
+        push!(expr, Expr(:(=), Symbol(solname, statename, :_up), :(va_up[$k])))
+        push!(expr, Expr(:(=), Symbol(solname, statename, :_down), :(va_down[$k])))
+        push!(expr, Expr(:(=), Symbol(solname, statename, statename), :(vaa[$k])))
+    end
+    quote
+        $(Expr(:meta, :inline))
+        K = length(Tsolution.parameters[1])
+        v = [zeros(length(grid.x)) for k in 1:K]
+        va_up = [zeros(length(grid.x)) for k in 1:K]
+        va_up = [zeros(length(grid.x)) for k in 1:K]
+        vaa = [zeros(length(grid.x)) for k in 1:K]
+        for i in 1:length(grid.x)
+            grida = grid.x[1]
+            Δxm = grida[max(i, 2)] - grida[max(i-1, 1)]
+            Δxp = grida[min(i+1, size(y, 1))] - grida[min(i, size(y, 1) - 1)]
+            Δx = (Δxm + Δxp) / 2
+            for k in 1:K
+                v[k][i] = y[i, k]
+                va_up[k][i] = (i < size(y, 1)) ? (y[i+1, k] - y[i, k]) / Δxp : convert($T, bc[end, k])
+                va_down[k][i] = ((i > 1) ? (y[i, k] - y[i-1, k]) / Δxm : convert($T, bc[1, k]))
+                vaa[k][i] = ((1 < i < size(y, 1)) ? (y[i + 1, k] / (Δxp * Δx) + y[i - 1, k] / (Δxm * Δx) - 2 * y[i, k] / (Δxp * Δxm)) : ((i == 1) ? (y[2, k] / (Δxp * Δx) + (y[1, k] - bc[1, k] * Δxm) / (Δxm * Δx) - 2 * y[1, k] / (Δxp * Δxm)) : ((y[end, k] + bc[end, k] * Δxp) / (Δxp * Δx) + y[end - 1, k] / (Δxm * Δx) - 2 * y[end, k] / (Δxp * Δxm))))
+            end
+        end
+        @inbounds $(Expr(:tuple, expr...))
+    end
+end

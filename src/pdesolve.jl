@@ -174,3 +174,75 @@ function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M:
  end
 
 
+
+
+
+ function pdesolve2(apm, @nospecialize(grid), @nospecialize(yend); is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, kwargs...)
+     stategrid = StateGrid(NamedTuple(grid))
+     S = size(stategrid)
+     all(size(v) == S for v in values(yend)) || throw(ArgumentError("The length of initial guess (e.g. terminal value) does not equal the length of the state space"))
+     all(keys(is_algebraic) .== keys(yend)) || throw(ArgumentError("the terminal guess yend and the is_algebric keyword argument must have the same names"))
+     is_algebraic = OrderedDict(first(p) => fill(last(p), S) for p in pairs(is_algebraic))
+     y = OrderedDict(first(p) => collect(last(p)) for p in pairs(yend))
+     # convert to Matrix
+     yend_M = catlast(values(yend))
+     is_algebraic_M = catlast(values(is_algebraic))
+     bc_M = _Array_bc(bc, yend, grid)
+     Tsolution = Type{tuple(keys(yend)...)}
+
+     a = get_a2(apm, stategrid, Tsolution, yend_M, bc_M)
+     y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb2!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, verbose = verbose, kwargs... )
+     y_M = reshape(y_M, size(yend_M)...)
+     _setindex!(y, y_M)
+     if a !== nothing
+         _setindex2!(a, apm, stategrid, Tsolution, y_M, bc_M)
+         a = merge(y, a)
+     end
+     return EconPDEResult(y, residual_norm, a)
+ end
+
+ function get_a2(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+     derivatives = differentiate2(Tsolution, stategrid, y_M, bc_M)
+     result = apm(stategrid, derivatives)
+     if length(result) == 1
+         return nothing
+     else
+         return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(result[2]))
+     end
+ end
+
+ # create hjb! that accepts and returns AbstractVector rather than AbstractArrays
+ function hjb2!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
+     y_M = reshape(y, ysize...)
+     ydot_M = reshape(ydot, ysize...)
+     vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
+ end
+
+ function hjb2!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
+    solution = differentiate2(Tsolution, stategrid, y_M, bc_M)
+    out = apm(stategrid, solution)
+    if isa(outi[1], Vector)
+        _setindex2!(ydot_M, Tsolution, outi, i)
+    else
+        _setindex2!(ydot_M, Tsolution, outi[1], i)
+    end
+    return ydot_M
+ end
+
+
+ @generated function _setindex2!(ydot_M::AbstractArray, ::Type{Tsolution}, outi::NamedTuple) where {Tsolution}
+     N = length(Tsolution.parameters[1])
+     quote
+          $(Expr(:meta, :inline))
+          $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(Tsolution.parameters[1][k], :t))), :Colon(), k) for k in 1:N]...))
+     end
+ end
+
+
+ function _setindex2!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+    solution = differentiate2(Tsolution, stategrid, y_M, bc_M)
+    out = apm(stategrid, solution)
+    for (k, v) in zip(values(a), values(outi))
+       copyto!(k, v)
+    end
+end

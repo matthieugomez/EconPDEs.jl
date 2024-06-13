@@ -46,6 +46,10 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
     isnan(residual_norm) && throw("G! returns NaN with the initial value")
+    if residual_norm <= maxdist
+        verbose && @warn "G! already returns zero with the initial value"
+        return ypost, residual_norm
+    end
     if Δ == Inf
         ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
     else
@@ -85,7 +89,8 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             end
         end
     end
-    verbose && ((residual_norm > maxdist) | (Δ < minΔ)) && @warn "Iteration did not converge"
+    verbose && (iter >= iterations) && @warn "Algorithm did not converge: Iter higher than the limit $(iterations)"
+    verbose && (Δ < minΔ) && @warn "Algorithm did not converge: TimeStep lower than the limit $(minΔ)"
     return ypost, residual_norm
 end
 

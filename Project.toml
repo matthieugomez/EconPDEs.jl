@@ -23,7 +23,8 @@ julia = "1.2"
 
 [extras]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+InfinitesimalGenerators = "2fce0c6f-5f0b-5c85-85c9-2ffe1d5ee30d"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Distributions"]
+test = ["Test", "Distributions", "InfinitesimalGenerators"]

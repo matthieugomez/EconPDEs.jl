@@ -77,6 +77,7 @@ function solve!(pts, m, ws, ps)
     end
     return pts
 end
+
 m = WangWangYangModel()
 ws = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2
 ps = 1 .+ stategrid[:w]

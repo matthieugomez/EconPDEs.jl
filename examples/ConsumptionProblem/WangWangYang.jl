@@ -39,19 +39,20 @@ function (m::WangWangYangModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = WangWangYangModel()
-stategrid = OrderedDict(:w => range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
+stategrid = OrderedDict(:w => range(m.wmin^(1/2), m.wmax^(1/2), length = 1000).^2)
 yend = OrderedDict(:p => 1 .+ stategrid[:w])
-result = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
+@time result = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
 @assert result.residual_norm <= 1e-5
 
 
 # Alternative solution bypassing pdesolve
 # just encode the PDE has a vector equation
 using InfinitesimalGenerators
+
 function solve!(pts, m, ws, ps)
     (; μ, σ, r, ρ, γ, ψ, wmin, wmax) = m
-    pw_ups = FirstDerivative(ws, ps; direction = :upward, bc = (0.0, 1.0))
-    pw_downs = FirstDerivative(ws, ps; direction = :downward, bc = (0.0, 1.0))
+    pw_ups = FirstDerivative(ws, ps; direction = :forward, bc = (0.0, 1.0))
+    pw_downs = FirstDerivative(ws, ps; direction = :backward, bc = (0.0, 1.0))
     pwws = SecondDerivative(ws, ps, bc = (0.0, 1.0))
     for i in eachindex(ws)
         w = ws[i]
@@ -79,6 +80,6 @@ function solve!(pts, m, ws, ps)
 end
 
 m = WangWangYangModel()
-ws = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2
+ws = range(m.wmin^(1/2), m.wmax^(1/2), length = 1000).^2
 ps = 1 .+ stategrid[:w]
-finiteschemesolve((ydot, y) -> solve!(ydot, m, ws, y), ps)
+@time finiteschemesolve((ydot, y) -> solve!(ydot, m, ws, y), ps)

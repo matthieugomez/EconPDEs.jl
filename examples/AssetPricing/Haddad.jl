@@ -22,31 +22,6 @@ Base.@kwdef struct HaddadModel
   ψ::Float64 = 1.5
 end
 
-
-function initialize_stategrid(m::HaddadModel; μn = 30, vn = 30)
-  (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
-
-  σ = sqrt(νμ^2 * vbar / (2 * κμ))
-  μmin = quantile(Normal(μbar, σ), 0.001)
-  μmax = quantile(Normal(μbar, σ), 0.999)
-  μs = range(μmin,  μmax, length = μn)
-
-  α = 2 * κv * vbar / νv^2
-  β = νv^2 / (2 * κv)
-  vmin = quantile(Gamma(α, β), 0.001)
-  vmax = quantile(Gamma(α, β), 0.999)
-  vs = range(vmin,  vmax, length = vn)
-
-  OrderedDict(:μ => μs, :v => vs)
-end
-
-function initialize_y(m::HaddadModel, stategrid)
-  μn = length(stategrid[:μ])
-  vn = length(stategrid[:v])
-  OrderedDict(:p => ones(μn, vn))
-end
-
-
 function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
   (; μ, v) = state
@@ -78,13 +53,26 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   # Interest rate r
   #r = ρ + μc / ψ - (1 - 1 / ψ) / (2 * γ) * κ2 - (1 / ψ - γ) / (2 * γ * (ψ - 1)) * σp2 - (1 - γ) / (γ * ψ) * (κμ * σμ + κv * σv) + 1 / ψ  * (κ_Zc * σc + κμ * σμ + κv * σv)
   #out = p * (1 / p + μc + μp - r - κ_Zc * σc - κ_Zμ * σp_Zμ - κ_Zv * σp_Zv)
-
   pt = - p * (1 / p - ρ + (1 - 1 / ψ) * (μc - 0.5 * γ * σc^2 * (1 - (αstar - 1)^2)) + μp + (0.5 * (1 / ψ - γ) / (1 - 1 / ψ) + 0.5 * γ * (1 - 1 / ψ) * (αstar - 1)^2) * σp2)
   return (; pt)
 end
 
 m = HaddadModel()
-stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+# initialize grid of μ and v
+σ = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
+μmin = quantile(Normal(m.μbar, σ), 0.001)
+μmax = quantile(Normal(m.μbar, σ), 0.999)
+μs = range(μmin,  μmax, length = 30)
+α = 2 * m.κv * m.vbar / m.νv^2
+β = m.νv^2 / (2 * m.κv)
+vmin = quantile(Gamma(α, β), 0.001)
+vmax = quantile(Gamma(α, β), 0.999)
+vs = range(vmin,  vmax, length = 30)
+stategrid = OrderedDict(:μ => μs, :v => vs)
+
+# guess for price-dividend ratio
+yend =   OrderedDict(:p => ones(length(stategrid[:μ]), length(stategrid[:v])))
+
+# solve
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5

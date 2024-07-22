@@ -29,9 +29,6 @@ function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
     OrderedDict(:s => vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
-function initialize_y(m::CampbellCochraneModel, stategrid)
-    OrderedDict(:p => ones(length(stategrid[:s])))
-end
 	
 function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     (; μ, σ, γ, ρ, κs, b) = m
@@ -62,7 +59,7 @@ end
 
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+yend = OrderedDict(:p => ones(length(stategrid[:s])))
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
 

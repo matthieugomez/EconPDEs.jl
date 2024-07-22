@@ -1,6 +1,6 @@
 using Test
 
-for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :TuckmanVila)
+for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :TuckmanVila, :HeKrishnamurthy, :BrunnermeirSannikov)
 	@testset "$x" begin include("../examples/AssetPricing/$(x).jl") end
 end
 

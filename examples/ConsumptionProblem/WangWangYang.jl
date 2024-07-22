@@ -39,7 +39,7 @@ function (m::WangWangYangModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = WangWangYangModel()
-stategrid = OrderedDict(:w => range(m.wmin^(1/2), m.wmax^(1/2), length = 1000).^2)
+stategrid = OrderedDict(:w => range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
 yend = OrderedDict(:p => 1 .+ stategrid[:w])
 @time result = pdesolve(m, stategrid, yend, bc = OrderedDict(:pw => (1.0, 1.0)))
 @assert result.residual_norm <= 1e-5
@@ -80,6 +80,8 @@ function solve!(pts, m, ws, ps)
 end
 
 m = WangWangYangModel()
-ws = range(m.wmin^(1/2), m.wmax^(1/2), length = 1000).^2
-ps = 1 .+ stategrid[:w]
-@time finiteschemesolve((ydot, y) -> solve!(ydot, m, ws, y), ps)
+ws = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2
+ps = 1 .+ ws
+out = finiteschemesolve((ydot, y) -> solve!(ydot, m, ws, y), ps)
+
+@assert sum((out[1] .- result.zero[:p]).^2) / length(out[1]) < 1e-5

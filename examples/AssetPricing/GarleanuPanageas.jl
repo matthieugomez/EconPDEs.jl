@@ -26,20 +26,13 @@ Base.@kwdef struct GarleanuPanageasModel
   ω::Float64 = 0.92
 end
 
-function initialize_stategrid(m::GarleanuPanageasModel; xn = 200)
-  OrderedDict(:x => range(0.0, 1.0, length = xn))
-end
 
-function initialize_y(m::GarleanuPanageasModel, stategrid)
-  xn = length(stategrid[:x])
-  OrderedDict(:pA => ones(xn), :pB => ones(xn), :ϕ1 => ones(xn), :ϕ2 => ones(xn))
+
+function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   # pA is wealth / consumption ratio of agent A
   # pB is wealth / consumption ratio of agent B
   # ϕ1 is value of claim that promises 1 today and then grows at rate μ - δ- δ1
   # ϕ2 is value of claim that promises 1 today and then grows at rate μ - δ- δ2
-end
-
-function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   (; γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω) = m  
   (; x) = state
   (; pA, pAx_up, pAx_down, pAxx, pB, pBx_up, pBx_down, pBxx, ϕ1, ϕ1x_up, ϕ1x_down, ϕ1xx, ϕ2, ϕ2x_up, ϕ2x_down, ϕ2xx) = y
@@ -91,7 +84,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
 end
 
 m = GarleanuPanageasModel()
-stategrid = initialize_stategrid(m; xn = 1000)
-yend = initialize_y(m, stategrid)
+stategrid = OrderedDict(:x => range(0.0, 1.0, length = 100))
+yend = OrderedDict(:pA => ones(length(stategrid[:x])), :pB => ones(length(stategrid[:x])), :ϕ1 => ones(length(stategrid[:x])), :ϕ2 => ones(length(stategrid[:x])))
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5

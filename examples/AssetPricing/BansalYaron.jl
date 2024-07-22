@@ -17,19 +17,6 @@ Base.@kwdef struct BansalYaronModel
     ψ::Float64 = 1.5
 end
 
-function initialize_stategrid(m::BansalYaronModel; μn = 30, vn = 30)
-    μdistribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
-    μs = range(quantile(μdistribution, 0.025), quantile(μdistribution, 0.975), length = μn)
-    νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-    vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = vn)
-    OrderedDict(:μ => μs, :v => vs)
-end
-
-function initialize_y(m::BansalYaronModel, stategrid)
-    μn = length(stategrid[:μ])
-    vn = length(stategrid[:v])
-    OrderedDict(:p => ones(μn, vn))
-end
 
 function (m::BansalYaronModel)(state::NamedTuple, y::NamedTuple)
     (; μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ) = m
@@ -71,8 +58,19 @@ end
 
 # Bansal Yaron (2004)
 m = BansalYaronModel()
-stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+
+## define state space
+μn = 30
+vn = 30
+μdistribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
+μs = range(quantile(μdistribution, 0.025), quantile(μdistribution, 0.975), length = μn)
+νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
+vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = vn)
+stategrid = OrderedDict(:μ => μs, :v => vs)
+
+## define initial guess
+yend = OrderedDict(:p => ones(μn, vn))
+
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
 

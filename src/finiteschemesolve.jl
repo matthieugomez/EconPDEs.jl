@@ -6,10 +6,12 @@
 
 # Implicit time step
 function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth, autoscale = true, kwargs...)
-    #G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
+    #
     #if any(is_algebraic)
-    G_helper!(ydot, y) = (G!(ydot, y) ; ydot .*= 1 .+ .!is_algebraic .* (Δ - 1) ; ydot .-= .!is_algebraic .* (ypost .- y))
-    #end
+    # One option is 
+    # G_helper!(ydot, y) = (G!(ydot, y) ; ydot .*= 1 .+ .!is_algebraic .* (Δ - 1) ; ydot .-= .!is_algebraic .* (ypost .- y))
+    # however does not work if Δ is Inf
+    G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
     J0, colorvec = J0c
     if J0 == nothing
         if method == :linearization
@@ -46,6 +48,7 @@ end
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing), minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, kwargs...)
     ypost = y0
     ydot = zero(y0)
+    # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
     isnan(residual_norm) && throw("G! returns NaN with the initial value")

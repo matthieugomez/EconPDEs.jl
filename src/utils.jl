@@ -63,6 +63,7 @@ end
         push!(expr, Expr(:(=), Symbol(solname, statename2, :_down),  :((i2 > 1) ? (y[i1, i2, $k] - y[i1, i2-1, $k]) / Δx2m : convert($T, bc[i1, 1, $k]))))
         push!(expr, Expr(:(=), Symbol(solname, statename1, statename1), :((1 < i1 < size(y, 1)) ? (y[i1 + 1, i2, $k] / (Δx1p * Δx1) + y[i1 - 1, i2, $k] / (Δx1m * Δx1) - 2 * y[i1, i2, $k] / (Δx1p * Δx1m)) : ((i1 == 1) ? (y[2, i2, $k] / (Δx1p * Δx1) + (y[1, i2, $k] - bc[1, i2, $k] * Δx1m) / (Δx1m * Δx1) - 2 * y[1, i2, $k] / (Δx1p * Δx1m)) : ((y[end, i2, $k] + bc[end, i2, $k] * Δx1p) / (Δx1p * Δx1) + y[end - 1, i2, $k] / (Δx1m * Δx1) - 2 * y[end, i2, $k] / (Δx1p * Δx1m))))))
         push!(expr, Expr(:(=), Symbol(solname, statename2, statename2), :((1 < i2 < size(y, 2)) ? (y[i1, i2 + 1, $k] / (Δx2p * Δx2) + y[i1, i2 - 1, $k] / (Δx2m * Δx2) - 2 * y[i1, i2, $k] / (Δx2p * Δx2m)) : ((i2 == 1) ? (y[i1, 2, $k] / (Δx2p * Δx2) + (y[i1, 1, $k] - bc[i1, 1, $k] * Δx2m) / (Δx2m * Δx2) - 2 * y[i1, 1, $k] / (Δx2p * Δx2m)) : ((y[i1, end, $k] + bc[i1, end, $k] * Δx2p) / (Δx2p * Δx2) + y[i1, end - 1, $k] / (Δx2m * Δx2) - 2 * y[i1, end, $k] / (Δx2p * Δx2m))))))
+        # to correct for bc + non homogeneous grid
         push!(expr, Expr(:(=), Symbol(solname, statename1, statename2), :((y[min(i1 + 1, size(y, 1)), min(i2 + 1, size(y, 2)), $k] - y[min(i1 + 1, size(y, 1)), max(i2 - 1, 1), $k] - y[max(i1 - 1, 1), min(i2 + 1, size(y, 2)), $k] + y[max(i1 - 1, 1), max(i2 - 1, 1), $k]) / (4 * Δx1 * Δx2))))
     end
     quote
@@ -114,42 +115,6 @@ end
         @inbounds Δx3m = grid3[max(i3, 2)] - grid3[max(i3-1, 1)]
         @inbounds Δx3p = grid3[min(i3+1, size(y, 3))] - grid3[min(i3, size(y, 3) - 1)]
         Δx3 = (Δx3m + Δx3p) / 2
-        @inbounds $(Expr(:tuple, expr...))
-    end
-end
-
-
-
-# 1 state variable
-@generated function differentiate2(::Type{Tsolution}, grid::StateGrid{T1, 1, <: NamedTuple{N}}, y::AbstractArray{T}, bc) where {Tsolution, T1, N, T}
-    statename = N[1]
-    expr = Expr[]
-    for k in 1:length(Tsolution.parameters[1])
-        solname = Tsolution.parameters[1][k]
-        push!(expr, Expr(:(=), solname, :(v[$k])))
-        push!(expr, Expr(:(=), Symbol(solname, statename, :_up), :(va_up[$k])))
-        push!(expr, Expr(:(=), Symbol(solname, statename, :_down), :(va_down[$k])))
-        push!(expr, Expr(:(=), Symbol(solname, statename, statename), :(vaa[$k])))
-    end
-    quote
-        $(Expr(:meta, :inline))
-        K = length(Tsolution.parameters[1])
-        v = [zeros(length(grid.x)) for k in 1:K]
-        va_up = [zeros(length(grid.x)) for k in 1:K]
-        va_up = [zeros(length(grid.x)) for k in 1:K]
-        vaa = [zeros(length(grid.x)) for k in 1:K]
-        for i in 1:length(grid.x)
-            grida = grid.x[1]
-            Δxm = grida[max(i, 2)] - grida[max(i-1, 1)]
-            Δxp = grida[min(i+1, size(y, 1))] - grida[min(i, size(y, 1) - 1)]
-            Δx = (Δxm + Δxp) / 2
-            for k in 1:K
-                v[k][i] = y[i, k]
-                va_up[k][i] = (i < size(y, 1)) ? (y[i+1, k] - y[i, k]) / Δxp : convert($T, bc[end, k])
-                va_down[k][i] = ((i > 1) ? (y[i, k] - y[i-1, k]) / Δxm : convert($T, bc[1, k]))
-                vaa[k][i] = ((1 < i < size(y, 1)) ? (y[i + 1, k] / (Δxp * Δx) + y[i - 1, k] / (Δxm * Δx) - 2 * y[i, k] / (Δxp * Δxm)) : ((i == 1) ? (y[2, k] / (Δxp * Δx) + (y[1, k] - bc[1, k] * Δxm) / (Δxm * Δx) - 2 * y[1, k] / (Δxp * Δxm)) : ((y[end, k] + bc[end, k] * Δxp) / (Δxp * Δx) + y[end - 1, k] / (Δxm * Δx) - 2 * y[end, k] / (Δxp * Δxm))))
-            end
-        end
         @inbounds $(Expr(:tuple, expr...))
     end
 end

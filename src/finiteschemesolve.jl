@@ -20,12 +20,9 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         result = nlsolve(G_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff, autoscale = autoscale)
         zero, residual_norm = result.zero, result.residual_norm
     else
-        if autodiff == :forward
-            jac_cache = ForwardColorJacCache(G_helper!, deepcopy(ypost); colorvec = colorvec, sparsity = J0)
-            j_helper! = (J, y) -> forwarddiff_color_jacobian!(J, G_helper!, y, jac_cache)
-        else
-            j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y; colorvec = colorvec)
-        end
+        # remove forwarddiff path and use autodiff everywhere
+        bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0)
+        j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y, bbbcache)
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
             # using mcpsolve if lower/upper bounds are given
             result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)

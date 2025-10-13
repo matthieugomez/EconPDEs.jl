@@ -3,9 +3,9 @@ using LinearAlgebra: Tridiagonal, norm, I
 using SparseArrays: sparse
 using NLsolve: OnceDifferentiable, nlsolve, mcpsolve
 using OrderedCollections: OrderedDict 
-using BlockBandedMatrices: BandedBlockBandedMatrix, Ones
-using SparseDiffTools: ForwardColorJacCache, matrix_colors, forwarddiff_color_jacobian!
-using FiniteDiff: finite_difference_jacobian!
+using BlockArrays: blocklengths
+using BlockBandedMatrices: BandedBlockBandedMatrix, Ones, blockbandwidths, subblockbandwidths, blocksize
+using FiniteDiff: finite_difference_jacobian!, JacobianCache
 using Printf: @printf
 ##############################################################################
 ##

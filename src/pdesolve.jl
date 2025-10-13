@@ -106,6 +106,9 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
     end
 end
 
+
+# Looks like FiniteDiff works with this but DifferentiationInterface does not 
+# see https://github.com/gdalle/SparseMatrixColorings.jl/issues/65
 function sparsity_jac(stategrid::StateGrid, @nospecialize(yend))
     s = size(stategrid)
     l = prod(s)

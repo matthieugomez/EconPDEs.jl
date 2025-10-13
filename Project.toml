@@ -1,6 +1,6 @@
 name = "EconPDEs"
 uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
-version = "1.2.0"
+version = "1.2.1"
 
 [deps]
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
@@ -11,7 +11,6 @@ NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-SparseDiffTools = "47a9eef4-7e08-11e9-0b38-333d64bd3804"
 
 [compat]
 BlockArrays = "1"
@@ -20,7 +19,6 @@ FiniteDiff = "2"
 LinearAlgebra = "1"
 NLsolve = "1, 2, 3, 4"
 OrderedCollections = "1"
-SparseDiffTools = "1.2, 2"
 julia = "1.2"
 
 [extras]

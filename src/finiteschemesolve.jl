@@ -20,7 +20,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         result = nlsolve(G_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff, autoscale = autoscale)
         zero, residual_norm = result.zero, result.residual_norm
     else
-        # remove forwarddiff path and use autodiff everywhere
+        # remove forwarddiff path and use FiniteDiff everytime
         bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0)
         j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y, bbbcache)
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
@@ -28,7 +28,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
             zero, residual_norm = result.zero, result.residual_norm
         elseif method == :linearization
-            finite_difference_jacobian!(J0, G!, ypost; colorvec = colorvec)
+            finite_difference_jacobian!(J0, G!, ypost, bbbcache)
             GV = deepcopy(ypost)
             G!(GV, ypost)
             zero = (I + Δ .* J0) \ (ypost .- Δ .* (GV .- J0 * ypost))

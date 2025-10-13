@@ -107,9 +107,10 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
 end
 
 
-# SparseDiffTools is deprecated. L
-# DifferentiationInterface does not work with specific matrix types yet, see https://github.com/gdalle/SparseMatrixColorings.jl/issues/65
-# FiniteDiff does though, but not sure how stable that is.
+# SparseDiffTools is deprecated
+# So, instead, use ArrayInterface to get the matrix_colors of each type
+# Finite Diff accepts color vec
+# DifferentiationInterface, which is more general interaface which could accept AD, does not work with specific matrix types yet, see https://github.com/gdalle/SparseMatrixColorings.jl/issues/65
 function sparsity_jac(stategrid::StateGrid, @nospecialize(yend))
     s = size(stategrid)
     l = prod(s)
@@ -131,8 +132,7 @@ function sparsity_jac(stategrid::StateGrid, @nospecialize(yend))
     end
 end
 
-# from ArraysInterface (could just import it but might be big import)
-_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
+# from ArraysInterface (could just import it but might be big import and changing all the time)
 matrix_colors(A::Tridiagonal) = _cycle(1:3, size(A, 2))
 function matrix_colors(A::BandedBlockBandedMatrix)
     l, u = blockbandwidths(A)
@@ -155,7 +155,7 @@ function matrix_colors(A::BandedBlockBandedMatrix)
     ]
     return reduce(vcat, colors)
 end
-
+_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 
 function _setindex!(@nospecialize(y), y_M::AbstractArray)

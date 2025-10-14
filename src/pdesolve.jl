@@ -31,7 +31,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
     bc_M = _Array_bc(bc, yend, grid)
 
     # create sparsity
-    J0c = sparsity_jac(stategrid, yend)
+    J0 = sparse_jacobian(stategrid, yend)
     Tsolution = Type{tuple(keys(yend)...)}
 
     # iterate on time
@@ -53,7 +53,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0c = J0c, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
                 end
@@ -63,7 +63,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
         return EconPDEResult(ys, residual_norms, as)
     else
         a = get_a(apm, stategrid, Tsolution, yend_M, bc_M)
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0c = J0c, verbose = verbose, kwargs... )
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, kwargs... )
         y_M = reshape(y_M, size(yend_M)...)
         _setindex!(y, y_M)
         if a !== nothing
@@ -111,51 +111,21 @@ end
 # So, instead, use ArrayInterface to get the matrix_colors of each type
 # Finite Diff accepts color vec
 # DifferentiationInterface, which is more general interaface which could accept AD, does not work with specific matrix types yet, see https://github.com/gdalle/SparseMatrixColorings.jl/issues/65
-function sparsity_jac(stategrid::StateGrid, @nospecialize(yend))
+function sparse_jacobian(stategrid::StateGrid, @nospecialize(yend))
     s = size(stategrid)
     l = prod(s)
-    t = (ndims(stategrid), length(yend) > 1)
-    if t == (1, 0)
-        J = Tridiagonal(ones(l - 1), ones(l), ones(l -1))
-        return J, matrix_colors(J)
-    elseif t == (2, 0)
-        J = BandedBlockBandedMatrix(Ones(l, l), fill(s[1], s[2]), fill(s[1], s[2]), (1, 1), (1, 1))
-        return sparse(J), matrix_colors(J)
-    elseif t == (1, 1)
-        J = BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), fill(l, length(yend)) ,fill(l, length(yend)), (length(yend) - 1, length(yend) - 1), (1, 1))
-        return sparse(J), matrix_colors(J)
-    elseif t == (2, 1)
-        J = BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), (s[2] * length(yend) - 1, s[2] * length(yend) - 1), (1, 1))
-        return sparse(J), matrix_colors(J)
+    if ndims(stategrid) == 1 && length(yend) == 1
+        return Tridiagonal(ones(l - 1), ones(l), ones(l -1))
+    elseif ndims(stategrid) == 2 && length(yend) == 1
+        return BandedBlockBandedMatrix(Ones(l, l), fill(s[1], s[2]), fill(s[1], s[2]), (1, 1), (1, 1))
+    elseif ndims(stategrid) == 1 && length(yend) > 1
+        return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), fill(l, length(yend)) ,fill(l, length(yend)), (length(yend) - 1, length(yend) - 1), (1, 1))
+    elseif ndims(stategrid) == 2 && length(yend) > 1
+        return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), (s[2] * length(yend) - 1, s[2] * length(yend) - 1), (1, 1))
     else
-        return nothing, nothing
+        return nothing
     end
 end
-
-# from ArraysInterface (could just import it but might be big import and changing all the time)
-matrix_colors(A::Tridiagonal) = _cycle(1:3, size(A, 2))
-function matrix_colors(A::BandedBlockBandedMatrix)
-    l, u = blockbandwidths(A)
-    lambda, mu = subblockbandwidths(A)
-    blockwidth = l + u + 1
-    subblockwidth = lambda + mu + 1
-    nblock = blocksize(A, 2)
-    cols = blocklengths(axes(A, 2))
-    blockcolors = _cycle(1:blockwidth, nblock)
-    # the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
-    ncolors = [
-        min(subblockwidth, maximum(cols[i:blockwidth:nblock]))
-        for i = 1:min(blockwidth, nblock)
-    ]
-    endinds = cumsum(ncolors)
-    startinds = [endinds[i] - ncolors[i] + 1 for i = 1:min(blockwidth, nblock)]
-    colors = [
-        _cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
-        for i = 1:nblock
-    ]
-    return reduce(vcat, colors)
-end
-_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]
 
 
 function _setindex!(@nospecialize(y), y_M::AbstractArray)

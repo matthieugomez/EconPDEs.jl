@@ -48,7 +48,7 @@ end
 m = TuckmanVilaModel()
 stategrid = initialize_stategrid(m)
 yend = initialize_y(m, stategrid)
-τs = range(0, m.T, length = 100)
+τs = range(0, m.T, length = 10)
 result = pdesolve(m, stategrid, yend, τs)
 residual_norm = maximum(result.residual_norm)
 

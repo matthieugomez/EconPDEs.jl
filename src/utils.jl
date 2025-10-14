@@ -118,3 +118,34 @@ end
         @inbounds $(Expr(:tuple, expr...))
     end
 end
+
+#========================================================================================
+
+matrix_colors
+
+========================================================================================#
+
+# from ArraysInterface (could just import it but might be big import and changing all the time)
+matrix_colors(A::Tridiagonal) = _cycle(1:3, size(A, 2))
+function matrix_colors(A::BandedBlockBandedMatrix)
+    l, u = blockbandwidths(A)
+    lambda, mu = subblockbandwidths(A)
+    blockwidth = l + u + 1
+    subblockwidth = lambda + mu + 1
+    nblock = blocksize(A, 2)
+    cols = blocklengths(axes(A, 2))
+    blockcolors = _cycle(1:blockwidth, nblock)
+    # the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
+    ncolors = [
+        min(subblockwidth, maximum(cols[i:blockwidth:nblock]))
+        for i = 1:min(blockwidth, nblock)
+    ]
+    endinds = cumsum(ncolors)
+    startinds = [endinds[i] - ncolors[i] + 1 for i = 1:min(blockwidth, nblock)]
+    colors = [
+        _cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
+        for i = 1:nblock
+    ]
+    return reduce(vcat, colors)
+end
+_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]

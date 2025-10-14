@@ -5,14 +5,13 @@
 ##############################################################################
 
 # Implicit time step
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0c = (nothing, nothing), y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth, autoscale = true, kwargs...)
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth, autoscale = true, kwargs...)
     #
     #if any(is_algebraic)
     # One option is 
     # G_helper!(ydot, y) = (G!(ydot, y) ; ydot .*= 1 .+ .!is_algebraic .* (Δ - 1) ; ydot .-= .!is_algebraic .* (ypost .- y))
     # however does not work if Δ is Inf
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
-    J0, colorvec = J0c
     if J0 == nothing
         if method == :linearization
             method == :newton
@@ -21,20 +20,22 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         zero, residual_norm = result.zero, result.residual_norm
     else
         # remove forwarddiff path and use FiniteDiff everytime
-        bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0)
+        colorvec = matrix_colors(J0)
+        J0_sparse = J0 isa Tridiagonal ? J0 : sparse(J0)
+        bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0_sparse)
         j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y, bbbcache)
         if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
             # using mcpsolve if lower/upper bounds are given
-            result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
+            result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0_sparse), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
             zero, residual_norm = result.zero, result.residual_norm
         elseif method == :linearization
-            finite_difference_jacobian!(J0, G!, ypost, bbbcache)
+            finite_difference_jacobian!(J0_sparse, G!, ypost, bbbcache)
             GV = deepcopy(ypost)
             G!(GV, ypost)
-            zero = (I + Δ .* J0) \ (ypost .- Δ .* (GV .- J0 * ypost))
+            zero = (I + Δ .* J0_sparse) \ (ypost .- Δ .* (GV .- J0_sparse * ypost))
             residual_norm = 0.0
         else
-            result = nlsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autoscale = autoscale, kwargs...)
+            result = nlsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0_sparse), ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autoscale = autoscale, kwargs...)
             zero, residual_norm = result.zero, result.residual_norm
         end
     end
@@ -42,7 +43,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
 end
 
 # Solve for steady state
-function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0c = (nothing, nothing), minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, kwargs...)
+function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, kwargs...)
     ypost = y0
     ydot = zero(y0)
     # check that does not return NAN or zero
@@ -54,7 +55,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         return ypost, residual_norm
     end
     if Δ == Inf
-        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0c = J0c, y̲ = y̲, ȳ = ȳ)
+        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0, y̲ = y̲, ȳ = ȳ)
     else
         coef = 1.0
         oldresidual_norm = residual_norm
@@ -65,7 +66,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
         while (iter < iterations) & (Δ >= minΔ) & (residual_norm > maxdist)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0c = J0c, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, kwargs...)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, kwargs...)
             G!(ydot, y)
             if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
                 mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for residual_norm calculation
@@ -99,8 +100,3 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     verbose && (Δ < minΔ) && @warn "Algorithm did not converge: TimeStep lower than the limit $(minΔ)"
     return ypost, residual_norm
 end
-
-
-
-
-

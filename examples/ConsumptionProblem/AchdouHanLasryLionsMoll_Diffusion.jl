@@ -33,7 +33,7 @@ function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, value::N
     va = max(va, eps())    
     c = va^(-1 / γ)
     μa = y + r * a - c
-    if (iter == 0) & (μa <= 0)
+    if (iter == 0) && (μa <= 0)
         iter += 1
         va = va_down
         @goto start

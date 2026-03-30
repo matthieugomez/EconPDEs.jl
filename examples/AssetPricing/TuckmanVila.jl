@@ -51,6 +51,7 @@ yend = initialize_y(m, stategrid)
 τs = range(0, m.T, length = 10)
 result = pdesolve(m, stategrid, yend, τs)
 residual_norm = maximum(result.residual_norm)
+@assert residual_norm <= 1e-5
 
 ### reproduce Fig 2
 #d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))

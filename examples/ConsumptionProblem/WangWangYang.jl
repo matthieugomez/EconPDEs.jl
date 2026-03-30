@@ -63,7 +63,7 @@ function solve!(pts, m, ws, ps)
         pw = max(pw, sqrt(eps()))
         c = (r + ψ * (ρ - r)) * p * pw^(-ψ)
         μw = (r - μ + σ^2) * w + 1 - c
-        if (iter == 0) & (μw <= 0)
+        if (iter == 0) && (μw <= 0)
             iter += 1
             pw = pw_down
             @goto start

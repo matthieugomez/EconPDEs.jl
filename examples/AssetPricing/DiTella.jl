@@ -66,7 +66,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
 
   # upwinding
-  if (iter == 0) & (μX <= 0)
+  if (iter == 0) && (μX <= 0)
     iter += 1
     pAx, pBx, px = pAx_down, pBx_down, px_down
     @goto start

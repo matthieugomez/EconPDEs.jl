@@ -34,7 +34,7 @@ function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::N
     vla = max(vla, eps())    
     cl = vla^(-1 / γ)
     μla = yl + r * a - cl
-    if (iter == 0) & (μla <= 0)
+    if (iter == 0) && (μla <= 0)
         iter += 1
         vla = vla_down
         @goto startl
@@ -54,7 +54,7 @@ function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::N
     vha = max(vha, eps())    
     ch = vha^(-1 / γ)
     μha = yh + r * a - ch
-    if (iter == 0) & (μha <= 0)
+    if (iter == 0) && (μha <= 0)
         iter += 1
         vha = vha_down
         @goto starth

@@ -126,3 +126,4 @@ stategrid =  OrderedDict(:x => range(0, 1.0, length = xn+2)[2:(end-1)])
 xmin = minimum(stategrid[:x])
 yend = OrderedDict(:pE =>  9 .* ones(xn), :pH =>   10 .* ones(xn))
 @time y, residual_norm, a = pdesolve((state, y) -> m(state, y, Δx, xmin), stategrid, yend; autodiff = :finite)
+@assert residual_norm <= 1e-5

@@ -21,7 +21,7 @@ function (m::BoltonChenWangModel)(state::NamedTuple, y::NamedTuple)
   @label start
   i = 1 / θ * (v / vw - w - 1)
   μw = (r - λ) * w + A - i - θ * i^2 / 2 - (i - δ) * w
-  if (iter == 0) & (μw <= 0)
+  if (iter == 0) && (μw <= 0)
     iter += 1
     vw = vw_down
     @goto start

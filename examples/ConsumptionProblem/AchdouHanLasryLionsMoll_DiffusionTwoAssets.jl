@@ -33,7 +33,7 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
     k = (μR - r) / σR^2 * (- va / vaa)
     k = clamp(k, 0.0, a - amin)
     μa = y + r * a + (μR - r) * k - c
-    if (iter == 0) & (μa <= 0)
+    if (iter == 0) && (μa <= 0)
         iter += 1
         va = va_down
         @goto start
@@ -71,6 +71,7 @@ as = range(m.amin, m.amax, length = 100)
 stategrid = OrderedDict(:y => ys, :a => as)
 yend = OrderedDict(:v => [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 y, residual_norm = pdesolve(m, stategrid, yend)
+@assert residual_norm <= 1e-5
 # 
 # # Important: check marginal value of wealth converges to 1.0
 # # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. 

@@ -63,7 +63,7 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, y::NamedTuple)
   μCB = ψB * (r - ρ) + mcB
   μx = x * (μCA - μ) + δ * (νA / pA * ω * (B1 * ϕ1 + B2 * ϕ2) - x) - σ * σx  
   # upwinding
-  if (iter == 0) & (μx <= 0)
+  if (iter == 0) && (μx <= 0)
     iter += 1
     pAx, pBx, ϕ1x, ϕ2x = pAx_down, pBx_down, ϕ1x_down, ϕ2x_down
     @goto start

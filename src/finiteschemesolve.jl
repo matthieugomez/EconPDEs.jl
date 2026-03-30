@@ -24,7 +24,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         J0_sparse = J0 isa Tridiagonal ? J0 : sparse(J0)
         bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0_sparse)
         j_helper! = (J, y) -> finite_difference_jacobian!(J, G_helper!, y, bbbcache)
-        if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
+        if any(x -> x != -Inf, y̲) || any(x -> x != Inf, ȳ)
             # using mcpsolve if lower/upper bounds are given
             result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0_sparse), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
             zero, residual_norm = result.zero, result.residual_norm
@@ -68,7 +68,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             iter += 1
             y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, kwargs...)
             G!(ydot, y)
-            if any(y̲ .!= -Inf) || any(ȳ .!= Inf)
+            if any(x -> x != -Inf, y̲) || any(x -> x != Inf, ȳ)
                 mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for residual_norm calculation
                 residual_norm, oldresidual_norm = norm(ydot .* (mask))/sum(mask), residual_norm
             else

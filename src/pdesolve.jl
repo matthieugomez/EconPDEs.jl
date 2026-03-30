@@ -153,7 +153,6 @@ function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M:
  end
 
  function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
-     Tt = [Symbol(v, :t) for v in Tsolution.parameters[1]]
      for i in eachindex(stategrid)
          solution = differentiate(Tsolution, stategrid, y_M, i, bc_M)
          outi = apm(stategrid[i], solution)

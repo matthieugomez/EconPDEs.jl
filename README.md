@@ -4,7 +4,7 @@
 
 This package provides the function `pdesolve` that solves (system of) nonlinear ODEs/PDEs arising in economic models (i.e. PDEs arising from HJB equations). It is:
 
-- robust: upwinding + fully implicit time stepping (see [here](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/details.pdf))
+- robust: upwinding + fully implicit time stepping (see [here](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf))
 - fast: sparse matrices + Newton acceleration
 - simple-to-use
 
@@ -67,7 +67,7 @@ More complicated ODEs / PDES (including PDE with two state variables or systems 
 # Boundary Conditions
 When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. 
 
-By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/master/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
+By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
 
 ## EconPDEs v1.0.0
 The 1.0 release has the following set of breaking changes:

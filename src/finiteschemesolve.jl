@@ -14,7 +14,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
     if J0 == nothing
         if method == :linearization
-            method == :newton
+            method = :newton
         end
         result = nlsolve(G_helper!, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, autodiff = autodiff, autoscale = autoscale)
         zero, residual_norm = result.zero, result.residual_norm
@@ -49,7 +49,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
-    isnan(residual_norm) && throw("G! returns NaN with the initial value")
+    isnan(residual_norm) && throw(ArgumentError("G! returns NaN with the initial value"))
     if residual_norm <= maxdist
         verbose && @warn "G! already returns zero with the initial value"
         return ypost, residual_norm
@@ -64,7 +64,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             @printf "Iter   TimeStep   Residual\n"
             @printf "---- ---------- ----------\n"
         end
-        while (iter < iterations) & (Δ >= minΔ) & (residual_norm > maxdist)
+        while (iter < iterations) && (Δ >= minΔ) && (residual_norm > maxdist)
             iter += 1
             y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, kwargs...)
             G!(ydot, y)

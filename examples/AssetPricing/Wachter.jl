@@ -59,4 +59,5 @@ end
 m = WachterModel()
 stategrid = initialize_stategrid(m)
 yend = initialize_y(m, stategrid)
+result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5

@@ -16,10 +16,10 @@ using Printf: @printf
 include("finiteschemesolve.jl")
 include("utils.jl")
 
-struct EconPDEResult
-	zero 			# solution
-	residual_norm   # norm of ydot for solution
-	optional        # Optional terms returned in the third argument of the function passed to pdesolve
+struct EconPDEResult{Z, R, O}
+	zero::Z 			# solution
+	residual_norm::R   # norm of ydot for solution
+	optional::O        # Optional terms returned in the third argument of the function passed to pdesolve
 end
 
 function Base.show(io::IO, x::EconPDEResult)

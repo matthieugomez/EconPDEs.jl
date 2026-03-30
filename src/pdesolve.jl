@@ -89,6 +89,10 @@ function _Array_bc(bc, yend, grid)
         elseif length(keys_grid) == 2
             bc_M[1, :,  k],  bc_M[end, :, k] = bc[Symbol(yname, keys_grid[1])]
             bc_M[:, 1,  k], bc_M[:, end,  k] = bc[Symbol(yname, keys_grid[2])]
+        elseif length(keys_grid) == 3
+            bc_M[1, :, :, k], bc_M[end, :, :, k] = bc[Symbol(yname, keys_grid[1])]
+            bc_M[:, 1, :, k], bc_M[:, end, :, k] = bc[Symbol(yname, keys_grid[2])]
+            bc_M[:, :, 1, k], bc_M[:, :, end, k] = bc[Symbol(yname, keys_grid[3])]
         end
     end
     return bc_M
@@ -122,6 +126,13 @@ function sparse_jacobian(stategrid::StateGrid, @nospecialize(yend))
         return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), fill(l, length(yend)) ,fill(l, length(yend)), (length(yend) - 1, length(yend) - 1), (1, 1))
     elseif ndims(stategrid) == 2 && length(yend) > 1
         return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), (s[2] * length(yend) - 1, s[2] * length(yend) - 1), (1, 1))
+    elseif ndims(stategrid) == 3 && length(yend) == 1
+        # blocks of size s[1] (i1 direction), s[2]*s[3] blocks total
+        # block bandwidth s[2]+1 from cross-derivative ∂₂₃ (offsets ±1 ± s[2])
+        return BandedBlockBandedMatrix(Ones(l, l), fill(s[1], s[2] * s[3]), fill(s[1], s[2] * s[3]), (s[2] + 1, s[2] + 1), (1, 1))
+    elseif ndims(stategrid) == 3 && length(yend) > 1
+        F = length(yend)
+        return BandedBlockBandedMatrix(Ones(l * F, l * F), repeat(fill(s[1], s[2] * s[3]), outer = F), repeat(fill(s[1], s[2] * s[3]), outer = F), (s[2] * s[3] * F - 1, s[2] * s[3] * F - 1), (1, 1))
     else
         return nothing
     end

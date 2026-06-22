@@ -13,6 +13,10 @@ for x in (:BoltonChenWang, )
 	@testset "$x" begin include("../examples/InvestmentProblem/$(x).jl") end
 end
 
+for x in (:NeoclassicalGrowthModel, )
+	@testset "$x" begin include("../examples/GrowthModel/$(x).jl") end
+end
+
 for x in (:Leland, )
 	@testset "$x" begin include("../examples/OptimalStoppingTime/$(x).jl") end
 end

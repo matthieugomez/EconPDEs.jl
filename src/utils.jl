@@ -118,7 +118,32 @@ end
                 :((1 < $id < size(y, $d)) ? $interior : (($id == 1) ? $left_bc : $right_bc))))
         end
 
-        # Cross derivatives for each pair of dimensions
+        # Cross derivatives ∂²y/∂x_{d1}∂x_{d2} for each pair of dimensions.
+        #
+        # We return THREE discretizations, mirroring how first derivatives expose an
+        # `_up`/`_down` pair that the model selects on the sign of the drift:
+        #
+        #   * `y<s1><s2>`            symmetric central difference. 2nd-order accurate but
+        #                           NOT monotone — it places negative weights on the
+        #                           off-diagonal of the discrete generator as soon as the
+        #                           cross term is present, breaking the discrete maximum
+        #                           principle for strongly correlated states (oscillations,
+        #                           Newton convergence trouble).
+        #   * `y<s1><s2>_up`        directional stencil on the MAIN diagonal
+        #                           (i+1,j+1)/(i-1,j-1). Use when the cross-diffusion
+        #                           coefficient a₁₂ = cov(dx_{d1}, dx_{d2})/dt ≥ 0.
+        #   * `y<s1><s2>_down`      directional stencil on the ANTI diagonal
+        #                           (i+1,j-1)/(i-1,j+1). Use when a₁₂ < 0.
+        #
+        # In the model, pick per grid point just like first-order upwinding — using the
+        # sign of whatever multiplies the cross derivative in the drift, e.g.
+        #       yxz = (σx * σz >= 0) ? yxz_up : yxz_down
+        # Each directional stencil is the average of a one-sided forward–forward and
+        # backward–backward corner difference, so it is only 1st-order accurate, but its
+        # axial terms combine with the (central) own-second-derivatives `y<s><s>` so that
+        # every off-diagonal generator weight stays ≥ 0 when the diffusion matrix is
+        # diagonally dominant (aᵢᵢ ≥ |a₁₂|) — a monotone, convergent scheme. All three
+        # stencils stay within the ±1 neighborhood, so the Jacobian sparsity is unchanged.
         for d1 in 1:Ndim, d2 in (d1+1):Ndim
             sn1 = statenames[d1]
             sn2 = statenames[d2]
@@ -126,12 +151,30 @@ end
             id2 = Symbol("i", d2)
             Δ1  = Symbol("Δx", d1)
             Δ2  = Symbol("Δx", d2)
+            Δ1p = Symbol("Δx", d1, "p")
+            Δ1m = Symbol("Δx", d1, "m")
+            Δ2p = Symbol("Δx", d2, "p")
+            Δ2m = Symbol("Δx", d2, "m")
+            y_00 = _y_ref(Ndim, k)
+            y_p0 = _y_ref(Ndim, k, d1 => :(min($id1 + 1, size(y, $d1))))
+            y_m0 = _y_ref(Ndim, k, d1 => :(max($id1 - 1, 1)))
+            y_0p = _y_ref(Ndim, k, d2 => :(min($id2 + 1, size(y, $d2))))
+            y_0m = _y_ref(Ndim, k, d2 => :(max($id2 - 1, 1)))
             y_pp = _y_ref(Ndim, k, d1 => :(min($id1 + 1, size(y, $d1))), d2 => :(min($id2 + 1, size(y, $d2))))
             y_pm = _y_ref(Ndim, k, d1 => :(min($id1 + 1, size(y, $d1))), d2 => :(max($id2 - 1, 1)))
             y_mp = _y_ref(Ndim, k, d1 => :(max($id1 - 1, 1)),            d2 => :(min($id2 + 1, size(y, $d2))))
             y_mm = _y_ref(Ndim, k, d1 => :(max($id1 - 1, 1)),            d2 => :(max($id2 - 1, 1)))
+            # central: symmetric, 2nd-order, not monotone
             push!(expr, Expr(:(=), Symbol(solname, sn1, sn2),
                 :(($y_pp - $y_pm - $y_mp + $y_mm) / (4 * $Δ1 * $Δ2))))
+            # upwind for a₁₂ ≥ 0: average of forward–forward and backward–backward corners
+            push!(expr, Expr(:(=), Symbol(solname, sn1, sn2, :_up),
+                :(($y_pp - $y_p0 - $y_0p + $y_00) / (2 * $Δ1p * $Δ2p)
+                + ($y_00 - $y_m0 - $y_0m + $y_mm) / (2 * $Δ1m * $Δ2m))))
+            # upwind for a₁₂ < 0: average of forward–backward and backward–forward corners
+            push!(expr, Expr(:(=), Symbol(solname, sn1, sn2, :_down),
+                :(-($y_pm - $y_p0 - $y_0m + $y_00) / (2 * $Δ1p * $Δ2m)
+                  -($y_00 - $y_m0 - $y_0p + $y_mp) / (2 * $Δ1m * $Δ2p))))
         end
     end
 

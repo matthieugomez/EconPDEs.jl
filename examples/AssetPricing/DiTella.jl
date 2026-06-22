@@ -38,7 +38,7 @@ end
 function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   (; γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar) = m  
   (; x, ν) = state
-  (; pA, pAx_up, pAx_down, pAν_up, pAν_down, pAxx, pAxν, pAνν, pB, pBx_up, pBx_down, pBν_up, pBν_down, pBxx, pBxν, pBνν, p, px_up, px_down, pν_up, pν_down, pxx, pxν, pνν) = y
+  (; pA, pAx_up, pAx_down, pAν_up, pAν_down, pAxx, pAxν_up, pAxν_down, pAνν, pB, pBx_up, pBx_down, pBν_up, pBν_down, pBxx, pBxν_up, pBxν_down, pBνν, p, px_up, px_down, pν_up, pν_down, pxx, pxν_up, pxν_down, pνν) = y
 
   # drift and volatility of state variable ν
   g = p / (2 * A)
@@ -71,6 +71,11 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
     pAx, pBx, px = pAx_down, pBx_down, px_down
     @goto start
   end
+
+  # upwind the cross derivative on the sign of its coefficient σX * σν (the x-ν covariance)
+  pAxν = (σX * σν >= 0) ? pAxν_up : pAxν_down
+  pBxν = (σX * σν >= 0) ? pBxν_up : pBxν_down
+  pxν = (σX * σν >= 0) ? pxν_up : pxν_down
 
   μpA = pAx / pA * μX + pAν / pA * μν + 0.5 * pAxx / pA * σX^2 + 0.5 * pAνν / pA * σν^2 + pAxν / pA * σX * σν
   μpB = pBx / pB * μX + pBν / pB * μν + 0.5 * pBxx / pB * σX^2 + 0.5 * pBνν / pB * σν^2 + pBxν / pB * σX * σν

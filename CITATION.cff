@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "EconPDEs.jl: Solving PDEs in economics"
+authors:
+  - family-names: "Gomez"
+    given-names: "Matthieu"
+version: 1.4.0
+license: MIT
+repository-code: "https://github.com/matthieugomez/EconPDEs.jl"
+url: "https://github.com/matthieugomez/EconPDEs.jl"

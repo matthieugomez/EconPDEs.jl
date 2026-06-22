@@ -98,3 +98,14 @@ The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/e
 ## Installation
 The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.
 
+## Citation
+If you use EconPDEs.jl in your work, please cite it. You can use the "Cite this repository" button on the [GitHub page](https://github.com/matthieugomez/EconPDEs.jl) (generated from [`CITATION.cff`](CITATION.cff)), or the following BibTeX entry:
+
+```bibtex
+@software{EconPDEs.jl,
+  author = {Gomez, Matthieu},
+  title  = {{EconPDEs.jl}: {Solving PDEs in economics}},
+  url    = {https://github.com/matthieugomez/EconPDEs.jl},
+}
+```
+

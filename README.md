@@ -94,6 +94,7 @@ The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/e
 - *Heterogeneous Agent Models*: He Krishnamurthy (2013), Brunnermeir Sannikov (2013), Garleanu Panageas (2015), Di Tella (2017), Haddad (JMP)
 - *Consumption with Borrowing Constraint*: Wang Wang Yang (2016), Achdou Han Lasry Lions Moll (2018)
 - *Investment with Borrowing Constraint*: Bolton Chen Wang (2009)
+- *Growth Model*: deterministic neoclassical (Ramsey) growth model, on a grid centered on its closed-form steady state
 
 ## Installation
 The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.

@@ -26,43 +26,55 @@ function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::N
     (; a) = state
     (; vl, vla_up, vla_down, vh, vha_up, vha_down) = value
 
-    # low income state
-    vla = vla_up
-    iter = 0
-    vla = vla_up
-    @label startl
-    vla = max(vla, eps())    
-    cl = vla^(-1 / γ)
-    μla = yl + r * a - cl
-    if (iter == 0) && (μla <= 0)
-        iter += 1
-        vla = vla_down
-        @goto startl
-    end
-    if (a ≈ amin) && (μla <= 0.0)
-        cl = yl + r * amin
-        μla = 0.0
-        vla = cl^(-γ)
+    # upwinding vl
+    vla_up = max(vla_up, eps())
+    cl_up = vla_up^(-1 / γ)
+    μla_up = yl + r * a - cl_up
+    if μla_up >= 0.0
+        vla = vla_up
+        cl = cl_up
+        μla = μla_up
+    else
+        vla_down = max(vla_down, eps())
+        cl_down = vla_down^(-1 / γ)
+        μla_down = yl + r * a - cl_down
+        if μla_down <= 0.0 && a > amin
+            vla = vla_down
+            cl = cl_down
+            μla = μla_down
+        else
+            # If the two candidates straddle zero OR drift is negative at minimum asset threshold  
+            # (i.e. borrowing constraint), then, we must have drift μla = 0.
+            cl = yl + r * a
+            μla = 0.0
+            vla = cl^(-γ)
+        end
     end
     vlt = - (cl^(1 - γ) / (1 - γ) + μla * vla + λlh * (vh - vl) - ρ * vl)
    
-    # high income state
-    vha = vha_up
-    iter = 0
-    vha = vha_up
-    @label starth
-    vha = max(vha, eps())    
-    ch = vha^(-1 / γ)
-    μha = yh + r * a - ch
-    if (iter == 0) && (μha <= 0)
-        iter += 1
-        vha = vha_down
-        @goto starth
-    end
-    if (a ≈ amin) && (μha <= 0.0)
-        ch = yh + r * amin
-        μha = 0.0
-        vha = ch^(-γ)
+    # upwinding vh
+    vha_up = max(vha_up, eps())
+    ch_up = vha_up^(-1 / γ)
+    μha_up = yh + r * a - ch_up
+    if μha_up >= 0.0
+        vha = vha_up
+        ch = ch_up
+        μha = μha_up
+    else
+        vha_down = max(vha_down, eps())
+        ch_down = vha_down^(-1 / γ)
+        μha_down = yh + r * a - ch_down
+        if μha_down <= 0.0 && a > amin
+            vha = vha_down
+            ch = ch_down
+            μha = μha_down
+        else
+            # If the two candidates straddle zero OR drift is negative at minimum asset threshold  
+            # (i.e. borrowing constraint), then, we must have drift μha = 0.
+            ch = yh + r * a
+            μha = 0.0
+            vha = ch^(-γ)
+        end
     end
     vht = - (ch^(1 - γ) / (1 - γ) + μha * vha + λhl * (vl - vh) - ρ * vh)
     
@@ -75,6 +87,5 @@ stategrid = OrderedDict(:a => m.amin .+ range(0, (m.amax - m.amin)^(1/2), length
 yend = OrderedDict(:vl => (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r).^(1-m.γ) ./ (1 - m.γ), :vh => (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ)  .* (stategrid[:a] .+ m.yh ./ m.r).^(1-m.γ) ./ (1 - m.γ))
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
-
 
 

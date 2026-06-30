@@ -25,24 +25,33 @@ function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, value::N
     (; y, a) = state
     (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
+
+    # upwinding for income direction (easy because exogenous income drift)
     vy = (μy >= 0) ? vy_up : vy_down
 
-    va = va_up
-    iter = 0
-    @label start
-    va = max(va, eps())    
-    c = va^(-1 / γ)
-    μa = y + r * a - c
-    if (iter == 0) && (μa <= 0)
-        iter += 1
-        va = va_down
-        @goto start
-    end
-    # Borrowing Constraint
-    if (a ≈ amin) && (μa <= 0.0)
-        va = (y + r * a)^(-γ)
-        c = y + r * a
-        μa = 0.0
+    # upwinding for asset direction (harder because endogeneous asset drift)
+    va_up = max(va_up, eps())
+    c_up = va_up^(-1 / γ)
+    μa_up = y + r * a - c_up
+    if μa_up >= 0.0
+        va = va_up
+        c = c_up
+        μa = μa_up
+    else
+        va_down = max(va_down, eps())
+        c_down = va_down^(-1 / γ)
+        μa_down = y + r * a - c_down
+        if (μa_down <= 0.0) && (a > amin)
+            va = va_down
+            c = c_down
+            μa = μa_down
+        else
+            # If the two candidates straddle zero OR drift is negative at minimum asset threshold  
+            # (i.e. borrowing constraint), then, we must have drift μa = 0.
+            c = y + r * a
+            va = c^(-γ)
+            μa = 0.0
+        end
     end
     vt = - (c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v)
     return (; vt)
@@ -66,3 +75,4 @@ result = pdesolve(m, stategrid, yend)
 # Check marginal value of wealth converges to 1.0 at infinity
 #b = ((m.r + (m.ρ - m.r)/m.γ))^(1/(1 - 1/m.γ))
 #pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
+#@assert abs(pw - 1) <= 1e-5

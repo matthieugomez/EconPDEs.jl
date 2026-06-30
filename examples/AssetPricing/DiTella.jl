@@ -61,7 +61,7 @@ function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
   σA = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpA
   νA = κν / γ
   σB = κ / γ + (1 - γ) / (γ * (ψ - 1)) * σpB
-  
+
   # Interest rate r
   μX = x * (1 - x) * ((σA * κ + νA * κν - 1 / pA - τ) - (σB * κ -  1 / pB + τ * x / (1 - x)) - (σA - σB) * (σ + σp))
 

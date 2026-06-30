@@ -63,9 +63,9 @@ m = BansalYaronModel()
 μn = 30
 vn = 30
 μdistribution = Normal(m.μbar,  sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
-μs = range(quantile(μdistribution, 0.025), quantile(μdistribution, 0.975), length = μn)
+μs = range(quantile(μdistribution, 0.01), quantile(μdistribution, 0.975), length = μn)
 νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-vs = range(quantile(νdistribution, 0.025), quantile(νdistribution, 0.975), length = vn)
+vs = range(quantile(νdistribution, 0.0), quantile(νdistribution, 0.975), length = vn)
 stategrid = OrderedDict(:μ => μs, :v => vs)
 
 ## define initial guess

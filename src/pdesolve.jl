@@ -1,5 +1,5 @@
 """
-    pdesolve(f, grid, yend [, τs]; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing)
+    pdesolve(f, grid, yend [, τs]; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, check_monotonicity = false)
     
     solves a system of pdes with an arbitrary number of functions and up to state variable. Denote  F the number of functions to solve for and S the number of state variables.
 
@@ -12,8 +12,13 @@
     * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
     * yend is an OrderedDict that gives the terminal value of each function in the system of PDEs
     * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
+
+    ### Keyword arguments
+    * check_monotonicity: if true, warn when the assembled residual Jacobian has same-variable spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false.
+    * monotonicity_tol: tolerance for the monotonicity check. Defaults to 1e-6.
+    * monotonicity_max_warnings: maximum number of monotonicity warnings to print. Defaults to 5.
 """
-function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, kwargs...)
+function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     stategrid = StateGrid(NamedTuple(grid))
     S = size(stategrid)
     all(size(v) == S for v in values(yend)) || throw(ArgumentError("The length of initial guess (e.g. terminal value) does not equal the length of the state space"))
@@ -32,6 +37,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
 
     # create sparsity
     J0 = sparse_jacobian(stategrid, yend)
+    monotonicity_check = check_monotonicity ? MonotonicityChecker(stategrid, yend; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings) : nothing
     Tsolution = Type{tuple(keys(yend)...)}
 
     # iterate on time
@@ -53,7 +59,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
                 end
@@ -63,7 +69,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
         return EconPDEResult(ys, residual_norms, as)
     else
         a = get_a(apm, stategrid, Tsolution, yend_M, bc_M)
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, kwargs... )
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
         y_M = reshape(y_M, size(yend_M)...)
         _setindex!(y, y_M)
         if a !== nothing
@@ -183,5 +189,3 @@ function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M:
           $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(Tsolution.parameters[1][k], :t))), :i, k) for k in 1:N]...))
      end
  end
-
-

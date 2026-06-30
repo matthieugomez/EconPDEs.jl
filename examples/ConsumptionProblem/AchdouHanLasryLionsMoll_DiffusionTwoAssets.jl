@@ -23,22 +23,51 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
     (; y, a) = state
     (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
+
+    # upwinding for income direction (easy because exogenous income drift)
     vy = (μy >= 0) ? vy_up : vy_down
-    
-    va = va_up
-    iter = 0
-    @label start
-    va = max(va, eps())    
-    c = va^(-1 / γ)
-    k = (μR - r) / σR^2 * (- va / vaa)
-    k = clamp(k, 0.0, a - amin)
-    μa = y + r * a + (μR - r) * k - c
-    if (iter == 0) && (μa <= 0)
-        iter += 1
-        va = va_down
-        @goto start
+
+    # upwinding for asset direction (harder because endogeneous asset drift)
+    va_up = max(va_up, eps())
+    c_up = va_up^(-1 / γ)
+    k_up = (μR - r) / σR^2 * (-va_up / vaa)
+    k_up = clamp(k_up, 0.0, a - amin)
+    μa_up = y + r * a + (μR - r) * k_up - c_up
+    if μa_up >= 0.0
+        va = va_up
+        c = c_up
+        k = k_up
+        μa = μa_up
+    else
+        va_down = max(va_down, eps())
+        c_down = va_down^(-1 / γ)
+        k_down = (μR - r) / σR^2 * (-va_down / vaa)
+        k_down = clamp(k_down, 0.0, a - amin)
+        μa_down = y + r * a + (μR - r) * k_down - c_down
+        if (μa_down <= 0.0) && (a >= amin)
+            va = va_down
+            c = c_down
+            k = k_down
+            μa = μa_down
+        else
+            # If the two candidates straddle zero OR drift is negative at minimum asset threshold  
+            # (i.e. borrowing constraint), then, we must have drift μa = 0.
+            c = max(y + r * a, eps())
+            for _ in 1:30
+                va = c^(-γ)
+                k = (μR - r) / σR^2 * (-va / vaa)
+                k = clamp(k, 0.0, a - amin)
+                c = y + r * a + (μR - r) * k
+            end
+            va = max(c, eps())^(-γ)
+            k = (μR - r) / σR^2 * (-va / vaa)
+            k = clamp(k, 0.0, a - amin)
+            c = y + r * a + (μR - r) * k
+            μa = 0.0
+        end
     end
     σa = k * σR
+
     # There is no second derivative at 0 so just specify first order derivative
     if (a ≈ amin) && (μa <= 0.0)
         va = (y + r * a)^(-γ)
@@ -77,4 +106,3 @@ y, residual_norm = pdesolve(m, stategrid, yend)
 # # This happens ONLY if a >= 1000.0. Otherwise with 300 it does not work. 
 # b = ((m.r + (m.ρ - m.r)/m.γ - (1-m.γ) / (2 * m.γ) * (m.μR - m.r)^2 / (m.γ * m.σR^2)))^(1/(1 - 1/m.γ))
 # pw = (result[:v] * (1-m.γ)).^(1/(1-m.γ)-1) .* result[:va] ./ b
-

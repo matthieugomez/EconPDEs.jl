@@ -1,100 +1,140 @@
 [![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 [![Coverage Status](http://codecov.io/github/matthieugomez/EconPDEs.jl/coverage.svg?branch=main)](http://codecov.io/github/matthieugomez/EconPDEs.jl/?branch=main)
 
+# EconPDEs.jl
 
-This package provides the function `pdesolve` that solves (system of) nonlinear ODEs/PDEs arising in economic models (i.e. PDEs arising from HJB equations). It is:
+`EconPDEs.jl` solves nonlinear ODEs and PDEs that arise in economic models, especially Hamilton-Jacobi-Bellman equations. You write the local equation; the package supplies finite-difference derivatives, upwinding, sparse Jacobians, and pseudo-transient Newton iteration.
 
-- robust: upwinding + fully implicit time stepping (see [here](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf))
-- fast: sparse matrices + Newton acceleration
-- simple-to-use
+Use it when an economic model gives a stationary or time-dependent HJB on a grid, possibly with several value functions and several state variables.
 
-# A Simple Example
+## Installation
 
-Let us solve the PDE for the price-dividend ratio in the Long Run Risk model with time-varying drift:
-<!-- 
-1 - \rho V + (1 - \frac{1}{\psi})(\mu - \frac{1}{2}\gamma \vartheta)V + \theta_\mu(\overline{\mu} - \mu) \partial_\mu V + \frac{1}{2}\frac{\frac{1}{\psi}-\gamma}{1-\frac{1}{\psi}}\nu_\mu^2 \vartheta \frac{(\partial_\mu V)^2}{V} + \frac{1}{2}\nu_\mu^2 \vartheta \partial_{\mu\mu}V  + \partial_t V  = 0
--->
-<img src="img/by.png">
+The package is registered in the Julia `General` registry:
+
+```julia
+] add EconPDEs
+```
+
+Current versions require Julia 1.10 or later.
+
+## Quickstart
+
+The main function is `pdesolve`. A stationary problem needs a PDE function, a state grid, and an initial guess:
 
 ```julia
 using EconPDEs
 
-# Define a discretized state space
-# An OrderedDict in which each key corresponds to a state variable
-# Grids can be non-homogeneous
-stategrid = OrderedDict(:μ => range(-0.05, 0.1, length = 500))
+grid = OrderedDict(:x => range(-1.0, 1.0, length = 100))
+guess = OrderedDict(:v => zeros(length(grid[:x])))
 
-# Define an initial guess for the value functions
-# An OrderedDict in which each key corresponds to a value function to solve for, 
-# specified as an array with as many dimensions as there are state variables
-solend = OrderedDict(:V => ones(500))
+function hjb(state::NamedTuple, y::NamedTuple)
+    x = state.x
+    v, vx_up, vx_down, vxx = y.v, y.vx_up, y.vx_down, y.vxx
 
-# Define a function that encodes the PDE. 
-# The function takes three arguments:
-# 1. A named tuple giving the current value of the state. 
-# 2. A named tuple giving the value function(s) (as well as its derivatives)
-# at the current value of the state. 
-# 3. (Optional) Current time t
-# It must return a named tuple with the time derivatives
-function f(state::NamedTuple, sol::NamedTuple)
-           μbar = 0.018 ; ϑ = 0.00073 ; θμ = 0.252 ; νμ = 0.528 ; ρ = 0.025 ; ψ = 1.5 ; γ = 7.5
-           μ = state.μ
-           V, Vμ_up, Vμ_down, Vμμ = sol.V, sol.Vμ_up, sol.Vμ_down, sol.Vμμ
-           # note that pdesolve will directly compute the derivatives of the valuefunction.
-           # up and down correspond to the upward and downard derivative obtained by first difference
-           Vμ = (μ <= μbar) ? Vμ_up : Vμ_down
-           Vt = - (1  - ρ * V + (1 - 1 / ψ) * (μ - 0.5 * γ * ϑ) * V + θμ * (μbar - μ) * Vμ +
-           0.5 * νμ^2 * ϑ * Vμμ  + 0.5 * (1 / ψ - γ) / (1- 1 / ψ) * νμ^2 *  ϑ * Vμ^2/V)
-           (Vt = Vt,)
+    μx = -x
+    vx = μx >= 0 ? vx_up : vx_down
+
+    vt = -(x^2 + μx * vx + 0.05 * vxx - 0.04 * v)
+    return (; vt)
 end
 
-# The function `pdesolve` takes four arguments:
-# 1. the function encoding the PDE
-# 2. the discretized state space
-# 3. the terminal value function
-# 4. (Optional) a time grid
-ys, residual_norms = pdesolve(f, stategrid, solend, range(0, 1000, length = 100))
-
-# To solve directly for the stationary solution, 
-# i.e. the solution of the PDE with ∂tV = 0,
-# simply omit the time grid
-y, residual_norm =  pdesolve(f, stategrid, solend)
+result = pdesolve(hjb, grid, guess; verbose = false)
+value = result.zero[:v]
+residual_norm = result.residual_norm
 ```
-More complicated ODEs / PDES (including PDE with two state variables or systems of multiple PDEs) can be found in the `examples` folder. 
 
+For a time-dependent problem, pass an increasing time grid as the fourth argument:
 
+```julia
+result = pdesolve(hjb, grid, guess, range(0, 100, length = 50))
+```
 
-# Boundary Conditions
-When solving a PDE using a finite scheme approach, one needs to specify the value of the solution *outside* the grid ("ghost node") to construct the second derivative and, in some cases, the first derivative *at* the boundary. 
+## Model Conventions
 
-By default, the values at the ghost node is assumed to equal the value at the boundary node (reflecting boundaries). Specify different values for values at the ghost node using the option `bc` (see [BoltonChenWang.jl](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/InvestmentProblem/BoltonChenWang.jl) for an example).
+The PDE function has the form
 
-## EconPDEs v1.0.0
-The 1.0 release has the following set of breaking changes:
+```julia
+f(state::NamedTuple, y::NamedTuple) -> NamedTuple
+```
 
-1. The first argument of pdesolve (the function encoding the PDE) must accept directional first derivatives and it must return a named tuple of time derivatives
-2. The fourth argument of pdesolve (the time grid) must be in increasing order
-3. pdesolve now returns a type with fieldnames zero (for the solution) and residual_norm (for the norm of residuals)
+`state` gives the current grid point. `y` gives each unknown function and its finite-difference derivatives at that point. If the unknown is `v` and the state is `x`, then `y` contains:
 
-See the updated examples for the new syntax.
+- `v`: value of the function.
+- `vx_up` and `vx_down`: forward and backward first derivatives.
+- `vxx`: second derivative.
+
+With several states, cross derivatives are also available, such as `vxy`, `vxy_up`, and `vxy_down`. The PDE function must return one time derivative for each unknown; for `v`, return `vt`.
+
+For time-dependent equations, the PDE function may also accept time:
+
+```julia
+f(state::NamedTuple, y::NamedTuple, t) -> NamedTuple
+```
+
+## Endogenous Choices and Borrowing Constraints
+
+Borrowing constraints and other endogenous state constraints are usually part of the PDE. Put assets, wealth, or the constrained object on the state grid. Then compute the policy inside the PDE function, form the state drift, and choose the upwind derivative from the sign of that drift.
+
+For example, in a consumption-saving problem with asset state `a`, compute consumption from the marginal value of assets, form the asset drift `μa`, and then use `va_up` or `va_down` depending on the sign of `μa`. At the borrowing limit, impose feasibility directly: prevent the drift from moving below the lower asset bound, or impose the boundary derivative implied by the constraint.
+
+The `y̲` and `ȳ` keywords have a different role. They impose bounds on the unknown function itself in a variational inequality, as in optimal stopping. They are not the right tool for an ordinary borrowing constraint on a state variable or policy choice.
+
+See [WangWangYang.jl](examples/ConsumptionProblem/WangWangYang.jl), [AchdouHanLasryLionsMoll_Diffusion.jl](examples/ConsumptionProblem/AchdouHanLasryLionsMoll_Diffusion.jl), and [BoltonChenWang.jl](examples/InvestmentProblem/BoltonChenWang.jl) for examples.
+
+## Boundary Conditions
+
+Finite-difference schemes need ghost-node values outside the grid to construct derivatives at the boundary. By default, `EconPDEs.jl` uses reflecting boundaries: the ghost-node value equals the boundary-node value, so the first derivative is zero beyond the boundary.
+
+Use the `bc` keyword to impose a different boundary derivative:
+
+```julia
+pdesolve(f, grid, guess; bc = OrderedDict(:vx => (0.0, 1.0)))
+```
 
 ## Optimal Stopping
-Optimal stopping problems are also supported, as exemplified in [Leland.jl](examples/OptimalStoppingTime/Leland.jl). These problems are solved with "HJB variational inequality" (HJBVI), i.e.:
+
+Optimal stopping problems are supported through HJB variational inequalities. For a payoff `S(x)`, the HJBVI is:
 
 <img src="img/hjbvi.png">
 
-where `S(x)` is the value of exercising the option. Notice the traditional "value matching" (`S(x̲)=v(x̲)`) and "smooth pasting" (`S'(x̲)=v'(x̲)`) conditions are implied in the HJBVI formulation. See [the deck of notes from Ben Moll on stopping time problems](https://benjaminmoll.com/codes/) for more details. The `S(x)` can be provided to the solver as a vector defined on the grid via the keyword `y̲` (or `ȳ` as the upper bound for cost minimization problems).
+Pass the exercise payoff as a lower bound with `y̲`; use `ȳ` for upper bounds in minimization problems. This formulation implies the usual value-matching and smooth-pasting conditions. See [Leland.jl](examples/OptimalStoppingTime/Leland.jl) for a working example and Ben Moll's [notes on stopping time problems](https://benjaminmoll.com/codes/) for background.
 
+Internally, these bounded problems are mixed complementarity problems and use `NLsolve.mcpsolve`. Ordinary nonlinear PDE solves use `NonlinearSolve.jl`.
 
-# Examples
-The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples)  solves a variety of models:
-- *Habit Model*: Campbell Cochrane (1999) and Wachter (2005)
-- *Long Run Risk Model*: Bansal Yaron (2004)
-- *Disaster Model*: Wachter (2013)
-- *Heterogeneous Agent Models*: He Krishnamurthy (2013), Brunnermeir Sannikov (2013), Garleanu Panageas (2015), Di Tella (2017), Haddad (JMP)
-- *Consumption with Borrowing Constraint*: Wang Wang Yang (2016), Achdou Han Lasry Lions Moll (2018)
-- *Investment with Borrowing Constraint*: Bolton Chen Wang (2009)
+## Diagnostics and Solver Backend
 
-## Installation
-The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EconPDEs`.
+For ordinary PDE solves, `EconPDEs.jl` constructs a sparse colored finite-difference Jacobian and passes it to `NonlinearSolve.jl`. The default nonlinear method is Newton's method:
 
+```julia
+pdesolve(f, grid, guess; method = :newton)
+```
+
+The trust-region solver is also available:
+
+```julia
+pdesolve(f, grid, guess; method = :trust_region)
+```
+
+As an opt-in diagnostic, `pdesolve` can check the sparse residual Jacobian for monotonicity violations:
+
+```julia
+pdesolve(f, grid, guess; check_monotonicity = true)
+```
+
+This checks the effective neighbor weights in the fully assembled equation, after endogenous policies, risk adjustments, and nonlinear terms are included. Upwinding on the raw state drift is only a shortcut that is guaranteed to work for a linear drift term. Under the package's `vt = -(...)` convention, a positive same-variable spatial off-diagonal entry usually means that an `_up` or `_down` stencil was chosen with the wrong sign. For transformed equations or endogenous-control problems, treat the warning as a debugging diagnostic rather than a proof that the economic upwind rule is wrong. Adjust `monotonicity_tol` (default `1e-6`) and `monotonicity_max_warnings` to tune it.
+
+The default linear solve uses Julia's direct sparse `\`, which is fastest on the benchmark examples in this repository. Advanced users can pass a different `linsolve` keyword through to `NonlinearSolve.jl`.
+
+## Examples
+
+The examples folder solves a range of models:
+
+- Habit models: Campbell-Cochrane (1999) and Wachter (2005)
+- Long-run-risk model: Bansal-Yaron (2004)
+- Disaster model: Wachter (2013)
+- Heterogeneous-agent asset-pricing models: He-Krishnamurthy (2013), Brunnermeier-Sannikov (2013), Garleanu-Panageas (2015), Di Tella (2017), and Haddad
+- Consumption with borrowing constraints: Wang-Wang-Yang (2016), Achdou-Han-Lasry-Lions-Moll (2018)
+- Investment with borrowing constraints: Bolton-Chen-Wang (2009)
+- Optimal stopping: Leland-style default boundary problem
+
+More details on the finite-difference scheme are in [examples/details.pdf](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf).

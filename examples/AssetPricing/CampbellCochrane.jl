@@ -40,8 +40,10 @@ function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     sbar = log(Sbar)
     λ = 1 / Sbar * sqrt(1 - 2 * (s - sbar)) - 1
     μs = - κs * (s - sbar)
-    ps = (μs >= 0) ? ps_up : ps_down
     σs = λ * σ
+    # Pricing uses the risk-adjusted drift, not the physical drift of surplus consumption.
+    μs_effective = μs + σs * (σ - γ * (σ + σs))
+    ps = (μs_effective >= 0) ? ps_up : ps_down
     σp = ps / p * σs
     μp = ps / p * μs + 0.5 * pss / p * σs^2
 
@@ -68,4 +70,3 @@ result = pdesolve(m, stategrid, yend)
 # stategrid = initialize_stategrid(m)
 # yend = OrderedDict(:p => ones(length(stategrid[:s])))
 # y, result, distance = pdesolve(m, stategrid, yend)
-

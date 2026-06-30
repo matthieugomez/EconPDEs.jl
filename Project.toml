@@ -1,6 +1,6 @@
 name = "EconPDEs"
 uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
-version = "1.4.0"
+version = "1.5.0"
 
 [deps]
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
@@ -8,6 +8,7 @@ BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -18,14 +19,16 @@ BlockBandedMatrices = "0.7, 0.8, 0.9, 0.10, 0.11, 0.12, 0.13"
 FiniteDiff = "2"
 LinearAlgebra = "1"
 NLsolve = "4"
+NonlinearSolve = "4.20"
 OrderedCollections = "1"
-julia = "1.7"
+julia = "1.10"
 
 [extras]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 InfinitesimalGenerators = "2fce0c6f-5f0b-5c85-85c9-2ffe1d5ee30d"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Roots ="f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Distributions", "InfinitesimalGenerators", "Roots"]
+test = ["Test", "Distributions", "InfinitesimalGenerators", "Roots", "Logging"]

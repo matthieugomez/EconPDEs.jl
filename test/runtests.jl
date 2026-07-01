@@ -26,6 +26,24 @@ using EconPDEs
     @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
 end
 
+@testset "2D multi-function sparsity" begin
+    grid = OrderedDict(:x => range(0.0, 1.0, length = 4), :z => range(0.0, 1.0, length = 5))
+    y0 = OrderedDict(:A => ones(4, 5), :B => ones(4, 5))
+    stategrid = EconPDEs.StateGrid(NamedTuple(grid))
+    J = EconPDEs.sparse_jacobian(stategrid, y0)
+
+    rows, cols, _ = EconPDEs.findnz(J)
+    colors = EconPDEs.matrix_colors(J)
+
+    @test size(J) == (40, 40)
+    @test length(rows) == 520
+    @test maximum(colors) <= 18
+    for row in unique(rows)
+        rowcols = cols[rows .== row]
+        @test length(unique(colors[rowcols])) == length(rowcols)
+    end
+end
+
 for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :TuckmanVila, :HeKrishnamurthy, :BrunnermeirSannikov)
 	@testset "$x" begin include("../examples/AssetPricing/$(x).jl") end
 end

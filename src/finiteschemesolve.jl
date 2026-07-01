@@ -31,6 +31,7 @@ function _nonlinear_algorithm(method, autodiff; concrete_jac = true)
 end
 
 _has_bounds(y̲, ȳ) = any(x -> x != -Inf, y̲) || any(x -> x != Inf, ȳ)
+_finite_difference_type(autodiff) = autodiff == :central ? Val(:central) : Val(:forward)
 
 function _nonlinear_solve(G!, y0; jac = nothing, jac_prototype = nothing, iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), kwargs...)
     G_solve! = (du, u, p) -> G!(du, u)
@@ -61,12 +62,11 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         end
         zero, residual_norm = _nonlinear_solve(G_helper!, ypost; iterations = iterations, verbose = verbose, method = method, autodiff = autodiff, maxdist = maxdist, kwargs...)
     else
-        # remove forwarddiff path and use FiniteDiff everytime
-        colorvec = matrix_colors(J0)
-        J0_sparse = J0 isa Tridiagonal ? J0 : sparse(J0)
-        bbbcache = JacobianCache(ypost, colorvec = colorvec, sparsity = J0_sparse)
+        J0_sparse = sparse(J0)
+        colorvec = matrix_colors(J0_sparse)
+        fdcache = JacobianCache(ypost, _finite_difference_type(autodiff), eltype(ypost); colorvec = colorvec, sparsity = J0_sparse)
         function j_helper!(J, y)
-            finite_difference_jacobian!(J, G_helper!, y, bbbcache)
+            finite_difference_jacobian!(J, G_helper!, y, fdcache)
             _run_monotonicity_check!(monotonicity_check, J, y)
             return J
         end
@@ -75,7 +75,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0_sparse), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
             zero, residual_norm = result.zero, result.residual_norm
         elseif method == :linearization
-            finite_difference_jacobian!(J0_sparse, G!, ypost, bbbcache)
+            finite_difference_jacobian!(J0_sparse, G!, ypost, fdcache)
             _run_monotonicity_check!(monotonicity_check, J0_sparse, ypost)
             GV = deepcopy(ypost)
             G!(GV, ypost)

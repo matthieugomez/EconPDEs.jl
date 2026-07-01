@@ -191,27 +191,35 @@ matrix_colors
 
 ========================================================================================#
 
-# from ArraysInterface (could just import it but might be big import and changing all the time)
-matrix_colors(A::Tridiagonal) = _cycle(1:3, size(A, 2))
-function matrix_colors(A::BandedBlockBandedMatrix)
-    l, u = blockbandwidths(A)
-    lambda, mu = subblockbandwidths(A)
-    blockwidth = l + u + 1
-    subblockwidth = lambda + mu + 1
-    nblock = blocksize(A, 2)
-    cols = blocklengths(axes(A, 2))
-    blockcolors = _cycle(1:blockwidth, nblock)
-    # the reserved number of colors of a block is the min of subblockwidth and the largest length of columns of blocks with the same block color
-    ncolors = [
-        min(subblockwidth, maximum(cols[i:blockwidth:nblock]))
-        for i = 1:min(blockwidth, nblock)
-    ]
-    endinds = cumsum(ncolors)
-    startinds = [endinds[i] - ncolors[i] + 1 for i = 1:min(blockwidth, nblock)]
-    colors = [
-        _cycle(startinds[blockcolors[i]]:endinds[blockcolors[i]], cols[i])
-        for i = 1:nblock
-    ]
-    return reduce(vcat, colors)
+# Local replacement for the old SparseDiffTools/ArrayInterface `matrix_colors`
+# helper: a greedy column coloring of the sparse Jacobian pattern.
+function matrix_colors(A::SparseMatrixCSC)
+    rows = rowvals(A)
+    row_columns = [Int[] for _ in 1:size(A, 1)]
+    for j in 1:size(A, 2)
+        for ptr in nzrange(A, j)
+            push!(row_columns[rows[ptr]], j)
+        end
+    end
+
+    colors = zeros(Int, size(A, 2))
+    forbidden = zeros(Int, size(A, 2))
+    maxcolor = 0
+    for j in 1:size(A, 2)
+        for ptr in nzrange(A, j)
+            for k in row_columns[rows[ptr]]
+                color = colors[k]
+                if color > 0
+                    forbidden[color] = j
+                end
+            end
+        end
+        color = 1
+        while color <= maxcolor && forbidden[color] == j
+            color += 1
+        end
+        colors[j] = color
+        maxcolor = max(maxcolor, color)
+    end
+    return colors
 end
-_cycle(repetend, len) = repeat(repetend, div(len, length(repetend)) + 1)[1:len]

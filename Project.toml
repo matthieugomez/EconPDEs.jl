@@ -3,8 +3,6 @@ uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
 version = "1.5.0"
 
 [deps]
-BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
@@ -14,8 +12,6 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-BlockArrays = "1"
-BlockBandedMatrices = "0.7, 0.8, 0.9, 0.10, 0.11, 0.12, 0.13"
 FiniteDiff = "2"
 LinearAlgebra = "1"
 NLsolve = "4"

@@ -35,7 +35,7 @@ function (m::HaddadModel)(state::NamedTuple, y::NamedTuple)
   μv = κv * (vbar - v)
 
   pμ = (μμ >= 0) ? pμ_up : pμ_down
-  pv = (νμ >= 0) ? pv_up : pv_down 
+  pv = (μv >= 0) ? pv_up : pv_down
   σv = νv * sqrt(v) 
   σp_Zμ = pμ / p * σμ
   σp_Zv = pv / p * σv

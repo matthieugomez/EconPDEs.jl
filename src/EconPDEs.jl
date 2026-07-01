@@ -1,12 +1,10 @@
 module EconPDEs
-using LinearAlgebra: Tridiagonal, norm, I, SingularException
-using SparseArrays: sparse, findnz, SparseMatrixCSC
+using LinearAlgebra: norm, SingularException
+using SparseArrays: sparse, findnz, SparseMatrixCSC, rowvals, nzrange
 using NLsolve: OnceDifferentiable, mcpsolve
 using NonlinearSolve: AutoFiniteDiff, AutoForwardDiff, NewtonRaphson,
     NonlinearFunction, NonlinearProblem, TrustRegion, solve
 using OrderedCollections: OrderedDict 
-using BlockArrays: blocklengths
-using BlockBandedMatrices: BandedBlockBandedMatrix, Ones, blockbandwidths, subblockbandwidths, blocksize
 using FiniteDiff: finite_difference_jacobian!, JacobianCache
 using Printf: @printf, @sprintf
 ##############################################################################
@@ -53,4 +51,3 @@ export OrderedDict,
 finiteschemesolve,
 pdesolve
 end
-

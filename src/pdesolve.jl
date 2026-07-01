@@ -117,31 +117,32 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
 end
 
 
-# SparseDiffTools is deprecated
-# So, instead, use ArrayInterface to get the matrix_colors of each type
-# Finite Diff accepts color vec
-# DifferentiationInterface, which is more general interaface which could accept AD, does not work with specific matrix types yet, see https://github.com/gdalle/SparseMatrixColorings.jl/issues/65
 function sparse_jacobian(stategrid::StateGrid, @nospecialize(yend))
     s = size(stategrid)
-    l = prod(s)
-    if ndims(stategrid) == 1 && length(yend) == 1
-        return Tridiagonal(ones(l - 1), ones(l), ones(l -1))
-    elseif ndims(stategrid) == 2 && length(yend) == 1
-        return BandedBlockBandedMatrix(Ones(l, l), fill(s[1], s[2]), fill(s[1], s[2]), (1, 1), (1, 1))
-    elseif ndims(stategrid) == 1 && length(yend) > 1
-        return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), fill(l, length(yend)) ,fill(l, length(yend)), (length(yend) - 1, length(yend) - 1), (1, 1))
-    elseif ndims(stategrid) == 2 && length(yend) > 1
-        return BandedBlockBandedMatrix(Ones(l * length(yend), l * length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), repeat(fill(s[1], s[2]), outer = length(yend)), (s[2] * length(yend) - 1, s[2] * length(yend) - 1), (1, 1))
-    elseif ndims(stategrid) == 3 && length(yend) == 1
-        # blocks of size s[1] (i1 direction), s[2]*s[3] blocks total
-        # block bandwidth s[2]+1 from cross-derivative ∂₂₃ (offsets ±1 ± s[2])
-        return BandedBlockBandedMatrix(Ones(l, l), fill(s[1], s[2] * s[3]), fill(s[1], s[2] * s[3]), (s[2] + 1, s[2] + 1), (1, 1))
-    elseif ndims(stategrid) == 3 && length(yend) > 1
-        F = length(yend)
-        return BandedBlockBandedMatrix(Ones(l * F, l * F), repeat(fill(s[1], s[2] * s[3]), outer = F), repeat(fill(s[1], s[2] * s[3]), outer = F), (s[2] * s[3] * F - 1, s[2] * s[3] * F - 1), (1, 1))
+    if 1 <= ndims(stategrid) <= 3
+        return local_stencil_jacobian(s, length(yend))
     else
         return nothing
     end
+end
+
+function local_stencil_jacobian(s::NTuple{N, Int}, F::Int) where {N}
+    l = prod(s)
+    nnz_max = l * F^2 * 3^N
+    rows = Vector{Int}(undef, nnz_max)
+    cols = Vector{Int}(undef, nnz_max)
+    k = 0
+    state_indices = CartesianIndices(s)
+    for fout in 1:F, ci in state_indices
+        row = LinearIndices(s)[ci] + (fout - 1) * l
+        stencil_ranges = ntuple(d -> max(ci[d] - 1, 1):min(ci[d] + 1, s[d]), N)
+        for fin in 1:F, neighbor in CartesianIndices(stencil_ranges)
+            k += 1
+            rows[k] = row
+            cols[k] = LinearIndices(s)[neighbor] + (fin - 1) * l
+        end
+    end
+    return sparse(rows[1:k], cols[1:k], ones(k), l * F, l * F)
 end
 
 

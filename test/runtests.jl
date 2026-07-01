@@ -24,6 +24,19 @@ using EconPDEs
     end
 
     @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
+    @test_throws ArgumentError pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, method = :linearization)
+end
+
+@testset "Bounded solve without sparse prototype" begin
+    function bounded_residual!(ydot, y)
+        ydot[1] = y[1] - 2.0
+        return ydot
+    end
+
+    y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
+
+    @test y[1] ≈ 1.0 atol = 1e-6
+    @test residual_norm <= 1e-6
 end
 
 @testset "2D multi-function sparsity" begin

@@ -1,5 +1,5 @@
 module EconPDEs
-using LinearAlgebra: norm, I, SingularException
+using LinearAlgebra: norm, SingularException
 using SparseArrays: sparse, findnz, SparseMatrixCSC, rowvals, nzrange
 using NLsolve: OnceDifferentiable, mcpsolve
 using NonlinearSolve: AutoFiniteDiff, AutoForwardDiff, NewtonRaphson,

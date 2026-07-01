@@ -4,85 +4,60 @@
 ##
 ##############################################################################
 
-# Implicit time step
-function _nonlinear_autodiff(autodiff)
-    if autodiff == :forward
-        return AutoForwardDiff()
-    elseif autodiff == :finite
-        return AutoFiniteDiff()
-    elseif autodiff == :central
-        return AutoFiniteDiff(fdjtype = Val(:central))
-    else
-        return autodiff
-    end
-end
-
-function _nonlinear_algorithm(method, autodiff; concrete_jac = true)
-    ad = _nonlinear_autodiff(autodiff)
-    if method == :newton
-        return NewtonRaphson(; autodiff = ad, concrete_jac = concrete_jac)
-    elseif method == :trust_region
-        return TrustRegion(; autodiff = ad, concrete_jac = concrete_jac)
-    elseif method == :linearization
-        return NewtonRaphson(; autodiff = ad, concrete_jac = concrete_jac)
-    else
-        throw(ArgumentError("method must be :newton, :trust_region, or :linearization"))
-    end
-end
-
 _has_bounds(y̲, ȳ) = any(x -> x != -Inf, y̲) || any(x -> x != Inf, ȳ)
-_finite_difference_type(autodiff) = autodiff == :central ? Val(:central) : Val(:forward)
-
-function _nonlinear_solve(G!, y0; jac = nothing, jac_prototype = nothing, iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), kwargs...)
-    G_solve! = (du, u, p) -> G!(du, u)
-    f = jac === nothing ?
-        NonlinearFunction{true}(G_solve!; jac_prototype = jac_prototype) :
-        NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> jac(J, u), jac_prototype = jac_prototype)
-    problem = NonlinearProblem(f, y0)
-    algorithm = _nonlinear_algorithm(method, autodiff; concrete_jac = true)
-    result = try
-        solve(problem, algorithm; maxiters = iterations, abstol = maxdist, verbose = verbose, kwargs...)
-    catch err
-        err isa SingularException || rethrow()
-        return y0, Inf
-    end
-    return result.u, norm(result.resid) / length(result.resid)
-end
 
 function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
-    #
-    #if any(is_algebraic)
-    # One option is 
-    # G_helper!(ydot, y) = (G!(ydot, y) ; ydot .*= 1 .+ .!is_algebraic .* (Δ - 1) ; ydot .-= .!is_algebraic .* (ypost .- y))
-    # however does not work if Δ is Inf
+    method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
-    if J0 === nothing
-        if method == :linearization
-            method = :newton
-        end
-        zero, residual_norm = _nonlinear_solve(G_helper!, ypost; iterations = iterations, verbose = verbose, method = method, autodiff = autodiff, maxdist = maxdist, kwargs...)
-    else
-        J0_sparse = sparse(J0)
-        colorvec = matrix_colors(J0_sparse)
-        fdcache = JacobianCache(ypost, _finite_difference_type(autodiff), eltype(ypost); colorvec = colorvec, sparsity = J0_sparse)
-        function j_helper!(J, y)
+
+    jac = nothing
+    J0c = J0 === nothing ? nothing : sparse(J0)
+    if J0c !== nothing
+        colorvec = matrix_colors(J0c)
+        fdtype = autodiff == :central ? Val(:central) : Val(:forward)
+        fdcache = JacobianCache(ypost, fdtype, eltype(ypost); colorvec = colorvec, sparsity = J0c)
+        function jac!(J, y)
             finite_difference_jacobian!(J, G_helper!, y, fdcache)
             _run_monotonicity_check!(monotonicity_check, J, y)
             return J
         end
-        if _has_bounds(y̲, ȳ)
-            # HJBVI bounds are mixed complementarity conditions, not box-constrained roots.
-            result = mcpsolve(OnceDifferentiable(G_helper!, j_helper!, deepcopy(ypost), deepcopy(ypost), J0_sparse), y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation)
-            zero, residual_norm = result.zero, result.residual_norm
-        elseif method == :linearization
-            finite_difference_jacobian!(J0_sparse, G!, ypost, fdcache)
-            _run_monotonicity_check!(monotonicity_check, J0_sparse, ypost)
-            GV = deepcopy(ypost)
-            G!(GV, ypost)
-            zero = (I + Δ .* J0_sparse) \ (ypost .- Δ .* (GV .- J0_sparse * ypost))
-            residual_norm = 0.0
+        jac = jac!
+    end
+
+    if _has_bounds(y̲, ȳ)
+        # HJBVI bounds are mixed complementarity conditions, not box-constrained roots.
+        if jac === nothing
+            nlsolve_autodiff = autodiff == :finite ? :finiteforward : autodiff
+            result = mcpsolve(G_helper!, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff)
         else
-            zero, residual_norm = _nonlinear_solve(G_helper!, ypost; jac = j_helper!, jac_prototype = J0_sparse, iterations = iterations, verbose = verbose, method = method, autodiff = autodiff, maxdist = maxdist, kwargs...)
+            df = OnceDifferentiable(G_helper!, jac, deepcopy(ypost), deepcopy(ypost), J0c)
+            result = mcpsolve(df, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale)
+        end
+        zero, residual_norm = result.zero, result.residual_norm
+    else
+        G_solve! = (du, u, p) -> G_helper!(du, u)
+        f = jac === nothing ?
+            NonlinearFunction{true}(G_solve!; jac_prototype = J0c) :
+            NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> jac(J, u), jac_prototype = J0c)
+        problem = NonlinearProblem(f, ypost)
+        algorithm_autodiff = if autodiff == :forward
+            AutoForwardDiff()
+        elseif autodiff == :finite
+            AutoFiniteDiff()
+        elseif autodiff == :central
+            AutoFiniteDiff(fdjtype = Val(:central))
+        else
+            autodiff
+        end
+        algorithm = method == :newton ?
+            NewtonRaphson(; autodiff = algorithm_autodiff, concrete_jac = true) :
+            TrustRegion(; autodiff = algorithm_autodiff, concrete_jac = true)
+        try
+            result = solve(problem, algorithm; maxiters = iterations, abstol = maxdist, verbose = verbose, kwargs...)
+            zero, residual_norm = result.u, norm(result.resid) / length(result.resid)
+        catch err
+            err isa SingularException || rethrow()
+            zero, residual_norm = ypost, Inf
         end
     end
     return zero, residual_norm

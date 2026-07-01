@@ -53,7 +53,7 @@ function (m::CampbellCochraneModel)(state::NamedTuple, y::NamedTuple)
     # risk free rate  r
     r = ρ + γ * μ - (γ * κs - b) / 2 + b * (sbar - s)
 
-    # PDE
+    # PDE (note that it is actually linear in p)
     pt = - p * (1 / p + μ + μp + σp * σ - r - κ * (σ + σp))
     return (; pt)
 end
@@ -62,7 +62,7 @@ end
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
 yend = OrderedDict(:p => ones(length(stategrid[:s])))
-result = pdesolve(m, stategrid, yend)
+@time result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
 
 # Wachter (2005) calibration

@@ -21,22 +21,23 @@ function AchdouHanLasryLionsMoll_TwoStatesModel(;yl = 0.5, yh = 1.5, λlh = 0.2,
     AchdouHanLasryLionsMoll_TwoStatesModel(yl, yh, λlh, λhl, r, ρ, γ, amin, amax)
 end
 
-function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::NamedTuple)
+function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, u::NamedTuple)
     (; yl, yh, λlh, λhl, r, ρ, γ, amin, amax) = m    
     (; a) = state
-    (; vl, vla_up, vla_down, vh, vha_up, vha_down) = value
+    (; vl, vla_up, vla_down, vh, vha_up, vha_down) = u
+    # Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
+    clmax = 100.0 * (yl + r * max(a, 0.0))
+    chmax = 100.0 * (yh + r * max(a, 0.0))
 
     # upwinding vl
-    vla_up = max(vla_up, eps())
-    cl_up = vla_up^(-1 / γ)
+    cl_up = vla_up > 0 ? min(vla_up^(-1 / γ), clmax) : clmax
     μla_up = yl + r * a - cl_up
     if μla_up >= 0.0
         vla = vla_up
         cl = cl_up
         μla = μla_up
     else
-        vla_down = max(vla_down, eps())
-        cl_down = vla_down^(-1 / γ)
+        cl_down = vla_down > 0 ? min(vla_down^(-1 / γ), clmax) : clmax
         μla_down = yl + r * a - cl_down
         if μla_down <= 0.0 && a > amin
             vla = vla_down
@@ -53,16 +54,14 @@ function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::N
     vlt = - (cl^(1 - γ) / (1 - γ) + μla * vla + λlh * (vh - vl) - ρ * vl)
    
     # upwinding vh
-    vha_up = max(vha_up, eps())
-    ch_up = vha_up^(-1 / γ)
+    ch_up = vha_up > 0 ? min(vha_up^(-1 / γ), chmax) : chmax
     μha_up = yh + r * a - ch_up
     if μha_up >= 0.0
         vha = vha_up
         ch = ch_up
         μha = μha_up
     else
-        vha_down = max(vha_down, eps())
-        ch_down = vha_down^(-1 / γ)
+        ch_down = vha_down > 0 ? min(vha_down^(-1 / γ), chmax) : chmax
         μha_down = yh + r * a - ch_down
         if μha_down <= 0.0 && a > amin
             vha = vha_down
@@ -87,5 +86,3 @@ stategrid = OrderedDict(:a => m.amin .+ range(0, (m.amax - m.amin)^(1/2), length
 yend = OrderedDict(:vl => (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r).^(1-m.γ) ./ (1 - m.γ), :vh => (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ)  .* (stategrid[:a] .+ m.yh ./ m.r).^(1-m.γ) ./ (1 - m.γ))
 result = pdesolve(m, stategrid, yend)
 @assert result.residual_norm <= 1e-5
-
-

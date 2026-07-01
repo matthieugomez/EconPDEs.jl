@@ -20,26 +20,26 @@ function AchdouHanLasryLionsMollModel_Diffusion(;κy = 0.1, ybar = 1.0, σy = 0.
     AchdouHanLasryLionsMollModel_Diffusion(κy, ybar, σy, r, ρ, γ, amin, amax)
 end
 
-function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, value::NamedTuple)
+function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, u::NamedTuple)
     (; κy, σy, ybar, r, ρ, γ, amin, amax) = m    
     (; y, a) = state
-    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
+    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = u
     μy = κy * (ybar - y)
+    # Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
+    cmax = 100.0 * (y + r * max(a, 0.0))
 
     # upwinding for income direction (easy because exogenous income drift)
     vy = (μy >= 0) ? vy_up : vy_down
 
     # upwinding for asset direction (harder because endogeneous asset drift)
-    va_up = max(va_up, eps())
-    c_up = va_up^(-1 / γ)
+    c_up = va_up > 0 ? min(va_up^(-1 / γ), cmax) : cmax
     μa_up = y + r * a - c_up
     if μa_up >= 0.0
         va = va_up
         c = c_up
         μa = μa_up
     else
-        va_down = max(va_down, eps())
-        c_down = va_down^(-1 / γ)
+        c_down = va_down > 0 ? min(va_down^(-1 / γ), cmax) : cmax
         μa_down = y + r * a - c_down
         if (μa_down <= 0.0) && (a > amin)
             va = va_down
@@ -54,7 +54,7 @@ function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, value::N
         end
     end
     vt = - (c^(1 - γ) / (1 - γ) + μa * va + μy * vy + 0.5 * vyy * σy^2 - ρ * v)
-    return (; vt)
+    return (; vt), (μa = μa,)
 end
 
 m = AchdouHanLasryLionsMollModel_Diffusion()

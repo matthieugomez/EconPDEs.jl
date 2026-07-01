@@ -23,10 +23,10 @@ Base.@kwdef struct NeoclassicalGrowthModel
     γ::Float64 = 2.0    # relative risk aversion
 end
 
-function (m::NeoclassicalGrowthModel)(state::NamedTuple, value::NamedTuple)
+function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     (; A, α, δ, ρ, γ) = m
     (; k) = state
-    (; v, vk_up, vk_down) = value
+    (; v, vk_up, vk_down) = u
     # upwind the first derivative on the sign of the drift
     cF = max(vk_up, eps())^(-1 / γ)
     μF = A * k^α - δ * k - cF

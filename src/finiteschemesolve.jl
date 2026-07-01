@@ -33,34 +33,38 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
             df = OnceDifferentiable(G_helper!, jac, deepcopy(ypost), deepcopy(ypost), J0c)
             result = mcpsolve(df, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale)
         end
-        zero, residual_norm = result.zero, result.residual_norm
+        return result.zero, result.residual_norm
     else
         G_solve! = (du, u, p) -> G_helper!(du, u)
-        f = jac === nothing ?
-            NonlinearFunction{true}(G_solve!; jac_prototype = J0c) :
-            NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> jac(J, u), jac_prototype = J0c)
-        problem = NonlinearProblem(f, ypost)
-        algorithm_autodiff = if autodiff == :forward
-            AutoForwardDiff()
-        elseif autodiff == :finite
-            AutoFiniteDiff()
-        elseif autodiff == :central
-            AutoFiniteDiff(fdjtype = Val(:central))
+        if jac === nothing
+            f = NonlinearFunction{true}(G_solve!; jac_prototype = J0c)
         else
-            autodiff
+            f = NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> jac(J, u), jac_prototype = J0c)
         end
-        algorithm = method == :newton ?
-            NewtonRaphson(; autodiff = algorithm_autodiff, concrete_jac = true) :
-            TrustRegion(; autodiff = algorithm_autodiff, concrete_jac = true)
+        problem = NonlinearProblem(f, ypost)
+        if autodiff == :forward
+            autodiff = AutoForwardDiff()
+        elseif autodiff == :finite
+            autodiff = AutoFiniteDiff()
+        elseif autodiff == :central
+            autodiff = AutoFiniteDiff(fdjtype = Val(:central))
+        else
+            autodiff = autodiff
+        end
+        if method == :newton
+            algorithm = NewtonRaphson(; autodiff = autodiff, concrete_jac = true)
+        else
+            algorithm = TrustRegion(; autodiff = autodiff, concrete_jac = true)
+        end
         try
             result = solve(problem, algorithm; maxiters = iterations, abstol = maxdist, verbose = verbose, kwargs...)
-            zero, residual_norm = result.u, norm(result.resid) / length(result.resid)
+            return result.u, norm(result.resid) / length(result.resid)
         catch err
+            # catch SingularException error because can simply mean time step too big
             err isa SingularException || rethrow()
-            zero, residual_norm = ypost, Inf
+            return ypost, Inf
         end
     end
-    return zero, residual_norm
 end
 
 # Solve for steady state
@@ -74,9 +78,10 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     if residual_norm <= maxdist
         verbose && @warn "G! already returns zero with the initial value"
         return ypost, residual_norm
-    end
-    if Δ == Inf
+    elseif Δ == Inf
+        # infinite time step => solve in one step
         ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0, y̲ = y̲, ȳ = ȳ, monotonicity_check = monotonicity_check, kwargs...)
+        return ypost, residual_norm
     else
         coef = 1.0
         oldresidual_norm = residual_norm
@@ -90,8 +95,9 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
             if _has_bounds(y̲, ȳ)
-                mask = y̲ .+ eps() .<= y .<= ȳ .- eps() # only unconstrained ydot is relevant for residual_norm calculation
-                residual_norm, oldresidual_norm = norm(ydot .* (mask))/sum(mask), residual_norm
+                # only unconstrained ydot is relevant for residual_norm calculation
+                mask = y̲ .+ eps() .<= y .<= ȳ .- eps() 
+                residual_norm, oldresidual_norm = norm(ydot .* mask) / sum(mask), residual_norm
             else
                 residual_norm, oldresidual_norm = norm(ydot) / length(ydot), residual_norm
             end
@@ -116,8 +122,10 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 residual_norm = oldresidual_norm
             end
         end
+        if verbose
+            (iter >= iterations) && @warn "Algorithm did not converge: Iter higher than the limit $(iterations)"
+            (Δ < minΔ) && @warn "Algorithm did not converge: TimeStep lower than the limit $(minΔ)"
+        end
+        return ypost, residual_norm
     end
-    verbose && (iter >= iterations) && @warn "Algorithm did not converge: Iter higher than the limit $(iterations)"
-    verbose && (Δ < minΔ) && @warn "Algorithm did not converge: TimeStep lower than the limit $(minΔ)"
-    return ypost, residual_norm
 end

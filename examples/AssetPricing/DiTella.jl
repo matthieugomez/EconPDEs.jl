@@ -32,7 +32,7 @@ end
 function initialize_y(m::DiTellaModel, stategrid)
   xn = length(stategrid[:x])
   νn = length(stategrid[:ν])
-  OrderedDict(:pA => ones(xn, νn), :pB => ones(xn, νn), :p => ones(xn, νn))
+  OrderedDict(:pA => 20 * ones(xn, νn), :pB => 20 * ones(xn, νn), :p => 20 * ones(xn, νn))
 end
 
 function (m::DiTellaModel)(state::NamedTuple, y::NamedTuple)
@@ -93,5 +93,5 @@ end
 m = DiTellaModel()
 stategrid = initialize_stategrid(m)
 yend = initialize_y(m, stategrid)
-result = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true))
+result = pdesolve(m, stategrid, yend; is_algebraic = OrderedDict(:pA => false, :pB => false, :p => true), Δ = 1e-2)
 @assert result.residual_norm <= 1e-5

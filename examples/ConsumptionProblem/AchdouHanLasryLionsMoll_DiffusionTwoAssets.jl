@@ -23,13 +23,14 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
     (; y, a) = state
     (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
     μy = κy * (ybar - y)
+    # Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
+    cmax = 100.0 * (y + r * max(a, 0.0))
 
     # upwinding for income direction (easy because exogenous income drift)
     vy = (μy >= 0) ? vy_up : vy_down
 
     # upwinding for asset direction (harder because endogeneous asset drift)
-    va_up = max(va_up, eps())
-    c_up = va_up^(-1 / γ)
+    c_up = va_up > 0 ? min(va_up^(-1 / γ), cmax) : cmax
     k_up = (μR - r) / σR^2 * (-va_up / vaa)
     k_up = clamp(k_up, 0.0, a - amin)
     μa_up = y + r * a + (μR - r) * k_up - c_up
@@ -39,8 +40,7 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
         k = k_up
         μa = μa_up
     else
-        va_down = max(va_down, eps())
-        c_down = va_down^(-1 / γ)
+        c_down = va_down > 0 ? min(va_down^(-1 / γ), cmax) : cmax
         k_down = (μR - r) / σR^2 * (-va_down / vaa)
         k_down = clamp(k_down, 0.0, a - amin)
         μa_down = y + r * a + (μR - r) * k_down - c_down
@@ -52,14 +52,14 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
         else
             # If the two candidates straddle zero OR drift is negative at minimum asset threshold  
             # (i.e. borrowing constraint), then, we must have drift μa = 0.
-            c = max(y + r * a, eps())
+            c = y + r * a
             for _ in 1:30
                 va = c^(-γ)
                 k = (μR - r) / σR^2 * (-va / vaa)
                 k = clamp(k, 0.0, a - amin)
                 c = y + r * a + (μR - r) * k
             end
-            va = max(c, eps())^(-γ)
+            va = c^(-γ)
             k = (μR - r) / σR^2 * (-va / vaa)
             k = clamp(k, 0.0, a - amin)
             c = y + r * a + (μR - r) * k
@@ -83,7 +83,7 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
     if (a ≈ amax)
         vaa = - m.γ * va / a
     end
-    c = va^(-1 / γ)
+    c = va > 0 ? min(va^(-1 / γ), cmax) : cmax
     k = (μR - r) / σR^2 * (- va / vaa)
     k = clamp(k, 0.0, a - amin)
     μa = y + r * a + (μR - r) * k - c

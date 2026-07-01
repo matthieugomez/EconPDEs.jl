@@ -33,11 +33,11 @@ guess = OrderedDict(:v => ones(length(grid[:x])))
 
 # `hjb` encodes the PDE at one point in the state space
 # `state.x` is one value from `grid[:x]`.
-# `y.v` is the local value of `v`; `y.vx_up`, `y.vx_down`, and `y.vxx`
+# `u.v` is the local value of `v`; `u.vx_up`, `u.vx_down`, and `u.vxx`
 # are finite-difference derivatives inferred from the names `v` and `x`.
-function hjb(state::NamedTuple, y::NamedTuple)
+function hjb(state::NamedTuple, u::NamedTuple)
     x = state.x
-    v, vx_up, vx_down, vxx = y.v, y.vx_up, y.vx_down, y.vxx
+    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
 
     μx = -x
     vx = μx >= 0 ? vx_up : vx_down
@@ -54,47 +54,50 @@ residual_norm = result.residual_norm
 
 ## Model Conventions
 
-The PDE function has the form
+The PDE function (named `hjb` in example above) must have the form
 
 ```julia
-f(state::NamedTuple, y::NamedTuple) -> NamedTuple
+f(state::NamedTuple, u::NamedTuple) -> NamedTuple
 ```
 
-`state` gives the current grid point. `y` gives each unknown function and its finite-difference derivatives at that point. If the unknown is `v` and the state is `x`, then `y` contains:
+`state` gives the current grid point. `u` gives each unknown function and its finite-difference derivatives at that point. Think of `u` as the local finite-difference bundle: it contains the value and all stencil candidates the HJB may need at this grid node. The model then chooses the economically correct derivative, usually by the sign of a drift.
 
-- `v`: value of the function.
-- `vx_up` and `vx_down`: forward and backward first derivatives.
-- `vxx`: second derivative.
+Field names concatenate the unknown name, the state name or names, and an optional direction suffix. If the unknown is `v` and the states are `x` and `z`, then `u` contains:
 
-With several states, cross derivatives are also available, such as `vxy`, `vxy_up`, and `vxy_down`. The PDE function must return one time derivative for each unknown; for `v`, return `vt`.
+| Field | Meaning |
+|---|---|
+| `v` | local value of the unknown |
+| `vx_up`, `vx_down` | forward and backward first derivatives in `x` |
+| `vz_up`, `vz_down` | forward and backward first derivatives in `z` |
+| `vxx`, `vzz` | own second derivatives |
+| `vxz` | central cross derivative |
+| `vxz_up`, `vxz_down` | directional cross derivatives for positive and negative cross terms |
+
+With several unknowns, the same rule applies to each one: an unknown `w` has fields such as `w`, `wx_up`, `wxx`, and `wxz`. The argument name `u` is only a convention; the fields are what matter. The PDE function must return one time derivative for each unknown; for `v`, return `vt`.
 
 For higher-dimensional systems, the same rule applies:
 
 ```julia
-agrid = range(0.0, 10.0, length = 100)
-zgrid = range(-0.5, 0.5, length = 50)
-
 # Two state variables, named `a` and `z`.
-grid2 = OrderedDict(:a => agrid, :z => zgrid)
+grid = OrderedDict(:a => range(0.0, 10.0, length = 100), :z => range(-0.5, 0.5, length = 50))
 
 # Two unknown value functions, named `v` and `w`.
-# Each array has dimensions `(length(agrid), length(zgrid))`,
-# following the order of the state variables in `grid2`.
-guess2 = OrderedDict(
-    :v => ones(length(agrid), length(zgrid)),
-    :w => ones(length(agrid), length(zgrid)),
+# Each array has lengths consistent with the `grid' for state variables
+guess = OrderedDict(
+    :v => ones(length(grid[:a]), length(grid[:z])),
+    :w => ones(length(grid[:a]), length(grid[:z])),
 )
 
-# A PDE function called with this `grid2` and `guess2` receives
+# A PDE function called with this `grid` and `guess` receives
 # `state.a` and `state.z`.
 #
-# For `v`, `y` contains `y.v`, first derivatives such as
-# `y.va_up`, `y.va_down`, `y.vz_up`, and `y.vz_down`,
-# second derivatives such as `y.vaa` and `y.vzz`,
-# and cross derivatives such as `y.vaz`, `y.vaz_up`, and `y.vaz_down`.
+# For `v`, `u` contains `u.v`, first derivatives such as
+# `u.va_up`, `u.va_down`, `u.vz_up`, and `u.vz_down`,
+# second derivatives such as `u.vaa` and `u.vzz`,
+# and cross derivatives such as `u.vaz`, `u.vaz_up`, and `u.vaz_down`.
 #
-# For `w`, `y` contains the analogous fields: `y.w`, `y.wa_up`,
-# `y.wz_down`, `y.waa`, `y.wzz`, `y.waz`, and so on.
+# For `w`, `u` contains the analogous fields: `u.w`, `u.wa_up`,
+# `u.wz_down`, `u.waa`, `u.wzz`, `u.waz`, and so on.
 # The PDE function must return one time derivative per unknown: `(; vt, wt)`.
 ```
 
@@ -103,9 +106,9 @@ guess2 = OrderedDict(
 Sometimes you compute useful objects inside the PDE function: a selected first derivative, an optimal policy, a drift, an interest rate, or a market price of risk. To store these objects on the grid, return two `NamedTuple`s from the PDE function. The first one is the PDE residual as before. The second one contains the extra outputs to save:
 
 ```julia
-function hjb(state::NamedTuple, y::NamedTuple)
+function hjb(state::NamedTuple, u::NamedTuple)
     x = state.x
-    v, vx_up, vx_down, vxx = y.v, y.vx_up, y.vx_down, y.vxx
+    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
 
     μx = -x
     vx = μx >= 0 ? vx_up : vx_down
@@ -136,9 +139,9 @@ result = pdesolve(hjb, grid, guess, τs; verbose = false)
 If the HJB itself depends on time, define the PDE function with a third argument:
 
 ```julia
-function hjb(state::NamedTuple, y::NamedTuple, t)
+function hjb(state::NamedTuple, u::NamedTuple, t)
     x = state.x
-    v, vx_up, vx_down, vxx = y.v, y.vx_up, y.vx_down, y.vxx
+    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
 
     μx = -x
     vx = μx >= 0 ? vx_up : vx_down

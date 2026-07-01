@@ -18,10 +18,10 @@ Base.@kwdef struct AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel
     amax::Float64 = 1000.0
 end
 
-function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple, value::NamedTuple)
+function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple, u::NamedTuple)
     (; κy, σy, ybar, r, μR, σR, ρ, γ, amin, amax) = m
     (; y, a) = state
-    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = value
+    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = u
     μy = κy * (ybar - y)
     # Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
     cmax = 100.0 * (y + r * max(a, 0.0))

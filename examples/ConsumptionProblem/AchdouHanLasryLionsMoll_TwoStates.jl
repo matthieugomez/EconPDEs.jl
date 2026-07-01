@@ -21,10 +21,10 @@ function AchdouHanLasryLionsMoll_TwoStatesModel(;yl = 0.5, yh = 1.5, λlh = 0.2,
     AchdouHanLasryLionsMoll_TwoStatesModel(yl, yh, λlh, λhl, r, ρ, γ, amin, amax)
 end
 
-function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, value::NamedTuple)
+function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, u::NamedTuple)
     (; yl, yh, λlh, λhl, r, ρ, γ, amin, amax) = m    
     (; a) = state
-    (; vl, vla_up, vla_down, vh, vha_up, vha_down) = value
+    (; vl, vla_up, vla_down, vh, vha_up, vha_down) = u
     # Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
     clmax = 100.0 * (yl + r * max(a, 0.0))
     chmax = 100.0 * (yh + r * max(a, 0.0))

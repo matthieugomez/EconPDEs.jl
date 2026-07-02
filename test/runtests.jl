@@ -137,6 +137,24 @@ end
                                         (; v = ones(11, 11), vk = ones(11, 11)); verbose = false)
 end
 
+@testset "Mixed grid vector containers" begin
+    grid = (; x = range(0.0, 1.0, length = 4),
+              z = collect(range(0.0, 1.0, length = 5)))
+    stategrid = EconPDEs.StateGrid(grid)
+    @test size(stategrid) == (4, 5)
+    @test stategrid[CartesianIndex(2, 3)] == (x = grid.x[2], z = grid.z[3])
+
+    result = pdesolve(grid, (; v = zeros(4, 5)); Δ = Inf, verbose = false) do state, u
+        vt = -(u.v - state.x - state.z)
+        (; vt)
+    end
+    @test result.residual_norm <= 1e-8
+    @test result.zero[:v] ≈ [x + z for x in grid.x, z in grid.z]
+
+    int_float_grid = (; x = 1:4, z = collect(range(0.0, 1.0, length = 5)))
+    @test EconPDEs.StateGrid(int_float_grid)[CartesianIndex(1, 1)] == (x = 1.0, z = 0.0)
+end
+
 @testset "Monotonicity diagnostics" begin
     grid = OrderedDict(:x => range(0.0, 1.0, length = 2))
     y0 = OrderedDict(:V => collect(range(1.0, 2.0, length = 2)))

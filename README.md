@@ -106,7 +106,7 @@ Field names concatenate the unknown name, the state name or names, and an option
 
 With several unknowns, the same naming rule applies to each one. For example, if the unknowns are `v` and `w` on states `k` and `l`, then `u` contains fields such as `v`, `vk_up`, `vkl`, `w`, `wk_up`, and `wkl`. The argument name `u` is only a convention; the fields are what matter. The PDE function must return one time derivative per unknown, e.g. `(; vt, wt)`.
 
-The state grid and the initial guess are `NamedTuple`s keyed by the state names and the unknown names, e.g. `(; k = range(...))` and `(; v = [...])`. Use the `(; name = value)` form (an `OrderedDict` is also accepted). The solved unknowns come back in `result.zero`, indexed by name, e.g. `result.zero[:v]`.
+The state grid and the initial guess are `NamedTuple`s keyed by the state names and the unknown names, e.g. `(; k = range(...))` and `(; v = [...])`. Grid entries can mix vector containers, such as one dimension stored as a `range` and another as a `Vector`. Use the `(; name = value)` form (an `OrderedDict` is also accepted). The solved unknowns come back in `result.zero`, indexed by name, e.g. `result.zero[:v]`.
 
 ## Saving Intermediate Outputs
 

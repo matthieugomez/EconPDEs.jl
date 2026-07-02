@@ -15,6 +15,9 @@ stategrid = (; y = range(0.5, 1.5, length = 10), a = range(0.0, 100.0, length = 
 yend = (; v = [initial_value(y, a) for y in stategrid[:y], a in stategrid[:a]])
 ```
 
+Grid entries can be different vector containers and element types: for example, one
+dimension can be a `range` and another can be a `Vector`.
+
 Use the `(; name = value)` form; an `OrderedDict` is also accepted. A plain `Dict` is
 rejected, because its iteration order is arbitrary and the order of names determines how
 the solution arrays are laid out (the first state is the first array dimension, and so

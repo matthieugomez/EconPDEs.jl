@@ -8,7 +8,12 @@ M[i1, i2..., iN] = (k1 = v1[i1], k2 = v2[i2], ...., kN = vN[iN]
 struct StateGrid{T, N, C <: NamedTuple} <: AbstractArray{T, N}
     x::C
 end
-function StateGrid(x::NamedTuple{Names, <: NTuple{N, <: AbstractVector{T}}}) where {Names, N, T}
+
+function StateGrid(x::NamedTuple{Names, V}) where {Names, V <: Tuple}
+    N = length(Names)
+    N > 0 || throw(ArgumentError("state grid must contain at least one state variable"))
+    all(v -> v isa AbstractVector, values(x)) || throw(ArgumentError("state grid entries must be vectors"))
+    T = promote_type(map(eltype, values(x))...)
     StateGrid{T, N, typeof(x)}(x)
 end
 function Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V}

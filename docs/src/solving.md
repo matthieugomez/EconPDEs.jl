@@ -133,26 +133,52 @@ grid. The third argument must be left untyped or typed loosely (e.g. `t` or `t::
 
 ### How `pdesolve` finds the solution
 
-Discretizing the PDE on the grid turns it into a large nonlinear system: one equation
-(the returned time derivative) per unknown per grid point, coupled to its neighbors through
-the finite-difference stencils. `pdesolve` drives this residual to zero with **Newton's
-method plus pseudo-transient continuation**:
+`pdesolve` first turns the local PDE into a finite nonlinear system. Start from a
+time-dependent equation such as
 
-1. Starting from the guess, take an *implicit time step* of size `Δ` of the false
-   transient ``\partial_t v = \text{vt}`` — itself a Newton solve, with a sparse Jacobian
-   computed by colored finite differences.
-2. If the step succeeds and reduces the residual, grow `Δ` (by
-   `scale × old/new residual`) and repeat; if the inner Newton solve fails, shrink `Δ`
-   by 10 and retry.
-3. Stop when the residual norm falls below `maxdist` — or report failure when the
-   iteration count exceeds `iterations` or `Δ` collapses below `minΔ`.
+```math
+\partial_t V(x, t) = f(x, V, V_x, V_{xx}).
+```
 
-Small `Δ` makes each step easy (the identity term dominates the Jacobian) but slow; large
-`Δ` approaches a pure Newton step. The scheme automatically transitions from cautious to
-aggressive as it approaches the solution, which is what lets crude guesses (even flat
-functions) converge. For the finite-difference discretization and the implicit scheme in
-detail, see the
-[numerical appendix (PDF)](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf).
+After choosing a state grid, the values of `V` on the grid are stacked into a vector `y`.
+Finite differences approximate `V_x` and `V_{xx}`. Evaluating the user's equation at every
+grid point gives a vector field
+
+```math
+\dot y = F(y).
+```
+
+For a stationary problem, the goal is simply
+
+```math
+F(y) = 0.
+```
+
+`pdesolve` finds this zero with **Newton's method plus pseudo-transient continuation**. The
+basic step is a backward implicit time step:
+
+```math
+\frac{y_{n+1} - y_n}{\Delta} = F(y_{n+1}).
+```
+
+This is itself a nonlinear system, solved by Newton's method. With algebraic equations
+(`is_algebraic = true`), the corresponding rows skip the time-step term and are solved as
+static equations.
+
+The size of `Δ` controls how aggressive the step is. Small `Δ` makes the equation close to
+``y_{n+1} = y_n``, so Newton is stable but progress is slow. Large `Δ` makes the time-step
+term negligible, so the step approaches a direct Newton solve of ``F(y) = 0``. The solver
+starts cautiously and adapts:
+
+1. Starting from the guess, solve one implicit step of size `Δ`.
+2. If the step succeeds and reduces the residual, grow `Δ` and continue.
+3. If the inner Newton solve fails, shrink `Δ` by 10 and retry.
+4. Stop when the residual norm falls below `maxdist`.
+
+The Jacobian is sparse because each finite-difference equation only depends on nearby grid
+points. For one-, two-, and three-state problems, `pdesolve` builds this sparsity pattern
+and computes the Jacobian by colored finite differences. This is why fine grids remain
+practical: each Newton step uses the local stencil structure rather than a dense Jacobian.
 
 With `verbose = true` (the default), each outer iteration prints
 

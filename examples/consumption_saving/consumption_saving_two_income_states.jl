@@ -14,25 +14,49 @@
 # from turning negative at the lower bound.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Plots
 
-mutable struct AchdouHanLasryLionsMoll_TwoStatesModel
-    yl::Float64
-    yh::Float64
-    λlh::Float64
-    λhl::Float64
-    r::Float64
-    ρ::Float64
-    γ::Float64
-    amin::Float64
-    amax::Float64
+Base.@kwdef mutable struct AchdouHanLasryLionsMoll_TwoStatesModel
+    yl::Float64 = 0.5        # low income state
+    yh::Float64 = 1.5        # high income state
+    λlh::Float64 = 0.2       # low → high transition intensity
+    λhl::Float64 = 0.2       # high → low transition intensity
+    r::Float64 = 0.03        # risk-free rate
+    ρ::Float64 = 0.04        # discount rate
+    γ::Float64 = 2.0         # relative risk aversion
+    amin::Float64 = -yl / r  # borrowing limit (natural limit)
+    amax::Float64 = 50.0     # top of the asset grid
 end
 
-function AchdouHanLasryLionsMoll_TwoStatesModel(; yl = 0.5, yh = 1.5, λlh = 0.2, λhl = 0.2, r = 0.03, ρ = 0.04, γ = 2.0, amin = -yl / r, amax = 50.0)
-    AchdouHanLasryLionsMoll_TwoStatesModel(yl, yh, λlh, λhl, r, ρ, γ, amin, amax)
-end
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the single continuous state (`a`); the guess is a
+# `NamedTuple` whose keys are the two unknown functions (`vl` and `vh`), one starting value per
+# grid point. These names are what reappear inside the equation below — e.g. `vla_up` will be the
+# forward finite difference of `vl` in `a`.
+#
+# The asset grid is finer near the borrowing limit, and we start from an autarky-style guess. The
+# borrowing limit itself is nudged just inside the natural limit ``-y_l/r`` to keep consumption
+# strictly positive there.
 
+m = AchdouHanLasryLionsMoll_TwoStatesModel()
+m.amin += 0.001
+stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
+yend = (;
+    vl = (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
+    vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
+)
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
+#
 # In each income state we upwind the asset drift on its sign, capping the implied consumption
 # rather than flooring the marginal value (Newton may try negative marginal values). At the
 # borrowing constraint the drift is set to zero. We save consumption `cl`, `ch` to plot.
@@ -83,29 +107,19 @@ function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, u::Named
     return (; vlt, vht), (; cl, ch, μla, μha)
 end
 
-# ## Solving it
-#
-# Build the asset grid (finer near the borrowing limit), start from an autarky-style guess,
-# and solve.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = AchdouHanLasryLionsMoll_TwoStatesModel()
-m.amin += 0.001
-stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
-yend = (;
-    vl = (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
-    vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
-)
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution
 #
-# The value function is higher in the high-income state (left). Consumption rises with wealth
-# in both states and is higher when income is high (right). Near the borrowing limit the
-# low-income household is forced to consume its income ``y_l + r a`` — the constraint binds and
-# precautionary saving disappears.
+# Consumption rises with wealth in both income states and is higher when income is high (left).
+# The saving rate (right) is pinned at zero at the borrowing limit for the low-income household —
+# which is forced to consume its income ``y_l + r a`` — and turns positive as wealth rises.
 
 as = stategrid[:a]
-mask = as .<= 5.0
-p1 = plot(as[mask], [result.zero[:vl][mask] result.zero[:vh][mask]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "value v(a)", legend = :bottomright)
-p2 = plot(as[mask], [result.optional[:cl][mask] result.optional[:ch][mask]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "consumption c(a)", legend = :bottomright)
+idx = 1:div(length(as), 3)          # left third of the asset grid, where the curvature is
+p1 = plot(as[idx], [result.optional[:cl][idx] result.optional[:ch][idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "consumption c(a)", legend = :bottomright)
+p2 = plot(as[idx], [result.optional[:μla][idx] result.optional[:μha][idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "saving μa(a)", legend = :topright)
+hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))

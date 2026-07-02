@@ -1,43 +1,50 @@
 using Documenter
 using Literate
 using EconPDEs
+import Plots
 
-# Render GR plots without a display (needed on CI).
+# Render GR plots without a display (needed on CI), and give every figure enough margin that
+# the axis labels are never clipped.
 ENV["GKSwstype"] = "100"
+Plots.default(; left_margin = 5Plots.mm, bottom_margin = 5Plots.mm)
 
 const EXAMPLES_DIR = joinpath(dirname(@__DIR__), "examples")
 const GENERATED_DIR = joinpath(@__DIR__, "src", "examples")
 
-# Each example is a Literate script under examples/macro or examples/finance. Rendering it
-# here (and running its code) is what verifies the example — they are not in the test suite.
+# Each example is a Literate script under examples/. Rendering it here (and running its code) is
+# what verifies the example — they are not in the test suite.
 isdir(GENERATED_DIR) && rm(GENERATED_DIR; recursive = true)
 
-macro_examples = [
-    "Neoclassical growth"                   => "macro/neoclassical_growth.jl",
-    "Consumption–saving: two income states" => "macro/consumption_saving_two_income_states.jl",
-    "Consumption–saving: one asset"         => "macro/consumption_saving_one_asset.jl",
-    "Consumption–saving: two assets"        => "macro/consumption_saving_two_assets.jl",
-    "Wang–Wang–Yang: liquidity management"  => "macro/wang_wang_yang.jl",
+consumption_saving = [
+    "Consumption–saving: one asset"         => "consumption_saving/consumption_saving_one_asset.jl",
+    "Consumption–saving: two income states" => "consumption_saving/consumption_saving_two_income_states.jl",
+    "Consumption–saving: two assets"        => "consumption_saving/consumption_saving_two_assets.jl",
+    "Wang–Wang–Yang: liquidity management"  => "consumption_saving/wang_wang_yang.jl",
 ]
-finance_examples = [
-    "Leland: optimal default"                 => "finance/leland.jl",
-    "Bolton–Chen–Wang: financing constraint"  => "finance/bolton_chen_wang.jl",
-    "Campbell–Cochrane: habit"                => "finance/campbell_cochrane.jl",
-    "Wachter: rare disasters"                 => "finance/wachter.jl",
-    "Haddad: endogenous volatility"           => "finance/haddad.jl",
-    "Bansal–Yaron: long-run risk (2D)"        => "finance/bansal_yaron.jl",
-    "Tuckman–Vila: finite horizon"            => "finance/tuckman_vila.jl",
-    "Gârleanu–Panageas: heterogeneous agents" => "finance/garleanu_panageas.jl",
-    "He–Krishnamurthy: intermediaries"        => "finance/he_krishnamurthy.jl",
-    "Di Tella: balance-sheet risk (2D)"       => "finance/di_tella.jl",
-    "Brunnermeier–Sannikov: macro-finance"    => "finance/brunnermeier_sannikov.jl",
-    "Gomez: wealth distribution"              => "finance/gomez.jl",
+asset_pricing = [
+    "Campbell–Cochrane: habit"                => "asset_pricing/campbell_cochrane.jl",
+    "Bansal–Yaron: long-run risk (2D)"        => "asset_pricing/bansal_yaron.jl",
+    "Haddad: endogenous volatility"           => "asset_pricing/haddad.jl",
+    "Wachter: rare disasters"                 => "asset_pricing/wachter.jl",
+    "Tuckman–Vila: finite horizon"            => "asset_pricing/tuckman_vila.jl",
+    "Gârleanu–Panageas: heterogeneous agents" => "asset_pricing/garleanu_panageas.jl",
+    "He–Krishnamurthy: intermediaries"        => "asset_pricing/he_krishnamurthy.jl",
+    "Brunnermeier–Sannikov: macro-finance"    => "asset_pricing/brunnermeier_sannikov.jl",
+    "Di Tella: balance-sheet risk (2D)"       => "asset_pricing/di_tella.jl",
+    "Gomez: wealth distribution"              => "asset_pricing/gomez.jl",
+]
+corporate_finance = [
+    "Leland: optimal default"                => "corporate_finance/leland.jl",
+    "Bolton–Chen–Wang: financing constraint" => "corporate_finance/bolton_chen_wang.jl",
 ]
 
 function literate_page((title, relpath))
     Literate.markdown(joinpath(EXAMPLES_DIR, relpath), joinpath(GENERATED_DIR, dirname(relpath)); documenter = true)
     return title => joinpath("examples", replace(relpath, r"\.jl$" => ".md"))
 end
+
+# Neoclassical growth is the standalone entry-point example (rendered directly under examples/).
+Literate.markdown(joinpath(EXAMPLES_DIR, "neoclassical_growth.jl"), GENERATED_DIR; documenter = true)
 
 makedocs(;
     sitename = "EconPDEs.jl",
@@ -48,8 +55,10 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Examples" => [
-            "Macro"   => literate_page.(macro_examples),
-            "Finance" => literate_page.(finance_examples),
+            "Neoclassical growth" => "examples/neoclassical_growth.md",
+            "Consumption–saving"  => literate_page.(consumption_saving),
+            "Asset pricing"       => literate_page.(asset_pricing),
+            "Corporate finance"   => literate_page.(corporate_finance),
         ],
         "API reference" => "api.md",
     ],

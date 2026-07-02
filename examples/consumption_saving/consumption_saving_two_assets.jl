@@ -21,27 +21,52 @@
 # holding, clamped to ``[0, a - a_{\min}]``.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Distributions, Plots
 
 Base.@kwdef struct AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel
-    ## income process parameters
-    κy::Float64 = 0.1
-    ybar::Float64 = 1.0
-    σy::Float64 = 0.07
+    κy::Float64 = 0.1        # mean-reversion speed of labor income
+    ybar::Float64 = 1.0      # long-run mean of labor income
+    σy::Float64 = 0.07       # volatility of labor income
 
-    r::Float64 = 0.03
-    μR::Float64 = 0.04
-    σR::Float64 = 0.1
+    r::Float64 = 0.03        # risk-free rate
+    μR::Float64 = 0.04       # expected return on the risky asset
+    σR::Float64 = 0.1        # volatility of the risky asset
 
-    ## utility parameters
-    ρ::Float64 = 0.05
-    γ::Float64 = 2.0
+    ρ::Float64 = 0.05        # discount rate
+    γ::Float64 = 2.0         # relative risk aversion
 
-    amin::Float64 = 0.0
-    amax::Float64 = 1000.0
+    amin::Float64 = 0.0      # borrowing limit (minimum wealth)
+    amax::Float64 = 1000.0   # maximum wealth (grid upper bound)
 end
 
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose keys are the two state variables (`y` and `a`); the
+# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
+# each grid point. These names are what reappear inside the equation below — e.g. `va_up` will
+# be the forward finite difference of `v` in `a`.
+#
+# Income spans the bulk of its ergodic (Gamma) distribution and wealth runs from the borrowing
+# limit up to ``a_{\max}``. As before, the initial guess is the value of consuming the annuity
+# value of total wealth ``a + y/r`` forever.
+
+m = AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel()
+distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
+ys = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 5)
+as = range(m.amin, m.amax, length = 100)
+stategrid = (; y = ys, a = as)
+yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
+#
 # As in the one-asset model, income is upwinded on ``\mu_y`` and the endogenous asset drift picks
 # the forward/backward derivative that keeps its sign consistent. At each candidate we also solve
 # the Merton portfolio rule for ``k``. The boundary branches impose the borrowing constraint at
@@ -122,19 +147,8 @@ function (m::AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel)(state::NamedTuple,
     return (; vt), (; v, c, k, va, vaa, vy, y, a, μa)
 end
 
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-# ## Solving it
-#
-# Income spans the bulk of its ergodic (Gamma) distribution and wealth runs from the borrowing
-# limit up to ``a_{\max}``. As before, the initial guess is the value of consuming the annuity
-# value of total wealth ``a + y/r`` forever.
-
-m = AchdouHanLasryLionsMoll_DiffusionTwoAssetsModel()
-distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
-ys = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 5)
-as = range(m.amin, m.amax, length = 100)
-stategrid = (; y = ys, a = as)
-yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution
@@ -143,21 +157,22 @@ result = pdesolve(m, stategrid, yend)
 
 as = stategrid[:a]
 ys = stategrid[:y]
+idx = 1:div(length(as), 3)          # left third of the wealth grid, where the curvature is
 iys = round.(Int, range(1, length(ys), length = 3))
 
 p1 = plot(xlabel = "wealth a", ylabel = "consumption c")
 for iy in iys
-    plot!(p1, as, result.optional[:c][iy, :], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p1, as[idx], result.optional[:c][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
-p2 = plot(xlabel = "wealth a", ylabel = "risky holding k")
+p2 = plot(xlabel = "wealth a", ylabel = "saving μa")
 for iy in iys
-    plot!(p2, as, result.optional[:k][iy, :], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p2, as[idx], result.optional[:μa][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
+hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))
 
-# Consumption rises with both wealth and income (left). The risky holding (right) is
-# approximately linear in wealth, tracking the Merton fraction ``(\mu_R - r)/(\gamma\sigma_R^2)``
-# of wealth once the household is far from the borrowing constraint. Near the constraint the
-# household tilts toward the safe asset: it cannot lever, and undiversifiable labor-income risk
-# crowds out financial risk-taking, so the poorest households hold almost none of the risky asset
-# even though its Sharpe ratio is positive.
+# Consumption rises with both wealth and income (left); the saving rate (right) is highest for the
+# wealth-poor and turns negative as households approach their target wealth. On the portfolio side
+# (not shown), away from the constraint the household holds the Merton fraction
+# ``(\mu_R - r)/(\gamma\sigma_R^2)`` of wealth in the risky asset, and tilts toward the safe asset
+# near the constraint, where it cannot lever and labor-income risk crowds out financial risk-taking.

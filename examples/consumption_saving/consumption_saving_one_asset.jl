@@ -17,29 +17,47 @@
 # ``a \ge a_{\min}`` enforced as a state constraint (saving cannot be negative at the limit).
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Distributions, Plots
 
-struct AchdouHanLasryLionsMollModel_Diffusion
-    ## income process parameters
-    κy::Float64
-    ybar::Float64
-    σy::Float64
-
-    r::Float64
-
-    ## utility parameters
-    ρ::Float64
-    γ::Float64
-
-    amin::Float64
-    amax::Float64
+Base.@kwdef struct AchdouHanLasryLionsMollModel_Diffusion
+    κy::Float64 = 0.1      # income mean-reversion speed
+    ybar::Float64 = 1.0    # mean income level
+    σy::Float64 = 0.07     # income volatility
+    r::Float64 = 0.03      # risk-free rate
+    ρ::Float64 = 0.05      # discount rate
+    γ::Float64 = 2.0       # relative risk aversion
+    amin::Float64 = 0.0    # borrowing limit
+    amax::Float64 = 500.0  # top of the asset grid
 end
 
-function AchdouHanLasryLionsMollModel_Diffusion(;κy = 0.1, ybar = 1.0, σy = 0.07, r = 0.03, ρ = 0.05, γ = 2.0, amin = 0.0, amax = 500.0)
-    AchdouHanLasryLionsMollModel_Diffusion(κy, ybar, σy, r, ρ, γ, amin, amax)
-end
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose keys are the two state variables (`y` and `a`); the
+# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
+# each grid point. These names are what reappear inside the equation below — e.g. `va_up` will
+# be the forward finite difference of `v` in `a`.
+#
+# Income lives on a grid spanning the bulk of its ergodic (Gamma) distribution, and assets on a
+# grid from the borrowing limit up to ``a_{\max}``. The initial guess is the value of consuming
+# the annuity value of total wealth ``a + y/r`` forever.
 
+m = AchdouHanLasryLionsMollModel_Diffusion()
+distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
+stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10),
+                        a =  range(m.amin, m.amax, length = 200)
+                        )
+yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
+#
 # Income drift is exogenous, so its derivative is upwinded on the sign of ``\mu_y``. The asset
 # drift ``\mu_a = y + r a - c`` is endogenous: we try the forward derivative, fall back to the
 # backward one, and — when both fail or the borrowing constraint binds — set ``\mu_a = 0`` and
@@ -82,18 +100,8 @@ function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, u::Named
     return (; vt), (; μa, c)
 end
 
-# ## Solving it
-#
-# Income lives on a grid spanning the bulk of its ergodic (Gamma) distribution, and assets on a
-# grid from the borrowing limit up to ``a_{\max}``. The initial guess is the value of consuming
-# the annuity value of total wealth ``a + y/r`` forever.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = AchdouHanLasryLionsMollModel_Diffusion()
-distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
-stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10),
-                        a =  range(m.amin, m.amax, length = 200)
-                        )
-yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution
@@ -103,17 +111,18 @@ result = pdesolve(m, stategrid, yend)
 
 as = stategrid[:a]
 ys = stategrid[:y]
+idx = 1:div(length(as), 3)          # left third of the asset grid, where the curvature is
 iys = round.(Int, range(1, length(ys), length = 3))
 μa = result.optional[:μa]
 c = result.optional[:c]
 
 p1 = plot(xlabel = "assets a", ylabel = "consumption c")
 for iy in iys
-    plot!(p1, as, c[iy, :], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p1, as[idx], c[iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 p2 = plot(xlabel = "assets a", ylabel = "saving μa")
 for iy in iys
-    plot!(p2, as, μa[iy, :], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p2, as[idx], μa[iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))

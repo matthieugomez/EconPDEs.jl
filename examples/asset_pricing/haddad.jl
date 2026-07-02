@@ -17,27 +17,58 @@
 # mean-reverting square-root processes.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Distributions, Plots
 
 Base.@kwdef struct HaddadModel
   ## consumption process parameters
-  μbar::Float64 = 0.018
-  vbar::Float64 = 0.00052
-  κμ::Float64 = 0.3
-  νμ::Float64 = 0.456
-  κv::Float64 = 0.012
-  νv::Float64 = 0.00472
+  μbar::Float64 = 0.018     # long-run mean of expected consumption growth μ
+  vbar::Float64 = 0.00052   # long-run mean of consumption variance v
+  κμ::Float64 = 0.3         # mean-reversion speed of μ
+  νμ::Float64 = 0.456       # volatility loading of the μ process
+  κv::Float64 = 0.012       # mean-reversion speed of v
+  νv::Float64 = 0.00472     # volatility loading of the v process
 
   ## active capital
-  αbar::Float64 = 1.2
-  λ::Float64 = 0.018
+  αbar::Float64 = 1.2       # maximum active-capital share
+  λ::Float64 = 0.018        # cost of active participation (ownership friction)
 
   ## utility parameters
-  ρ::Float64 = 0.0132
-  γ::Float64 = 10.0
-  ψ::Float64 = 1.5
+  ρ::Float64 = 0.0132       # rate of time preference (discount rate)
+  γ::Float64 = 10.0         # relative risk aversion
+  ψ::Float64 = 1.5          # elasticity of intertemporal substitution
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. This model has two state variables, so the grid is a `NamedTuple` with two keys (`μ` and
+# `v`); the guess is a `NamedTuple` whose key is the unknown function (`p`, the price–consumption
+# ratio), a matrix over the ``(\mu, v)`` grid. These names reappear inside the equation below —
+# e.g. `pμ_up` is the forward finite difference of `p` in `μ`, and `pμv` is the cross-partial. The
+# grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v`` diffusion
+# vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
+
+m = HaddadModel()
+σ = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
+μmin = quantile(Normal(m.μbar, σ), 0.001)
+μmax = quantile(Normal(m.μbar, σ), 0.999)
+μs = range(μmin,  μmax, length = 30)
+α = 2 * m.κv * m.vbar / m.νv^2
+β = m.νv^2 / (2 * m.κv)
+vmin = quantile(Gamma(α, β), 0.001)
+vmax = quantile(Gamma(α, β), 0.999)
+vs = range(vmin,  vmax, length = 30)
+stategrid = (; μ = μs, v = vs)
+yend =   (; p = ones(length(stategrid[:μ]), length(stategrid[:v])))
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
 
 function (m::HaddadModel)(state::NamedTuple, u::NamedTuple)
   (; μbar, vbar, κμ, νμ, κv, νv, αbar, λ, ρ, γ, ψ) = m
@@ -72,23 +103,8 @@ function (m::HaddadModel)(state::NamedTuple, u::NamedTuple)
   return (; pt)
 end
 
-# ## Solving it
-#
-# The grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v``
-# diffusion vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = HaddadModel()
-σ = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
-μmin = quantile(Normal(m.μbar, σ), 0.001)
-μmax = quantile(Normal(m.μbar, σ), 0.999)
-μs = range(μmin,  μmax, length = 30)
-α = 2 * m.κv * m.vbar / m.νv^2
-β = m.νv^2 / (2 * m.κv)
-vmin = quantile(Gamma(α, β), 0.001)
-vmax = quantile(Gamma(α, β), 0.999)
-vs = range(vmin,  vmax, length = 30)
-stategrid = (; μ = μs, v = vs)
-yend =   (; p = ones(length(stategrid[:μ]), length(stategrid[:v])))
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

@@ -15,20 +15,45 @@
 # ``\gamma`` and fixed cost ``\phi``.
 
 # ## The model
+#
+# The parameters:
 
 using EconPDEs, NLsolve, Plots
 
 Base.@kwdef struct BoltonChenWangModel
-  r::Float64 = 0.06
-  δ::Float64 = 0.10
-  A::Float64 = 0.18
-  σ::Float64 = 0.09
-  θ::Float64 = 1.5
-  λ::Float64 = 0.01
-  l::Float64 = 0.9
-  γ::Float64 = 0.06
-  ϕ::Float64 = 0.01
+  r::Float64 = 0.06       # risk-free rate
+  δ::Float64 = 0.10       # depreciation rate of capital
+  A::Float64 = 0.18       # productivity (expected profitability per unit capital)
+  σ::Float64 = 0.09       # cash-flow (capital) volatility
+  θ::Float64 = 1.5        # investment adjustment-cost parameter
+  λ::Float64 = 0.01       # carrying cost of holding cash
+  l::Float64 = 0.9        # liquidation value of capital
+  γ::Float64 = 0.06       # marginal (proportional) cost of external finance
+  ϕ::Float64 = 0.01       # fixed cost of external finance
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere else.
+# The grid is a `NamedTuple` whose key is the state variable (`w`, the cash–capital ratio); the
+# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
+# each grid point (firm value is initialized to the cash ratio ``w`` itself). These names are what
+# reappear inside the equation below — e.g. `vw_up` will be the forward finite difference of `v`
+# in `w`.
+
+m = BoltonChenWangModel()
+stategrid = (; w = range(0.0, 0.3, length = 100))
+yend = (; v = stategrid[:w])
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it takes
+# the current `state` (a grid point) and `u` — the local bundle holding the unknown and its
+# finite-difference derivatives there (`v`, `vw_up`, `vw_down`, `vww`) — and returns the time
+# derivative `vt`.
+#
+# The cash drift ``\mu_w`` can point either way, so the marginal value of cash is upwinded:
+# forward (`vw_up`) where the drift is positive, backward (`vw_down`) where it is negative.
 
 function (m::BoltonChenWangModel)(state::NamedTuple, u::NamedTuple)
   (; r, δ, A, σ, θ, λ, l, γ, ϕ) = m
@@ -48,13 +73,8 @@ function (m::BoltonChenWangModel)(state::NamedTuple, u::NamedTuple)
   return (; vt), (; v, vw, vww, w)
 end
 
-# ## Solving it
-#
 # We first solve the HJB with guessed slopes for the marginal value of cash at the two boundaries.
 
-m = BoltonChenWangModel()
-stategrid = (; w = range(0.0, 0.3, length = 100))
-yend = (; v = stategrid[:w])
 result = pdesolve(m, stategrid, yend; bc = (; vw = (1.5, 1.0)))
 
 # The guessed slopes are only a starting point. We then use `NLsolve` to find the boundary slopes

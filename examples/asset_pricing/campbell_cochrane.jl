@@ -13,17 +13,49 @@
 # rate ``r`` are all functions of ``s`` through the habit.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Plots
 
 Base.@kwdef struct CampbellCochraneModel
-    μ::Float64 = 0.0189
-    σ::Float64 = 0.015
-    γ::Float64 = 2.0
-    ρ::Float64 = 0.116
-    κs::Float64 = 0.138
-    b::Float64 = 0.0
+    μ::Float64 = 0.0189    # mean consumption growth
+    σ::Float64 = 0.015     # volatility of consumption growth
+    γ::Float64 = 2.0       # utility curvature (relative risk aversion)
+    ρ::Float64 = 0.116     # discount rate
+    κs::Float64 = 0.138    # mean-reversion speed of log surplus consumption ratio
+    b::Float64 = 0.0       # sensitivity of riskless rate to surplus ratio (b=0 ⇒ constant r)
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the state variable (`s`, the log surplus
+# consumption ratio); the guess is a `NamedTuple` whose key is the unknown function (`p`, the
+# price–consumption ratio). These names reappear inside the equation below — e.g. `ps_up` will
+# be the forward finite difference of `p` in `s`. The grid concentrates points near the
+# reflecting upper bound ``s_{\max}``, where the surplus ratio is highest, and stretches far
+# into the left tail.
+
+function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
+    (; μ, σ, γ, ρ, κs, b) = m
+    Sbar = σ * sqrt(γ / (κs - b / γ))
+    sbar = log(Sbar)
+    smax = sbar + 0.5 * (1 - Sbar^2)
+    shigh = log.(range(0.0, exp(smax), length = div(sn, 10)))
+    slow = range(-300.0, shigh[2], length = sn - div(sn, 10))
+    (; s = vcat(slow[1:(end-1)], shigh[2:end]))
+end
+
+m = CampbellCochraneModel()
+stategrid = initialize_stategrid(m)
+yend = (; p = ones(length(stategrid[:s])))
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
 
 function (m::CampbellCochraneModel)(state::NamedTuple, u::NamedTuple)
     (; μ, σ, γ, ρ, κs, b) = m
@@ -45,24 +77,8 @@ function (m::CampbellCochraneModel)(state::NamedTuple, u::NamedTuple)
     return (; pt)
 end
 
-# ## Solving it
-#
-# The grid concentrates points near the reflecting upper bound ``s_{\max}``, where the surplus
-# ratio is highest, and stretches far into the left tail.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
-    (; μ, σ, γ, ρ, κs, b) = m
-    Sbar = σ * sqrt(γ / (κs - b / γ))
-    sbar = log(Sbar)
-    smax = sbar + 0.5 * (1 - Sbar^2)
-    shigh = log.(range(0.0, exp(smax), length = div(sn, 10)))
-    slow = range(-300.0, shigh[2], length = sn - div(sn, 10))
-    (; s = vcat(slow[1:(end-1)], shigh[2:end]))
-end
-
-m = CampbellCochraneModel()
-stategrid = initialize_stategrid(m)
-yend = (; p = ones(length(stategrid[:s])))
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

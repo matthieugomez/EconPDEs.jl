@@ -1,6 +1,6 @@
 [![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 [![Coverage Status](http://codecov.io/github/matthieugomez/EconPDEs.jl/coverage.svg?branch=main)](http://codecov.io/github/matthieugomez/EconPDEs.jl/?branch=main)
-[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://matthieugomez.github.io/EconPDEs.jl/dev)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://www.matthieugomez.com/EconPDEs.jl/dev/)
 
 # EconPDEs.jl
 
@@ -89,10 +89,10 @@ Return one time derivative per unknown, named by appending `t`: `(; vt)` for unk
 
 The manual gives the details:
 
-- [Getting started](https://matthieugomez.github.io/EconPDEs.jl/dev/getting_started/)
-- [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/)
-- [Why EconPDEs](https://matthieugomez.github.io/EconPDEs.jl/dev/design/)
-- [InfinitesimalGenerators](https://matthieugomez.github.io/EconPDEs.jl/dev/infinitesimal_generators/)
+- [Getting started](https://www.matthieugomez.com/EconPDEs.jl/dev/getting_started/)
+- [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/)
+- [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/design/)
+- [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/)
 
 The documentation also includes a gallery of runnable examples:
 
@@ -105,7 +105,7 @@ The source scripts live in [`examples/`](examples).
 ## Numerical Details
 
 For the finite-difference discretization and the pseudo-transient Newton scheme behind
-`pdesolve`, see [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
+`pdesolve`, see [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
 
 ## Citation
 

@@ -23,20 +23,28 @@ state grid of one, two, or three state variables.
   `τs[end]`, and `result.zero[i]` is the solution at time `τs[i]`.
 
 ### Keyword arguments
-* `bc`: boundary derivatives, a `NamedTuple` (or `OrderedDict`) mapping each
-  `Symbol(unknown, state)` to a `(lower, upper)` tuple. Defaults to reflecting boundaries
-  (zero outward first derivative).
+* `bc`: boundary derivatives, a `NamedTuple` (or `OrderedDict`) mapping
+  `Symbol(unknown, state)` to a `(lower, upper)` tuple (scalars, or arrays matching the
+  boundary slice). Entries may be given for any subset of (unknown, state) pairs; omitted
+  pairs default to reflecting boundaries (zero outward first derivative).
 * `is_algebraic`: a `NamedTuple` (or `OrderedDict`) of `Bool`s marking equations that are
   algebraic (no time derivative) rather than PDEs. Defaults to all `false`.
-* `y̲`, `ȳ`: lower/upper bounds for HJB variational inequalities (optimal stopping), solved as a
+* `y̲`, `ȳ`: lower/upper bounds for HJB variational inequalities (optimal stopping), solved as a
   mixed complementarity problem. Default to `-Inf`/`Inf` (unbounded).
 * `method`: `:newton` (default) or `:trust_region`.
 * `maxdist`: convergence tolerance on the residual. Defaults to `sqrt(eps())`.
 * `iterations`: maximum number of pseudo-transient iterations. Defaults to 100.
 * `Δ`: initial pseudo-transient time step. Defaults to `1.0`; pass `Δ = Inf` to solve in a
   single Newton step (no continuation).
-* `autodiff`: `:forward` (default), `:finite`, or `:central`.
+* `autodiff`: `:forward` (default), `:finite`, or `:central`. With one to three state
+  variables the Jacobian is always computed by colored sparse finite differences
+  (`:forward` and `:finite` both use forward differences; `:central` uses central
+  differences); forward-mode AD is used only when no sparsity pattern is available
+  (four or more states).
 * `verbose`: print convergence progress. Defaults to `true`.
+* Further solver knobs (`scale`, `minΔ`, `maxΔ`, `inner_iterations`, `innerdist`,
+  `inner_verbose`, `reformulation`, `autoscale`) are forwarded to
+  [`finiteschemesolve`](@ref); see its docstring, especially when a solve stalls.
 * `check_monotonicity`: if true, warn when the assembled residual Jacobian has same-variable
   spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false.
 * `monotonicity_tol`: tolerance for the monotonicity check. Defaults to 1e-6.
@@ -50,9 +58,12 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
     # NamedTuple. Normalize to a NamedTuple so everything below runs on one uniform representation.
     grid = _asnamedtuple(grid)
     yend = _asnamedtuple(yend)
+    _check_generated_names(collect(keys(grid)), collect(keys(yend)))
     stategrid = StateGrid(grid)
     S = size(stategrid)
-    all(size(v) == S for v in values(yend)) || throw(ArgumentError("The length of initial guess (e.g. terminal value) does not equal the length of the state space"))
+    for (name, v) in pairs(yend)
+        size(v) == S || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` has size $(size(v)) but the state grid has size $S"))
+    end
     is_algebraic = _fill_is_algebraic(is_algebraic, yend, S)
     if τs isa AbstractVector
         issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
@@ -116,32 +127,73 @@ end
 catlast(iter) = cat(iter...; dims = ndims(first(iter)) + 1)
 
 # Accept either an OrderedDict (or any symbol-keyed collection) or a NamedTuple.
+# A plain Dict is rejected: its iteration order is arbitrary, and the order of names
+# determines how the solution arrays are laid out, so accepting one risks a silent
+# transposition of the guess (or of the result) on square grids.
 _asnamedtuple(x::NamedTuple) = x
+_asnamedtuple(x::Dict) = throw(ArgumentError("pass a NamedTuple, e.g. `(; k = ...)`, or an OrderedDict — a Dict has no fixed iteration order, and the order of the names determines how arrays are laid out"))
 _asnamedtuple(x) = NamedTuple(x)
+
+# Derivative fields are named by concatenation (unknown * state * suffix), so some
+# combinations of names generate the same field twice — e.g. states `(k, a)` with
+# unknowns `(v, vk)` both generate `vka_up`. Without this check, the collision surfaces
+# as a lowering error inside the @generated `differentiate` with no hint that the
+# user's naming choice is the cause.
+function _check_generated_names(statenames::Vector{Symbol}, ynames::Vector{Symbol})
+    seen = Dict{Symbol, String}()
+    function register!(name::Symbol, desc::String)
+        if haskey(seen, name)
+            throw(ArgumentError("ambiguous names: the field `$name` would mean both $(seen[name]) and $desc. Derivative fields are named by concatenating the unknown and state names (e.g. `v` and `k` give `vk_up`); rename one of the state variables or unknown functions so the generated names are unambiguous."))
+        end
+        seen[name] = desc
+    end
+    for s in ynames
+        register!(s, "the value of unknown `$s`")
+        for x in statenames
+            register!(Symbol(s, x, :_up), "the forward derivative of `$s` in `$x`")
+            register!(Symbol(s, x, :_down), "the backward derivative of `$s` in `$x`")
+            register!(Symbol(s, x, x), "the second derivative of `$s` in `$x`")
+        end
+        for (i1, x1) in enumerate(statenames)
+            for x2 in statenames[(i1 + 1):end]
+                register!(Symbol(s, x1, x2), "the cross derivative of `$s` in `$x1`, `$x2`")
+                register!(Symbol(s, x1, x2, :_up), "the directional (main-diagonal) cross derivative of `$s` in `$x1`, `$x2`")
+                register!(Symbol(s, x1, x2, :_down), "the directional (anti-diagonal) cross derivative of `$s` in `$x1`, `$x2`")
+            end
+        end
+    end
+    return nothing
+end
 
 # Expand the `is_algebraic` flags into a NamedTuple of arrays (one Bool per grid point),
 # with the same names and order as `yend`. Defaults to all-false when not provided.
 _fill_is_algebraic(::Nothing, yend, S) = map(_ -> fill(false, S), yend)
 function _fill_is_algebraic(is_algebraic, yend, S)
     ia = _asnamedtuple(is_algebraic)
-    keys(ia) == keys(yend) || throw(ArgumentError("the terminal guess yend and the is_algebraic keyword argument must have the same names"))
-    map(v -> fill(v, S), ia)
+    issetequal(keys(ia), keys(yend)) || throw(ArgumentError("`is_algebraic` must have the same names as the initial guess: got $(collect(keys(ia))), expected $(collect(keys(yend)))"))
+    # reorder to match the guess, so the flags line up with the right unknowns
+    NamedTuple{keys(yend)}(map(n -> fill(ia[n], S), keys(yend)))
 end
 
 _Array_bc(::Nothing, yend, grid) = zeros(size(first(values(yend)))..., length(yend))
 function _Array_bc(bc, yend, grid)
+    bc = _asnamedtuple(bc)
     keys_grid = collect(keys(grid))
+    valid = [Symbol(yname, s) for yname in keys(yend) for s in keys_grid]
+    for key in keys(bc)
+        key in valid || throw(ArgumentError("unknown `bc` entry `$key`: valid entries are $(valid), i.e. Symbol(unknown, state)"))
+    end
     bc_M = _Array_bc(nothing, yend, grid)
     for (k, yname) in enumerate(keys(yend))
-        if length(keys_grid) == 1
-            bc_M[1, k], bc_M[end, k] = bc[Symbol(yname, keys_grid[1])]
-        elseif length(keys_grid) == 2
-            bc_M[1, :,  k],  bc_M[end, :, k] = bc[Symbol(yname, keys_grid[1])]
-            bc_M[:, 1,  k], bc_M[:, end,  k] = bc[Symbol(yname, keys_grid[2])]
-        elseif length(keys_grid) == 3
-            bc_M[1, :, :, k], bc_M[end, :, :, k] = bc[Symbol(yname, keys_grid[1])]
-            bc_M[:, 1, :, k], bc_M[:, end, :, k] = bc[Symbol(yname, keys_grid[2])]
-            bc_M[:, :, 1, k], bc_M[:, :, end, k] = bc[Symbol(yname, keys_grid[3])]
+        bck = selectdim(bc_M, ndims(bc_M), k)
+        for (d, s) in enumerate(keys_grid)
+            key = Symbol(yname, s)
+            # entries may be given for any subset of (unknown, state) pairs;
+            # omitted pairs keep the reflecting default (zero outward derivative)
+            haskey(bc, key) || continue
+            lo, hi = bc[key]
+            selectdim(bck, d, 1) .= lo
+            selectdim(bck, d, size(bck, d)) .= hi
         end
     end
     return bc_M
@@ -152,15 +204,26 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
     i0 = first(eachindex(stategrid))
     derivatives = differentiate(Tsolution, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], derivatives)
-    # Discriminate by type, not by length: a single-return model gives a NamedTuple
-    # of time derivatives whose first entry is a Number, while a two-return model gives
-    # (residual, optional) whose first entry is the residual NamedTuple. Using length
-    # here would misclassify any model with several unknowns (see hjb! for the same test).
-    if isa(result[1], Number)
-        return nothing
-    else
-        return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(result[2]))
-    end
+    residual, optional = _split_pde_output(result)
+    _check_residual_names(residual, Tsolution.parameters[1])
+    optional === nothing && return nothing
+    return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(optional))
+end
+
+# Discriminate the two allowed return shapes by type: a single-return model gives a
+# NamedTuple of time derivatives, a two-return model gives (residual, optional).
+# (hjb! performs the same discrimination per grid point via `isa(outi[1], Number)`.)
+_split_pde_output(result::NamedTuple) = (result, nothing)
+_split_pde_output(result::Tuple{NamedTuple, NamedTuple}) = result
+_split_pde_output(result) = throw(ArgumentError("the PDE function must return a NamedTuple of time derivatives, e.g. `(; vt)`, optionally followed by a second NamedTuple of objects to save on the grid — got a value of type $(typeof(result))"))
+
+function _check_residual_names(residual::NamedTuple, ynames)
+    expected = map(n -> Symbol(n, :t), ynames)
+    missing_names = setdiff(expected, keys(residual))
+    isempty(missing_names) || throw(ArgumentError("the PDE function must return one time derivative per unknown, named `Symbol(unknown, :t)`: expected $(collect(expected)), got $(collect(keys(residual)))"))
+    extra = setdiff(keys(residual), expected)
+    isempty(extra) || @warn "the PDE function returns fields that do not correspond to any unknown; they are ignored (return a second NamedTuple to save objects on the grid)" ignored = collect(extra) expected = collect(expected)
+    return nothing
 end
 
 

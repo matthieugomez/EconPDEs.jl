@@ -15,7 +15,7 @@
 using EconPDEs, Roots, Plots
 
 Base.@kwdef mutable struct BrunnermeierSannikov
-  ## Calibration uses Section 3.6 of the textbook chapter (I think r is typo for ρH)
+  ## Calibration uses Section 3.6 of the textbook chapter (the paper's r here appears to be a typo for ρH)
   ρE::Float64 = 0.06      # experts' rate of time preference (discount rate)
   ρH::Float64 = 0.05      # households' rate of time preference (discount rate)
   γ::Float64 = 2.0        # relative risk aversion
@@ -63,6 +63,9 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   (; ρE, ρH, γ, ψ, δ, σ, κ, a, alow, χlow) = m
   (; x) = state
   (; pE, pEx_up, pEx_down, pExx, pH, pHx_up, pHx_down, pHxx) = u
+  ## Floor the wealth–consumption ratios before dividing by them: a Newton trial iterate can wander
+  ## nonpositive, which would blow up the equilibrium conditions. Slack at the converged solution,
+  ## where both stay well above 1e-3.
   pE = max(pE, 1e-3)
   pH = max(pH, 1e-3)
   χ = max(χlow, x)
@@ -75,7 +78,7 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
 
   ## First, solve for q, qx, and qxx
   if abs(x - xmin) < 1e-9
-    ## initial condition at lower boundery of x grid (point outside the grid technically)
+    ## initial condition at lower boundary of x grid (point outside the grid technically)
     ## We must have that expert consumption approaches zero as xt approaches zero (linked to transversality condition)
     Ψ_old = 0.0
     q_old = (alow + 1 / κ) / (1 / pH + 1 / κ)
@@ -121,6 +124,7 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
 
 
   ## having solved for q, do the time step
+  ## Floor q the same way before it enters ι, Φ, μq, and r; slack at the converged solution (q ≈ 1).
   q = max(q, sqrt(eps()))
   ι = (q - 1) / κ
   Φ = log(q) / κ
@@ -146,20 +150,23 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   μpH = pHx / pH * μx + 0.5 * pHxx / pH * σx^2
   μq = qx / q * μx + 0.5 * qxx / q * σx^2
 
+  ## Clamp r to a wide band: a Newton trial iterate outside the economic domain can produce a wild
+  ## interest rate that would overflow the exponential price updates below. Slack at the converged
+  ## solution, where r stays within a few percent of zero.
   r = clamp((a - ι) / q + Φ - δ + μq + σ * σq - (χ * κE + (1 - χ) * κH) * (σ + σq), -3.0, 3.0)
   ## Market Pricing
   pEt = -  pE * (1 / pE - ψ * ρE + (ψ - 1) * (r + κE * σE) + μpE - (ψ - 1) * γ / 2 * σE^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpE^2 + (1 - γ) * σpE * σE)
   pHt = -  pH * (1 / pH - ψ * ρH + (ψ - 1) * (r + κH * σH) + μpH - (ψ - 1) * γ / 2 * σH^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpH^2 + (1 - γ) * σpH * σH)
   d = Ψ * a + (1 - Ψ) * alow - ι
   μR = r + (χ * κE + (1 - χ) * κH) * (σ + σq)
-  (; pEt, pHt), (; x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, pEt, pHt, q, qx, qxx, μq, μx2, Φ, χ, d, μR, pExx, pHxx)
+  (; pEt, pHt), (; x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, q, qx, qxx, μq, μx2, Φ, χ, d, μR)
 end
 
 # The sweep is order-dependent — it marches from the lower boundary `xmin` upward, each step
 # reusing the previous ``q`` carried in the mutable model — so `Δx` and `xmin` are passed into the
 # model and finite-difference autodiff is used:
 
-@time result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, yend; autodiff = :finite)
+result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, yend; autodiff = :finite)
 
 # ## The solution
 #

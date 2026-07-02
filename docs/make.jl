@@ -16,16 +16,16 @@ const GENERATED_DIR = joinpath(@__DIR__, "src", "examples")
 isdir(GENERATED_DIR) && rm(GENERATED_DIR; recursive = true)
 
 consumption_saving = [
-    "Consumption–saving: one asset"         => "consumption_saving/consumption_saving_one_asset.jl",
-    "Consumption–saving: two income states" => "consumption_saving/consumption_saving_two_income_states.jl",
-    "Consumption–saving: two assets"        => "consumption_saving/consumption_saving_two_assets.jl",
+    "Consumption–saving: two income states" => "consumption_saving/consumption_saving_two_income.jl",
+    "Consumption–saving: diffusion income"  => "consumption_saving/consumption_saving_diffusion_income.jl",
+    "Consumption–saving: risky asset"       => "consumption_saving/consumption_saving_risky_asset.jl",
     "Wang–Wang–Yang: liquidity management"  => "consumption_saving/wang_wang_yang.jl",
 ]
 asset_pricing = [
     "Campbell–Cochrane: habit"                => "asset_pricing/campbell_cochrane.jl",
-    "Bansal–Yaron: long-run risk (2D)"        => "asset_pricing/bansal_yaron.jl",
-    "Haddad: endogenous volatility"           => "asset_pricing/haddad.jl",
     "Wachter: rare disasters"                 => "asset_pricing/wachter.jl",
+    "Bansal–Yaron: long-run risk (2D)"        => "asset_pricing/bansal_yaron.jl",
+    "Haddad: endogenous volatility (2D)"      => "asset_pricing/haddad.jl",
     "Tuckman–Vila: finite horizon"            => "asset_pricing/tuckman_vila.jl",
     "Gârleanu–Panageas: heterogeneous agents" => "asset_pricing/garleanu_panageas.jl",
     "He–Krishnamurthy: intermediaries"        => "asset_pricing/he_krishnamurthy.jl",
@@ -54,6 +54,15 @@ makedocs(;
     checkdocs = :none,
     pages = [
         "Home" => "index.md",
+        "Manual" => [
+            "Getting started"         => "getting_started.md",
+            "Model conventions"       => "conventions.md",
+            "Upwinding"               => "upwinding.md",
+            "Boundary conditions"     => "boundary_conditions.md",
+            "Time-dependent problems" => "time_dependent.md",
+            "Solver and troubleshooting" => "solver.md",
+            "Why EconPDEs"            => "design.md",
+        ],
         "Examples" => [
             "Neoclassical growth" => "examples/neoclassical_growth.md",
             "Consumption–saving"  => literate_page.(consumption_saving),

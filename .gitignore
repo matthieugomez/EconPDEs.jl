@@ -2,7 +2,6 @@ other
 *.sublime2Terminal.jl
 .DS_Store
 Manifest.toml
-examples/AssetPricing/constraint.jl
 
 # LaTeX build artifacts
 *.aux

@@ -1,5 +1,5 @@
 """
-StrateGrid(x::NamedTuple)
+StateGrid(x::NamedTuple)
 
 Let x = (k1 = v1, k2 = v2, ...., kN = vN) be a NamedTuple of AbstractVectors for state space, 
 StateGrid(x) returns an AbstractArray M such that 

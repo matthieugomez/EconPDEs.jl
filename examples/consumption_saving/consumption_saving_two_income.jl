@@ -19,7 +19,7 @@
 
 using EconPDEs, Plots
 
-Base.@kwdef mutable struct AchdouHanLasryLionsMoll_TwoStatesModel
+Base.@kwdef mutable struct AchdouHanLasryLionsMollModel_TwoStates
     yl::Float64 = 0.5        # low income state
     yh::Float64 = 1.5        # high income state
     λlh::Float64 = 0.2       # low → high transition intensity
@@ -43,7 +43,7 @@ end
 # borrowing limit itself is nudged just inside the natural limit ``-y_l/r`` to keep consumption
 # strictly positive there.
 
-m = AchdouHanLasryLionsMoll_TwoStatesModel()
+m = AchdouHanLasryLionsMollModel_TwoStates()
 m.amin += 0.001
 stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
 yend = (;
@@ -61,7 +61,7 @@ yend = (;
 # rather than flooring the marginal value (Newton may try negative marginal values). At the
 # borrowing constraint the drift is set to zero. We save consumption `cl`, `ch` to plot.
 
-function (m::AchdouHanLasryLionsMoll_TwoStatesModel)(state::NamedTuple, u::NamedTuple)
+function (m::AchdouHanLasryLionsMollModel_TwoStates)(state::NamedTuple, u::NamedTuple)
     (; yl, yh, λlh, λhl, r, ρ, γ, amin, amax) = m
     (; a) = state
     (; vl, vla_up, vla_down, vh, vha_up, vha_down) = u

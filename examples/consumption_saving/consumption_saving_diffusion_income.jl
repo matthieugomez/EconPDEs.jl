@@ -1,4 +1,4 @@
-# # Achdou–Han–Lasry–Lions–Moll: consumption and saving
+# # Achdou–Han–Lasry–Lions–Moll: consumption–saving with diffusion income
 #
 # This is the diffusive-income version of the Achdou–Han–Lasry–Lions–Moll (2022) consumption–
 # saving problem, the workhorse building block of continuous-time heterogeneous-agent (HACT)
@@ -30,7 +30,7 @@ Base.@kwdef struct AchdouHanLasryLionsMollModel_Diffusion
     ρ::Float64 = 0.05      # discount rate
     γ::Float64 = 2.0       # relative risk aversion
     amin::Float64 = 0.0    # borrowing limit
-    amax::Float64 = 500.0  # top of the asset grid
+    amax::Float64 = 100.0  # top of the asset grid
 end
 
 # ## The state space
@@ -48,7 +48,7 @@ end
 m = AchdouHanLasryLionsMollModel_Diffusion()
 distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
 stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10),
-                        a =  range(m.amin, m.amax, length = 200)
+                        a =  range(m.amin, m.amax, length = 1000)
                         )
 yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 

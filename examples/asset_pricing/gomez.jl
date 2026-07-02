@@ -63,27 +63,26 @@ yend = (; pH = ones(length(stategrid[:x])))
 # upwind direction is picked from the drift ``\mu_x``: forward difference `pHx_up` unless the drift
 # turns negative, then backward `pHx_down`.
 
-function (m::GomezModel)(state, u)
+function (m::GomezModel)(state::NamedTuple, u::NamedTuple)
   (; γ, ψ, ρ, ρE, αE, ν, η, δ, ϕ, πE, g, σ, λ, τ) = m
   (; x) = state
   (; pH, pHx_up, pHx_down, pHxx) = u
   p = x / ρE + (1 - x) * pH
   xW = x / ρE / p
-  if xW * αE >= 1
-    αE = 1 / xW
-  end
+  ## Effective entrepreneur exposure, capped when the leverage constraint xW * αE ≥ 1 binds.
+  αEeff = (xW * αE >= 1) ? 1 / xW : αE
   iter = 0
   pHx = pHx_up
   @label start
   px = 1 / ρE  - pH + (1 - x) * pHx
-  σx = x * (αE - 1) * σ / (1 - x * αE * px / p)
+  σx = x * (αEeff - 1) * σ / (1 - x * αEeff * px / p)
   σpH = pHx / pH * σx
   σp = px / p * σx
-  σCE = αE * (σ + σp)
+  σCE = αEeff * (σ + σp)
   σCH = x < 1 ? (σ - x * σCE) / (1 - x) : 0.0
   σWH = σCH + σpH
   κ = γ * σCH + (γ * ψ - 1) / (ψ - 1) * σpH
-  ΦE = αE * κ * (σ + σp)
+  ΦE = αEeff * κ * (σ + σp)
   ΦH = κ^2 * (1 + ψ) / (2 * γ) + (1 - ψ * γ) / (γ * (ψ - 1)) * κ * σpH - (1 - γ * ψ) / (2 * γ * (ψ - 1)) * σpH^2
   arriving_wealth = (η + δ + ϕ + τ) / (η + δ) * p
   wedge = (η + δ) * ((ρE * πE + (1 - πE) / pH) * arriving_wealth - 1)
@@ -106,24 +105,21 @@ function (m::GomezModel)(state, u)
   σR = σ + σp
   μR = r + κ * σR
   σWE = σCE
-  σErelative = (αE - 1) * (σ + σp)
+  σErelative = (αEeff - 1) * (σ + σp)
   μErelative = μCE - (g + μp + σ * σp) - σErelative * (σ + σp)
-  α = x < 1 ? (1 - xW * αE) / (1 - xW) : 0.0
+  α = x < 1 ? (1 - xW * αEeff) / (1 - xW) : 0.0
   σHrelative = (α - 1) * (σ + σp)
   μHrelative = μWH - (g + μp + σ * σp) - σHrelative * (σ + σp)
   μxW = xW * (μCE - (g + μp + σ * σp) - σErelative * (σ + σp)) + (η + δ) * (πE * (η + δ + ϕ) / (η + δ) - xW)
-  σxW = xW * (αE - 1) * (σ + σp)
-  μxW2 = xW * ((αE - 1) * κ * (σ + σp) - ρE + 1 / p - ϕ - (αE - 1) * (σ + σp)^2) + (η + δ) * (πE * (η + δ + ϕ) / (η + δ) - xW)
-  α = σWH / (σ + σp)
-  σp = px / p * σx
+  σxW = xW * (αEeff - 1) * (σ + σp)
   μRλ = r + λ * (μR - r)
   σRλ = λ * σR
-  return (; pHt,), (; x, μx, σx, κ, r, σWH, μWH, σp, p, px, σR, μR, μRλ, σRλ, μErelative, σErelative, μHrelative, σHrelative, μCE, μxW, σxW, pH, μCH, wedge, xW, σWE, σCH, αE, pE = 1 / m.ρE, μp = μp)
+  return (; pHt), (; x, μx, σx, κ, r, σWH, μWH, σp, p, px, σR, μR, μRλ, σRλ, μErelative, σErelative, μHrelative, σHrelative, μCE, μxW, σxW, pH, μCH, wedge, xW, σWE, σCH, αE = αEeff, pE = 1 / m.ρE, μp = μp)
 end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-@time result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, yend)
 
 # ## The solution
 #

@@ -65,12 +65,12 @@ function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     (; A, α, δ, ρ, γ) = m
     (; k) = state
     (; v, vk_up, vk_down) = u
-    c_up = vk_up >= 0 ? min(vk_up^(-1 / γ), A * k^α) : 10 * A * k^α
+    c_up = vk_up >= 0 ? min(vk_up^(-1 / γ), 10 * A * k^α) : 10 * A * k^α
     μk_up = A * k^α - δ * k - c_up
     if μk_up > 0
         c, vk, μk = c_up, vk_up, μk_up
     else
-        c_down = vk_down >= 0 ? min(vk_down^(-1 / γ), A * k^α) : 10 * A * k^α
+        c_down = vk_down >= 0 ? min(vk_down^(-1 / γ), 10 * A * k^α) : 10 * A * k^α
         μk_down = A * k^α - δ * k - c_down
         if μk_down < 0
             c, vk, μk = c_down, vk_down, μk_down

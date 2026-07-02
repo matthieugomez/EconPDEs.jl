@@ -50,18 +50,19 @@ makedocs(;
     sitename = "EconPDEs.jl",
     authors = "Matthieu Gomez",
     modules = [EconPDEs],
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", "false") == "true", edit_link = "main"),
+    format = Documenter.HTML(;
+        prettyurls = get(ENV, "CI", "false") == "true",
+        edit_link = "main",
+        assets = ["assets/sidebar-scroll.js"],
+    ),
     checkdocs = :none,
+    pagesonly = true,
     pages = [
         "Home" => "index.md",
         "Manual" => [
-            "Getting started"         => "getting_started.md",
-            "Model conventions"       => "conventions.md",
-            "Upwinding"               => "upwinding.md",
-            "Boundary conditions"     => "boundary_conditions.md",
-            "Time-dependent problems" => "time_dependent.md",
-            "Solver and troubleshooting" => "solver.md",
-            "Why EconPDEs"            => "design.md",
+            "Getting started" => "getting_started.md",
+            "Solving models"  => "solving.md",
+            "Why EconPDEs"    => "design.md",
         ],
         "Examples" => [
             "Neoclassical growth" => "examples/neoclassical_growth.md",
@@ -69,6 +70,7 @@ makedocs(;
             "Asset pricing"       => literate_page.(asset_pricing),
             "Corporate finance"   => literate_page.(corporate_finance),
         ],
+        "InfinitesimalGenerators" => "infinitesimal_generators.md",
         "API reference" => "api.md",
     ],
 )

@@ -18,6 +18,8 @@
 # with first-order condition ``c = v'(k)^{-1/\gamma}``.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Plots
 
@@ -29,10 +31,35 @@ Base.@kwdef struct NeoclassicalGrowthModel
     γ::Float64 = 2.0     # relative risk aversion
 end
 
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the state variable (`k`); the guess is a
+# `NamedTuple` whose key is the unknown function (`v`), holding one starting value at each grid
+# point. These names are what reappear inside the equation below — e.g. `vk_up` will be the
+# forward finite difference of `v` in `k`.
+#
+# We center the grid on the closed-form steady state ``\bar k`` (where
+# ``\alpha A \bar k^{\alpha-1} = \rho + \delta``) and start from the value of consuming gross
+# output forever.
+
+m = NeoclassicalGrowthModel()
+(; A, α, δ, ρ, γ) = m
+k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
+stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
+yend = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
+# its finite-difference derivatives there (here `v`, `vk_up`, `vk_down`) — and returns the time
+# derivative `vt` of each unknown.
+#
 # The capital drift ``\dot k`` can point either way, so the first derivative is *upwinded*:
 # forward (`vk_up`) where the implied drift is positive, backward (`vk_down`) where it is
-# negative, and the consumption that sets the drift to zero at the steady state in between.
-# We return a second `NamedTuple` to save consumption `c` and the drift `μk` on the grid.
+# negative, and the consumption that sets the drift to zero at the steady state in between. A
+# second `NamedTuple` saves consumption `c` and the drift `μk` on the grid.
 
 function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     (; A, α, δ, ρ, γ) = m
@@ -57,17 +84,8 @@ function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     return (; vt), (; c, μk)
 end
 
-# ## Solving it
-#
-# Put capital on a grid around the closed-form steady state ``\bar k`` defined by
-# ``\alpha A \bar k^{\alpha-1} = \rho + \delta``, and start from the value of consuming
-# gross output forever.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = NeoclassicalGrowthModel()
-(; A, α, δ, ρ, γ) = m
-k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
-stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
-yend = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

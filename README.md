@@ -240,11 +240,13 @@ This checks the effective neighbor weights in the fully assembled equation, afte
 
 ## Examples
 
-The **[documentation](https://matthieugomez.github.io/EconPDEs.jl/dev)** works through a gallery of models — each one solves the model, plots the solution, and explains it economically. Together they exercise the full range of what `pdesolve` handles: one to several state variables, single and coupled value functions, stationary and time-dependent HJBs, and reflecting, state-constraint, degenerate, and free (optimal-stopping) boundaries. The runnable source scripts live in [`examples/macro`](examples/macro) and [`examples/finance`](examples/finance).
+The **[documentation](https://matthieugomez.github.io/EconPDEs.jl/dev)** works through a gallery of models — each one solves the model, plots the solution, and explains it economically. Together they exercise the full range of what `pdesolve` handles: one to several state variables, single and coupled value functions, stationary and time-dependent HJBs, and reflecting, state-constraint, degenerate, and free (optimal-stopping) boundaries. The runnable source scripts live under [`examples/`](examples), starting with the [neoclassical growth model](examples/neoclassical_growth.jl) and grouped into `consumption_saving`, `asset_pricing`, and `corporate_finance`.
 
-**Macro** — deterministic neoclassical (Ramsey) growth, and consumption–saving with a borrowing constraint: Achdou–Han–Lasry–Lions–Moll (one-asset, two-asset, and two-income-state variants) and Wang–Wang–Yang (2016).
+**Consumption–saving** — with a borrowing constraint: Achdou–Han–Lasry–Lions–Moll (one-asset, two-income-state, and two-asset variants) and Wang–Wang–Yang (2016).
 
-**Finance** — habit (Campbell–Cochrane 1999), long-run risk (Bansal–Yaron 2004), disaster risk (Wachter 2013), finite-horizon arbitrage (Tuckman–Vila 1992), heterogeneous-agent and intermediary asset pricing (He–Krishnamurthy 2013, Brunnermeier–Sannikov 2013, Gârleanu–Panageas 2015, Di Tella 2017, Haddad, Gomez), optimal default (Leland 1994), and investment with a financing constraint (Bolton–Chen–Wang 2009).
+**Asset pricing** — habit (Campbell–Cochrane 1999), long-run risk (Bansal–Yaron 2004), endogenous volatility (Haddad), disaster risk (Wachter 2013), finite-horizon arbitrage (Tuckman–Vila 1992), and heterogeneous-agent / intermediary asset pricing (Gârleanu–Panageas 2015, He–Krishnamurthy 2013, Brunnermeier–Sannikov 2013, Di Tella 2017, Gomez).
+
+**Corporate finance** — optimal default (Leland 1994) and investment with a financing constraint (Bolton–Chen–Wang 2009).
 
 ## Numerical Details
 

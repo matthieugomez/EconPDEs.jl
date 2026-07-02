@@ -16,16 +16,37 @@
 # threshold ``\delta^*``.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Plots
 
 Base.@kwdef struct LelandModel
-    r::Float64 = 0.02
-    μ::Float64 = 0.0
-    σ::Float64 = 0.1
+    r::Float64 = 0.02    # risk-free rate
+    μ::Float64 = 0.0     # drift of cash flow (EBIT growth)
+    σ::Float64 = 0.1     # volatility of cash flow
     C::Float64 = 0.05    # coupon rate
     τ::Float64 = 0.2     # tax rate
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the state variable (`δ`, the cash flow); the
+# guess is a `NamedTuple` whose key is the unknown function (`E`, equity value), holding one
+# starting value at each grid point. These names reappear inside the equation below — e.g.
+# `Eδ_up` will be the forward finite difference of `E` in `δ`. We start the guess from the value
+# of the cash-flow claim net of the after-tax coupon, floored at zero.
+
+m = LelandModel()
+stategrid = (; δ = range(0, 0.2, step = 0.005))
+yend = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
 
 function (m::LelandModel)(state::NamedTuple, u::NamedTuple)
     (; r, μ, σ, C, τ) = m
@@ -38,15 +59,10 @@ function (m::LelandModel)(state::NamedTuple, u::NamedTuple)
     return (; Et)
 end
 
-# ## Solving it
-#
 # The stopping (default) region is imposed with the lower bound `y̲ = 0`: equity can never be
-# worth less than zero. We also pin the slope at the top boundary to that of a debt-free
-# claim, ``1/(r-\mu)``.
+# worth less than zero. We also pin the slope at the top boundary to that of a debt-free claim,
+# ``1/(r-\mu)``. With these in hand, `pdesolve` solves the variational inequality:
 
-m = LelandModel()
-stategrid = (; δ = range(0, 0.2, step = 0.005))
-yend = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
 y̲ = zeros(length(stategrid[:δ]))
 bc = (; Eδ = (0.0, 1 / (m.r - m.μ)))
 result = pdesolve(m, stategrid, yend; y̲ = y̲, bc = bc, reformulation = :smooth)

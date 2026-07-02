@@ -12,17 +12,29 @@
 # ```
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Distributions, Plots
 
 Base.@kwdef struct TuckmanVilaModel
-    c::Float64 = 0.06
-    r::Float64 = 0.09
-    ρ::Float64 = 5.42
-    σ::Float64 = 26.72
-    a::Float64 = 26.72
-    T::Float64 = 100
+    c::Float64 = 0.06     # coupon rate of the bond
+    r::Float64 = 0.09     # risk-free rate
+    ρ::Float64 = 5.42     # mean-reversion speed of the state z
+    σ::Float64 = 26.72    # volatility of the state z
+    a::Float64 = 26.72    # position (holding-cost) scaling parameter
+    T::Float64 = 100      # horizon (terminal date)
 end
+
+# ## The state space
+#
+# We build the grid, the initial guess, and the time grid first, because they fix the names used
+# everywhere else. The grid is a `NamedTuple` whose key is the state variable (`z`); the guess is
+# a `NamedTuple` whose key is the unknown function (`F`), which here doubles as the terminal
+# condition at `τs[end]`. These names reappear inside the equation below — e.g. `Fz_up` is the
+# forward finite difference of `F` in `z`. The grid spans the stationary range of ``z`` (a
+# mean-reverting Gaussian). Because the problem is finite-horizon, we also build a time grid `τs`
+# over ``[0, T]``, which `pdesolve` will march backward along.
 
 function initialize_stategrid(m::TuckmanVilaModel; zn = 200)
     d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
@@ -33,6 +45,18 @@ function initialize_y(m::TuckmanVilaModel, stategrid)
     zn = length(stategrid[:z])
     (; F = zeros(zn))
 end
+
+m = TuckmanVilaModel()
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
+τs = range(0, m.T, length = 10)
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown. Because
+# the problem is time-dependent, it also takes a third argument, the time `τ`.
 
 function (m::TuckmanVilaModel)(state::NamedTuple, u::NamedTuple, τ::Number)
     (; c, r, ρ, σ, a, T) = m
@@ -57,14 +81,9 @@ function (m::TuckmanVilaModel)(state::NamedTuple, u::NamedTuple, τ::Number)
     return (; Ft)
 end
 
-# ## Solving it
-#
-# `yend` is the terminal value at `τs[end]`; `pdesolve` marches backward over `τs`.
+# `pdesolve` takes the time grid `τs` as a fourth argument and marches backward from the terminal
+# condition:
 
-m = TuckmanVilaModel()
-stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
-τs = range(0, m.T, length = 10)
 result = pdesolve(m, stategrid, yend, τs)
 
 # ## The solution

@@ -28,22 +28,27 @@ The main function is `pdesolve`. It takes three objects:
 - a named state grid, such as `(; k = range(...))`;
 - a named initial guess, such as `(; v = [...])`.
 
-Here is a small linear equation on one state:
+Here is a small linear equation on one state, with a mean-reverting drift:
 
 ```math
-\rho v(x) = x + v_x(x).
+\rho v(x) = x + \mu(x) v_x(x),
+\qquad
+\mu(x) = -\kappa (x - 0.5).
 ```
 
 ```julia
 using EconPDEs
 
 const rho = 0.05
+const kappa = 0.2
 
 grid = (; x = range(0.0, 1.0, length = 50))
 guess = (; v = zeros(length(grid.x)))
 
 function equation(state, u)
-    vt = -(state.x + u.vx_up - rho * u.v)
+    mu = -kappa * (state.x - 0.5)
+    vx = mu >= 0 ? u.vx_up : u.vx_down
+    vt = -(state.x + mu * vx - rho * u.v)
     return (; vt)
 end
 
@@ -53,7 +58,10 @@ value = result.zero[:v]
 @assert result.residual_norm <= 1e-4
 ```
 
-The sign convention is: write the stationary equation as `0 = RHS - rho * v` and return `vt = -(RHS - rho * v)`. Full HJB examples, including policy choice and upwinding, are in the documentation.
+The drift is positive below `0.5` and negative above `0.5`, so the equation chooses the
+forward or backward derivative at each grid point. The sign convention is: write the
+stationary equation as `0 = RHS - rho * v` and return `vt = -(RHS - rho * v)`. Full HJB
+examples, including policy choice and endogenous upwinding, are in the documentation.
 
 ## Interface
 

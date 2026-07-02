@@ -53,7 +53,7 @@ makedocs(;
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
         edit_link = "main",
-        assets = ["assets/sidebar-scroll.js"],
+        assets = ["assets/sidebar.css", "assets/sidebar-scroll.js"],
     ),
     checkdocs = :none,
     pagesonly = true,

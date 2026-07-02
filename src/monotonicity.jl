@@ -21,7 +21,6 @@ function MonotonicityChecker(stategrid::StateGrid, @nospecialize(yend); tol = 1e
 end
 
 _run_monotonicity_check!(::Nothing, J, y) = nothing
-_run_monotonicity_check!(checker::Function, J, y) = checker(J, y)
 _run_monotonicity_check!(checker::MonotonicityChecker, J, y) = _check_monotonicity!(checker, J)
 
 _sparse_for_check(J::SparseMatrixCSC) = J

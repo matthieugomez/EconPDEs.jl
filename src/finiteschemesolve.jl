@@ -28,10 +28,10 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         # HJBVI bounds are mixed complementarity conditions, not box-constrained roots.
         if jac === nothing
             nlsolve_autodiff = autodiff == :finite ? :finiteforward : autodiff
-            result = mcpsolve(G_helper!, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff)
+            result = mcpsolve(G_helper!, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff, kwargs...)
         else
             df = OnceDifferentiable(G_helper!, jac, deepcopy(ypost), deepcopy(ypost), J0c)
-            result = mcpsolve(df, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale)
+            result = mcpsolve(df, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, kwargs...)
         end
         return result.zero, result.residual_norm
     else
@@ -75,11 +75,34 @@ residual into `ydot` and returns zero, using Newton's method with pseudo-transie
 continuation from the initial guess `y0`.
 
 `pdesolve` assembles `F!` (the finite-difference residual of the PDE) and calls this function,
-so most users should call `pdesolve` instead. It accepts the same solver keyword arguments —
-`Δ`, `iterations`, `method`, `maxdist`, `autodiff`, `y̲`, `ȳ`, … — and returns the tuple
-`(y, residual_norm)`.
+so most users should call `pdesolve` instead. It returns the tuple `(y, residual_norm)`.
+
+### Keyword arguments
+* `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves in a single Newton step.
+* `scale = 10.0`: growth factor for the time step. After a successful step that reduces the
+  residual, `Δ` is multiplied by `scale * (old residual / new residual)`; after a failed
+  inner solve, `Δ` is divided by 10.
+* `minΔ = 1e-9`, `maxΔ = Inf`: bounds on the time step. The solve stops when `Δ < minΔ`
+  (typically a sign that the scheme is non-monotone or the initial guess is poor).
+* `iterations = 100`: maximum number of pseudo-transient (outer) iterations.
+* `maxdist = sqrt(eps())`: convergence tolerance on the residual norm.
+* `inner_iterations = 10`, `innerdist = sqrt(eps())`, `inner_verbose = false`: Newton
+  iteration limit, tolerance, and verbosity for each implicit time step (the inner solve).
+* `method`: `:newton` (default) or `:trust_region`.
+* `autodiff`: `:forward` (default), `:finite`, or `:central`. When a sparsity pattern `J0`
+  is available, the Jacobian is computed by colored sparse finite differences
+  (`:forward`/`:finite` forward differences, `:central` central differences); forward-mode
+  AD is used only without a sparsity pattern.
+* `is_algebraic`: `Bool` per entry of `y0`, marking algebraic (no time-derivative) equations.
+* `J0 = nothing`: sparsity pattern of the Jacobian.
+* `y̲`, `ȳ`: lower/upper bounds. When any bound is finite, the problem is solved as a mixed
+  complementarity problem with `NLsolve.mcpsolve`, with `reformulation` (`:smooth`, the
+  default, or `:minmax`) and `autoscale = true` passed through to it.
+* `verbose = true`: print outer-iteration progress (`Iter`, `TimeStep`, `Residual`). A `NaN`
+  residual line means the inner Newton solve failed and the time step was reduced.
 """
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
+    method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     ypost = y0
     ydot = zero(y0)
     # check that does not return NAN or zero

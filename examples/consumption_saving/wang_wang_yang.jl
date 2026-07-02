@@ -23,7 +23,7 @@
 
 using EconPDEs, Plots
 
-Base.@kwdef mutable struct WangWangYangModel
+Base.@kwdef struct WangWangYangModel
     μ::Float64 = 0.015       # expected growth rate of labor income
     σ::Float64 = 0.1         # volatility of labor income
     r::Float64 = 0.035       # risk-free rate
@@ -88,7 +88,7 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
             pw = (c / ((r + ψ * (ρ - r)) * p))^(-1 / ψ)
         end
     end
-    ## At the top, I use the solution of the unconstrainted, i.e. pw = 1 (I could also do reflecting boundary but less elegant)
+    ## At the top, we use the solution of the unconstrained problem, i.e. pw = 1 (a reflecting boundary would also work but is less elegant).
     pt = - ((((r + ψ * (ρ - r)) * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p))
     return (; pt), (; c, μw)
 end

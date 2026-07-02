@@ -60,17 +60,23 @@ yend = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 # forward (`vk_up`) where the implied drift is positive, backward (`vk_down`) where it is
 # negative, and the consumption that sets the drift to zero at the steady state in between. A
 # second `NamedTuple` saves consumption `c` and the drift `μk` on the grid.
+#
+# The return value follows the package's sign convention: `vt = -(RHS - ρv)` is the time
+# derivative that makes the *time-dependent* equation ``\rho v = \text{RHS} + \partial_t v``
+# hold, and `pdesolve` integrates this false transient until it stops moving — with this
+# sign the iteration converges to the stationary solution; with the opposite sign it
+# diverges.
 
 function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     (; A, α, δ, ρ, γ) = m
     (; k) = state
     (; v, vk_up, vk_down) = u
-    c_up = vk_up >= 0 ? min(vk_up^(-1 / γ), A * k^α) : 10 * A * k^α
+    c_up = vk_up >= 0 ? min(vk_up^(-1 / γ), 10 * A * k^α) : 10 * A * k^α
     μk_up = A * k^α - δ * k - c_up
     if μk_up > 0
         c, vk, μk = c_up, vk_up, μk_up
     else
-        c_down = vk_down >= 0 ? min(vk_down^(-1 / γ), A * k^α) : 10 * A * k^α
+        c_down = vk_down >= 0 ? min(vk_down^(-1 / γ), 10 * A * k^α) : 10 * A * k^α
         μk_down = A * k^α - δ * k - c_down
         if μk_down < 0
             c, vk, μk = c_down, vk_down, μk_down

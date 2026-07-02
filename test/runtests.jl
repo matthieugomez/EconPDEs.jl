@@ -2,6 +2,159 @@ using Test
 using Logging
 using EconPDEs
 
+#========================================================================================
+Shared model: deterministic neoclassical growth (closed-form steady state to check).
+========================================================================================#
+
+const A = 0.5
+const α = 0.3
+const δ = 0.05
+const ρ = 0.05
+const γ = 2.0
+const kbar = (α * A / (ρ + δ))^(1 / (1 - α))
+
+growth_grid(n = 200) = (; k = range(0.1 * kbar, 5.0 * kbar, length = n))
+growth_guess(grid) = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in grid[:k]])
+
+function growth_hjb(state::NamedTuple, u::NamedTuple)
+    k = state.k
+    cmax = 10 * A * k^α
+    c_up = u.vk_up > 0 ? min(u.vk_up^(-1 / γ), cmax) : cmax
+    μ_up = A * k^α - δ * k - c_up
+    c_down = u.vk_down > 0 ? min(u.vk_down^(-1 / γ), cmax) : cmax
+    μ_down = A * k^α - δ * k - c_down
+    if μ_up > 0
+        c, vk, μk = c_up, u.vk_up, μ_up
+    elseif μ_down < 0
+        c, vk, μk = c_down, u.vk_down, μ_down
+    else
+        c = A * k^α - δ * k
+        vk, μk = c^(-γ), 0.0
+    end
+    vt = -(c^(1 - γ) / (1 - γ) + μk * vk - ρ * u.v)
+    return (; vt), (; c, μk)
+end
+
+@testset "Stationary solve (neoclassical growth)" begin
+    grid = growth_grid()
+    result = pdesolve(growth_hjb, grid, growth_guess(grid); verbose = false)
+    @test result.residual_norm <= 1e-6
+
+    v = result.zero[:v]
+    c = result.optional[:c]
+    μk = result.optional[:μk]
+    @test size(v) == size(grid.k)
+    @test size(c) == size(grid.k)
+    # value increasing and concave, consumption increasing
+    @test all(diff(v) .> 0)
+    @test all(diff(diff(v)) .< 1e-8)
+    @test all(diff(c) .> 0)
+    # drift crosses zero at the closed-form steady state
+    icross = findfirst(<(0), μk)
+    @test icross !== nothing
+    @test abs(grid.k[icross] - kbar) < 0.05 * kbar
+    # optional also contains the solved unknowns
+    @test result.optional[:v] == v
+
+    # legacy tuple destructuring still works
+    y, residual_norm, optional = result
+    @test y === result.zero
+    @test residual_norm === result.residual_norm
+
+    # compact show: names and sizes, not the arrays
+    str = sprint(show, result)
+    @test occursin("EconPDEResult", str)
+    @test occursin("v (200)", str)
+    @test length(str) < 500
+end
+
+@testset "OrderedDict inputs and partial bc" begin
+    grid = growth_grid(100)
+    result = pdesolve(growth_hjb, OrderedDict(:k => grid.k),
+                      OrderedDict(:v => growth_guess(grid).v); verbose = false)
+    @test result.residual_norm <= 1e-6
+
+    # bc may cover any subset of (unknown, state) pairs; here the full set for `vk`
+    result_bc = pdesolve(growth_hjb, grid, growth_guess(grid);
+                         bc = (; vk = (0.0, 0.0)), verbose = false)
+    @test result_bc.residual_norm <= 1e-6
+end
+
+@testset "Time-dependent solve" begin
+    grid = growth_grid(100)
+    guess = growth_guess(grid)
+    τs = range(0, 100, length = 10)
+
+    # two-argument function: same equation at each time
+    result = pdesolve(growth_hjb, grid, guess, τs; verbose = false)
+    @test length(result.zero) == length(τs)
+    @test result.zero[end][:v] == collect(guess.v)   # terminal condition
+    @test maximum(result.residual_norm[2:end]) <= 1e-6
+    @test size(result.optional[1][:c]) == size(grid.k)
+
+    # three-argument function: time-varying equation is detected and used
+    ts_seen = Float64[]
+    function hjb_t(state, u, t)
+        isempty(ts_seen) || last(ts_seen) == t || push!(ts_seen, t)
+        isempty(ts_seen) && push!(ts_seen, t)
+        growth_hjb(state, u)
+    end
+    result_t = pdesolve(hjb_t, grid, guess, τs; verbose = false)
+    @test maximum(result_t.residual_norm[2:end]) <= 1e-6
+    @test length(unique(ts_seen)) > 1
+end
+
+@testset "Input validation" begin
+    grid = growth_grid(50)
+    guess = growth_guess(grid)
+
+    # plain Dict rejected (arbitrary iteration order)
+    @test_throws ArgumentError pdesolve(growth_hjb, Dict(:k => grid.k), guess; verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, Dict(:v => guess.v); verbose = false)
+
+    # guess shape mismatch names the unknown
+    err = try pdesolve(growth_hjb, grid, (; v = zeros(3)); verbose = false); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("`v`", err.msg)
+
+    # PDE function must return `<unknown>t`
+    @test_throws ArgumentError pdesolve((s, u) -> (; wrong = 0.0), grid, guess; verbose = false)
+    # ... and must return a NamedTuple
+    @test_throws ArgumentError pdesolve((s, u) -> (0.0,), grid, guess; verbose = false)
+
+    # unknown bc entry
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; bc = (; vx = (0.0, 0.0)), verbose = false)
+
+    # invalid method, checked upfront
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; method = :linearization, verbose = false)
+
+    # is_algebraic must use the unknowns' names
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; is_algebraic = (; w = true), verbose = false)
+
+    # ambiguous generated names: states (k, a) with unknowns (v, vk) collide on vka_up
+    @test_throws ArgumentError pdesolve((s, u) -> (; vt = 0.0, vkt = 0.0),
+                                        (; k = 0:0.1:1, a = 0:0.1:1),
+                                        (; v = ones(11, 11), vk = ones(11, 11)); verbose = false)
+end
+
+@testset "Mixed grid vector containers" begin
+    grid = (; x = range(0.0, 1.0, length = 4),
+              z = collect(range(0.0, 1.0, length = 5)))
+    stategrid = EconPDEs.StateGrid(grid)
+    @test size(stategrid) == (4, 5)
+    @test stategrid[CartesianIndex(2, 3)] == (x = grid.x[2], z = grid.z[3])
+
+    result = pdesolve(grid, (; v = zeros(4, 5)); Δ = Inf, verbose = false) do state, u
+        vt = -(u.v - state.x - state.z)
+        (; vt)
+    end
+    @test result.residual_norm <= 1e-8
+    @test result.zero[:v] ≈ [x + z for x in grid.x, z in grid.z]
+
+    int_float_grid = (; x = 1:4, z = collect(range(0.0, 1.0, length = 5)))
+    @test EconPDEs.StateGrid(int_float_grid)[CartesianIndex(1, 1)] == (x = 1.0, z = 0.0)
+end
+
 @testset "Monotonicity diagnostics" begin
     grid = OrderedDict(:x => range(0.0, 1.0, length = 2))
     y0 = OrderedDict(:V => collect(range(1.0, 2.0, length = 2)))
@@ -24,7 +177,6 @@ using EconPDEs
     end
 
     @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
-    @test_throws ArgumentError pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, method = :linearization)
 end
 
 @testset "Bounded solve without sparse prototype" begin
@@ -57,6 +209,6 @@ end
     end
 end
 
-# The worked examples now live in examples/macro and examples/finance as Literate scripts.
-# They import Plots and are executed (and thus tested) by the documentation build
-# (see docs/make.jl), so they are no longer included here.
+# The worked examples live under examples/ as Literate scripts. They import Plots and are
+# executed (and thus verified) by the documentation build (see docs/make.jl), so they are
+# not run here.

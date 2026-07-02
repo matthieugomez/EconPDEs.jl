@@ -32,9 +32,27 @@ struct EconPDEResult{Z, R, O}
 	optional::O        # Optional terms returned in the third argument of the function passed to pdesolve
 end
 
+# Compact display: solution arrays can hold hundreds of thousands of entries,
+# so print names and sizes rather than the arrays themselves.
+_summarize_names(d) = join((string(k, " (", join(size(v), "×"), ")") for (k, v) in pairs(d)), ", ")
+
 function Base.show(io::IO, x::EconPDEResult)
-    println(io, "Residual_norm: ",  x.residual_norm)
-    println(io, "Zero: ", x.zero)
+    if x.zero isa AbstractVector && eltype(x.zero) <: AbstractDict
+        # time-dependent solve: one solution per time
+        println(io, "EconPDEResult (time-dependent, ", length(x.zero), " times)")
+        println(io, "  zero:          ", _summarize_names(first(x.zero)), " at each time")
+        if x.optional !== nothing
+            println(io, "  optional:      ", join(keys(first(x.optional)), ", "), " at each time")
+        end
+        print(io, "  residual_norm: ", maximum(x.residual_norm), " (max over times)")
+    else
+        println(io, "EconPDEResult")
+        println(io, "  zero:          ", _summarize_names(x.zero))
+        if x.optional !== nothing
+            println(io, "  optional:      ", join(keys(x.optional), ", "))
+        end
+        print(io, "  residual_norm: ", x.residual_norm)
+    end
 end
 
 Base.show(io::IO, m::MIME"text/plain", x::EconPDEResult) = show(io, x)
@@ -57,6 +75,7 @@ include("pdesolve.jl")
 ##
 ##############################################################################
 export OrderedDict,
+EconPDEResult,
 finiteschemesolve,
 pdesolve
 end

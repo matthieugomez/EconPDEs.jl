@@ -1,5 +1,5 @@
 """
-StrateGrid(x::NamedTuple)
+StateGrid(x::NamedTuple)
 
 Let x = (k1 = v1, k2 = v2, ...., kN = vN) be a NamedTuple of AbstractVectors for state space, 
 StateGrid(x) returns an AbstractArray M such that 
@@ -8,7 +8,12 @@ M[i1, i2..., iN] = (k1 = v1[i1], k2 = v2[i2], ...., kN = vN[iN]
 struct StateGrid{T, N, C <: NamedTuple} <: AbstractArray{T, N}
     x::C
 end
-function StateGrid(x::NamedTuple{Names, <: NTuple{N, <: AbstractVector{T}}}) where {Names, N, T}
+
+function StateGrid(x::NamedTuple{Names, V}) where {Names, V <: Tuple}
+    N = length(Names)
+    N > 0 || throw(ArgumentError("state grid must contain at least one state variable"))
+    all(v -> v isa AbstractVector, values(x)) || throw(ArgumentError("state grid entries must be vectors"))
+    T = promote_type(map(eltype, values(x))...)
     StateGrid{T, N, typeof(x)}(x)
 end
 function Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V}
@@ -49,8 +54,7 @@ function _bc_ref(N::Int, k::Int, d::Int, boundary)
     Expr(:ref, :bc, idx...)
 end
 
-@generated function differentiate(::Type{Tsolution}, grid::StateGrid{T1, Ndim, <: NamedTuple{Names}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, Ndim, Names, T}
-    solnames = Tsolution.parameters[1]
+@generated function differentiate(::Val{solnames}, grid::StateGrid{T1, Ndim, <: NamedTuple{Names}}, y::AbstractArray{T}, icar, bc) where {solnames, T1, Ndim, Names, T}
     statenames = Names
 
     # Preamble: extract indices and compute grid spacings

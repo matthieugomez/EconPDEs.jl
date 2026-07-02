@@ -13,7 +13,7 @@
 
 using EconPDEs, Plots
 
-Base.@kwdef mutable struct HeKrishnamurthy
+Base.@kwdef struct HeKrishnamurthy
   ## See Table 2—Parameters and Targets
   m::Float64 = 4  # intermediation multiplier
   λ::Float64 = 0.6 # Debt/assets of intermediary sector
@@ -52,8 +52,9 @@ yend = (; pS = ones(length(stategrid[:x])))
 # the upwind direction is chosen from the drift ``\mu_x``: forward `pSx_up` unless the drift turns
 # negative, then backward `pSx_down`.
 
-function (m::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
-  (; m, λ, g, σ, ρ, γ, l) = m
+function (model::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
+  ## `m` here is the intermediation multiplier (a model parameter), so the model instance is `model`.
+  (; m, λ, g, σ, ρ, γ, l) = model
   (; pS, pSx_up, pSx_down, pSxx) = u
   (; x) = state
   iter = 0
@@ -64,8 +65,6 @@ function (m::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
   p = (1 + l) / (x / pS + (1 - x) * ρ)
   px = - (1 + l) / (x / pS + (1 - x) * ρ)^2 * (1 / pS - ρ - x / pS^2 * pSx)
   pxx = - (1 + l) / (x / pS + (1 - x) * ρ)^2 * (- 1 / pS^2 * pSx - 1 / pS^2 * pSx - x / pS^2 * pSxx + 2 * x / pS^3 * pSx^2) + 2 * (1 + l) / (x / pS + (1 - x) * ρ)^3 * (1 / pS - ρ - x / pS^2 * pSx)^2
-  @assert x / pS + (1 - x) * ρ ≈ (1 + l) / p
-
 
   αI = 1 / (1 - λ * (1 - x))
   if x * (1 + m) * αI < 1
@@ -76,7 +75,6 @@ function (m::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
   σx = x * (αI - 1) * σ / (1 -  x * (αI - 1) * px / p)
   σpS = pSx / pS * σx
   σp = px / p * σx
-  @assert σx ≈ x * (αI - 1) * (σ + σp)
   σR = σ + σp
   κ = γ * (αI * σR - σpS)
   μx = x * (1 - x) * ((αI - (1 - αI * x) / (1-x)) * κ * σR - 1 / pS + ρ - (αI - (1 - αI * x) / (1 - x)) * σR^2 - l / ((1 - x) * p))

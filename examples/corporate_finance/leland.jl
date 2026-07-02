@@ -75,6 +75,7 @@ result = pdesolve(m, stategrid, yend; y̲ = y̲, bc = bc, reformulation = :smoot
 
 δs = stategrid[:δ]
 E = result.zero[:E]
+## Default boundary δ*: the first grid point where equity lifts off the E = 0 lower bound of the variational inequality.
 δstar = δs[findfirst(>(1e-8), E)]
 plot(δs, E; xlabel = "cash flow δ", ylabel = "equity value E(δ)", legend = false)
 vline!([δstar]; color = :red, linestyle = :dot)

@@ -32,6 +32,11 @@ Base.@kwdef struct GarleanuPanageasModel
     B2::Float64 = -30.29   # loading on second component of labor-income profile
     δ2::Float64 = 0.0611   # decay rate of second labor-income component
     ω::Float64 = 0.92      # labor share of aggregate output
+    function GarleanuPanageasModel(γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω)
+        ## Normalize the labor-income loadings once, at construction, so the newborn's human capital is one.
+        scale = δ / (δ + δ1) * B1 + δ / (δ + δ2) * B2
+        new(γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1 / scale, δ1, B2 / scale, δ2, ω)
+    end
 end
 
 # ## The state space
@@ -63,10 +68,6 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, u::NamedTuple)
     (; γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω) = m
     (; x) = state
     (; pA, pAx_up, pAx_down, pAxx, pB, pBx_up, pBx_down, pBxx, ϕ1, ϕ1x_up, ϕ1x_down, ϕ1xx, ϕ2, ϕ2x_up, ϕ2x_down, ϕ2xx) = u
-
-    scale = δ / (δ + δ1) * B1 + δ / (δ + δ2) * B2
-    B1 = B1 / scale
-    B2 = B2 / scale
 
     ## endogenous σx depends on the unknown derivatives, so pick the upwind direction from μx
     pAx, pBx, ϕ1x, ϕ2x = pAx_up, pBx_up, ϕ1x_up, ϕ2x_up

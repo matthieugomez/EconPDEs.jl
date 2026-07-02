@@ -105,4 +105,4 @@ result = pdesolve(m, stategrid, yend)
 # and the sector can absorb little risk.
 
 xs = stategrid[:x]
-plot(xs, result.optional[:κ]; xlabel = "specialists' wealth share x", ylabel = "price of risk κ", legend = false)
+plot(xs, result.saved[:κ]; xlabel = "specialists' wealth share x", ylabel = "price of risk κ", legend = false)

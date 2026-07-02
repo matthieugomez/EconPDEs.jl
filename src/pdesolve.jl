@@ -12,8 +12,8 @@ state grid of one, two, or three state variables.
     - `u` is a `NamedTuple` with each unknown function and its finite-difference derivatives
       at that point (e.g. `v`, `vk_up`, `vk_down`, `vkk`, …),
     - `out` is a `NamedTuple` with one time derivative per unknown (e.g. `(; vt)`).
-  `f` may also return a second `NamedTuple` of extra objects to save on the grid; these are
-  returned in `result.optional`.
+  `f` may also return a second `NamedTuple` of objects to save on the grid; these are
+  returned in `result.saved`.
 * `grid`: a `NamedTuple` (or `OrderedDict`) mapping each state variable name to an
   `AbstractVector` (its grid), e.g. `(; k = range(...))`.
 * `yend`: a `NamedTuple` (or `OrderedDict`) mapping each unknown name to an array of initial
@@ -51,7 +51,8 @@ state grid of one, two, or three state variables.
 * `monotonicity_max_warnings`: maximum number of monotonicity warnings to print. Defaults to 5.
 
 Returns an `EconPDEResult` with fields `zero` (the solved unknowns), `residual_norm`,
-and `optional` (the saved objects, together with the solved unknowns).
+and `saved` (the saved objects, together with the solved unknowns). `result.optional`
+is kept as a backward-compatible alias for `result.saved`.
 """
 function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     # `grid`, `yend`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a

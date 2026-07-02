@@ -26,7 +26,7 @@ switches between ``y_l`` and ``y_h`` as a two-state Poisson process. The model d
 the one from the [example page](examples/consumption_saving/consumption_saving_two_income.md);
 the only thing that matters here is that the equation returns the policy-implied asset
 drifts `μla` and `μha` as
-[optional outputs](getting_started.md#Exploring-the-solution), so that `pdesolve` saves
+[saved objects](getting_started.md#Exploring-the-solution), so that `pdesolve` saves
 them on the grid:
 
 ```@example infinitesimal_generators
@@ -97,8 +97,8 @@ result = pdesolve(m, stategrid, yend; verbose = false)
 @assert result.residual_norm <= 1e-6 # hide
 
 as = stategrid[:a]
-μla = result.optional[:μla]
-μha = result.optional[:μha]
+μla = result.saved[:μla]
+μha = result.saved[:μha]
 nothing # hide
 ```
 
@@ -151,8 +151,8 @@ Low-income households dissave toward the borrowing limit; high-income households
 Any moment of the stationary distribution is now a weighted sum:
 
 ```@example infinitesimal_generators
-cl = result.optional[:cl]
-ch = result.optional[:ch]
+cl = result.saved[:cl]
+ch = result.saved[:ch]
 mean_assets = sum(g .* as)
 share_borrowers = sum(g[as .< 0, :])
 aggregate_consumption = sum(g .* [cl ch])
@@ -189,7 +189,7 @@ The two agree to solver tolerance, not just to discretization error. This is aga
 the two packages share the upwind convention: at convergence, the discretized HJB solved by
 `pdesolve` is exactly ``\rho v = u(c) + \mathbb{T} v`` where ``\mathbb{T}`` is
 `generator(X)`. If the recovered `V` were far from `result.zero`, it would flag an
-inconsistency — for example a drift saved in `optional` that does not match the upwind
+inconsistency — for example a drift saved in `result.saved` that does not match the upwind
 branch actually used in the equation.
 
 ```@example infinitesimal_generators
@@ -261,6 +261,6 @@ nothing # hide
 
 This computes the same fixed point as the `pdesolve` version. The tradeoff is transparency
 for bookkeeping: you choose how to construct each derivative and write directly into the
-residual array, but you also lose the named derivative bundle, automatic optional outputs,
+residual array, but you also lose the named derivative bundle, automatic saving of outputs,
 multidimensional stencil assembly, and the sparse Jacobian pattern that `pdesolve`
 constructs for one-, two-, and three-state problems.

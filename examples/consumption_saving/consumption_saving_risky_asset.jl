@@ -202,11 +202,11 @@ iys = round.(Int, range(1, length(ys), length = 3))
 
 p1 = plot(xlabel = "wealth a", ylabel = "consumption c")
 for iy in iys
-    plot!(p1, as[idx], result.optional[:c][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p1, as[idx], result.saved[:c][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 p2 = plot(xlabel = "wealth a", ylabel = "saving μa")
 for iy in iys
-    plot!(p2, as[idx], result.optional[:μa][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p2, as[idx], result.saved[:μa][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))

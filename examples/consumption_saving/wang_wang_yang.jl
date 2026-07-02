@@ -104,8 +104,8 @@ result = pdesolve(m, stategrid, yend, bc = (; pw = (1.0, 1.0)))
 
 ws = stategrid[:w]
 idx = 1:div(length(ws), 3)          # left third of the grid, where the curvature is
-p1 = plot(ws[idx], result.optional[:c][idx]; xlabel = "wealth-income ratio w", ylabel = "consumption c", legend = false)
-p2 = plot(ws[idx], result.optional[:μw][idx]; xlabel = "wealth-income ratio w", ylabel = "saving μw", legend = false)
+p1 = plot(ws[idx], result.saved[:c][idx]; xlabel = "wealth-income ratio w", ylabel = "consumption c", legend = false)
+p2 = plot(ws[idx], result.saved[:μw][idx]; xlabel = "wealth-income ratio w", ylabel = "saving μw", legend = false)
 hline!(p2, [0.0]; color = :gray, linestyle = :dash)
 plot(p1, p2; layout = (1, 2), size = (800, 300))
 

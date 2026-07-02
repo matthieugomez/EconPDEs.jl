@@ -24,13 +24,23 @@ The value returned by `pdesolve`, with fields:
 * `zero`: the solved unknown functions (an `OrderedDict`, or a vector of them for a
   time-dependent problem).
 * `residual_norm`: the norm of the residual at the solution.
-* `optional`: the extra objects saved by the PDE function, together with the solved unknowns.
+* `saved`: objects saved by the PDE function, together with the solved unknowns.
+
+For backward compatibility, `result.optional` is an alias for `result.saved`.
 """
 struct EconPDEResult{Z, R, O}
 	zero::Z 			# solution
 	residual_norm::R   # norm of ydot for solution
-	optional::O        # Optional terms returned in the third argument of the function passed to pdesolve
+	saved::O           # Objects returned in the second NamedTuple of the PDE function
 end
+
+function Base.getproperty(x::EconPDEResult, name::Symbol)
+    name === :optional && return getfield(x, :saved)
+    return getfield(x, name)
+end
+
+Base.propertynames(x::EconPDEResult, private::Bool = false) =
+    private ? (:zero, :residual_norm, :saved, :optional) : (:zero, :residual_norm, :saved)
 
 # Compact display: solution arrays can hold hundreds of thousands of entries,
 # so print names and sizes rather than the arrays themselves.
@@ -41,15 +51,15 @@ function Base.show(io::IO, x::EconPDEResult)
         # time-dependent solve: one solution per time
         println(io, "EconPDEResult (time-dependent, ", length(x.zero), " times)")
         println(io, "  zero:          ", _summarize_names(first(x.zero)), " at each time")
-        if x.optional !== nothing
-            println(io, "  optional:      ", join(keys(first(x.optional)), ", "), " at each time")
+        if x.saved !== nothing
+            println(io, "  saved:         ", join(keys(first(x.saved)), ", "), " at each time")
         end
         print(io, "  residual_norm: ", maximum(x.residual_norm), " (max over times)")
     else
         println(io, "EconPDEResult")
         println(io, "  zero:          ", _summarize_names(x.zero))
-        if x.optional !== nothing
-            println(io, "  optional:      ", join(keys(x.optional), ", "))
+        if x.saved !== nothing
+            println(io, "  saved:         ", join(keys(x.saved), ", "))
         end
         print(io, "  residual_norm: ", x.residual_norm)
     end
@@ -63,7 +73,7 @@ function Base.iterate(x::EconPDEResult, state = 1)
 	elseif state == 2
 		return (x.residual_norm, 3)
 	elseif state == 3
-		return (x.optional, 4)
+		return (x.saved, 4)
 	end
 end
 

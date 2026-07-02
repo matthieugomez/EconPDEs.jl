@@ -83,7 +83,7 @@ guess = (; v = zeros(length(grid.a), length(grid.y)))
 
 Inside your equation, `state` is the current grid point and `u` contains the value and derivative stencils. If the unknown is `v` and the state is `k`, then `u.v` is the local value and `u.vk_up`, `u.vk_down`, and `u.vkk` are finite-difference derivatives.
 
-Return one time derivative per unknown, named by appending `t`: `(; vt)` for unknown `v`, or `(; vt, wt)` for unknowns `v` and `w`. Return a second `NamedTuple` to save policies, drifts, prices, or other objects on the grid.
+Return one time derivative per unknown, named by appending `t`: `(; vt)` for unknown `v`, or `(; vt, wt)` for unknowns `v` and `w`. Return a second `NamedTuple` to save policies, drifts, prices, or other objects on the grid; they are available as `result.saved`.
 
 ## Documentation
 

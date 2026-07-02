@@ -129,4 +129,4 @@ result = pdesolve(m, stategrid, yend)
 # ``x``.
 
 xs = stategrid[:x]
-plot(xs, result.optional[:σR]; xlabel = "entrepreneurs' consumption share x", ylabel = "return volatility σR", legend = false)
+plot(xs, result.saved[:σR]; xlabel = "entrepreneurs' consumption share x", ylabel = "return volatility σR", legend = false)

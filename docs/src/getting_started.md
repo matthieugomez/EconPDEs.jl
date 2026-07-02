@@ -114,7 +114,7 @@ function hjb(state::NamedTuple, u::NamedTuple)
 end
 
 result = pdesolve(hjb, stategrid, guess)
-consumption = result.optional[:c]     # same shape as the grid
+consumption = result.saved[:c]     # same shape as the grid
 ```
 
 Each saved object has the same shape as the state grid, so it plots directly against it.
@@ -123,8 +123,8 @@ where it stops.
 
 ```julia
 using Plots
-plot(stategrid[:k], result.optional[:c]; xlabel = "k", ylabel = "consumption")
-plot(stategrid[:k], result.optional[:μk]; xlabel = "k", ylabel = "capital drift")
+plot(stategrid[:k], result.saved[:c]; xlabel = "k", ylabel = "consumption")
+plot(stategrid[:k], result.saved[:μk]; xlabel = "k", ylabel = "capital drift")
 ```
 
 Saved drifts are also the bridge to stationary distributions. Once the HJB is solved, the
@@ -135,7 +135,7 @@ diffusion:
 using InfinitesimalGenerators
 
 kgrid = stategrid[:k]
-μk = result.optional[:μk]
+μk = result.saved[:μk]
 K = DiffusionProcess(kgrid, μk, zeros(length(kgrid)))
 stationary = stationary_distribution(K)
 ```
@@ -242,7 +242,7 @@ return (; vt), (; c, μa, r)
 ```
 
 Each object in the second `NamedTuple` is evaluated at every grid point and stored as an
-array with the same shape as the grid, available in `result.optional`.
+array with the same shape as the grid, available in `result.saved`.
 
 ### The result
 
@@ -251,10 +251,11 @@ array with the same shape as the grid, available in `result.optional`.
 - `zero`: the solved unknowns, indexed by name (`result.zero[:v]`);
 - `residual_norm`: the norm of the residual at the solution — check it is small before
   using the output;
-- `optional`: the saved objects, together with the solved unknowns for convenience.
+- `saved`: the saved objects, together with the solved unknowns for convenience.
 
 For a time-dependent problem, `zero` is instead a vector of solutions, one per time point
 (`result.zero[i][:v]`), and `residual_norm` a vector of residual norms.
+For older code, `result.optional` remains an alias for `result.saved`.
 
 ## Upwinding
 

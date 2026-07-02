@@ -120,6 +120,6 @@ result = pdesolve(m, stategrid, yend)
 # borne more willingly when the less risk-averse agents are wealthier.
 
 xs = stategrid[:x]
-p1 = plot(xs, result.optional[:κ]; xlabel = "consumption share of bold agents x", ylabel = "price of risk κ", legend = false)
-p2 = plot(xs, result.optional[:r]; xlabel = "consumption share of bold agents x", ylabel = "interest rate r", legend = false)
+p1 = plot(xs, result.saved[:κ]; xlabel = "consumption share of bold agents x", ylabel = "price of risk κ", legend = false)
+p2 = plot(xs, result.saved[:r]; xlabel = "consumption share of bold agents x", ylabel = "interest rate r", legend = false)
 plot(p1, p2; layout = (1, 2), size = (800, 300))

@@ -1,6 +1,6 @@
 [![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 [![Coverage Status](http://codecov.io/github/matthieugomez/EconPDEs.jl/coverage.svg?branch=main)](http://codecov.io/github/matthieugomez/EconPDEs.jl/?branch=main)
-[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://matthieugomez.github.io/EconPDEs.jl/dev)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://www.matthieugomez.com/EconPDEs.jl/dev/)
 
 # EconPDEs.jl
 
@@ -83,16 +83,16 @@ guess = (; v = zeros(length(grid.a), length(grid.y)))
 
 Inside your equation, `state` is the current grid point and `u` contains the value and derivative stencils. If the unknown is `v` and the state is `k`, then `u.v` is the local value and `u.vk_up`, `u.vk_down`, and `u.vkk` are finite-difference derivatives.
 
-Return one time derivative per unknown, named by appending `t`: `(; vt)` for unknown `v`, or `(; vt, wt)` for unknowns `v` and `w`. Return a second `NamedTuple` to save policies, drifts, prices, or other objects on the grid.
+Return one time derivative per unknown, named by appending `t`: `(; vt)` for unknown `v`, or `(; vt, wt)` for unknowns `v` and `w`. Return a second `NamedTuple` to save policies, drifts, prices, or other objects on the grid; they are available as `result.saved`.
 
 ## Documentation
 
 The manual gives the details:
 
-- [Getting started](https://matthieugomez.github.io/EconPDEs.jl/dev/getting_started/)
-- [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/)
-- [Why EconPDEs](https://matthieugomez.github.io/EconPDEs.jl/dev/design/)
-- [InfinitesimalGenerators](https://matthieugomez.github.io/EconPDEs.jl/dev/infinitesimal_generators/)
+- [Getting started](https://www.matthieugomez.com/EconPDEs.jl/dev/getting_started/)
+- [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/)
+- [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/design/)
+- [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/) — using the companion package [InfinitesimalGenerators.jl](https://github.com/matthieugomez/InfinitesimalGenerators.jl) for stationary distributions and expectations after solving
 
 The documentation also includes a gallery of runnable examples:
 
@@ -105,7 +105,7 @@ The source scripts live in [`examples/`](examples).
 ## Numerical Details
 
 For the finite-difference discretization and the pseudo-transient Newton scheme behind
-`pdesolve`, see [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
+`pdesolve`, see [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
 
 ## Citation
 

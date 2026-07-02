@@ -105,8 +105,8 @@ plot(ks, result.zero[:v]; xlabel = "capital k", ylabel = "value v(k)", legend = 
 # below the steady state and negative above it, crossing zero exactly at ``\bar k`` — the
 # saddle-path-stable steady state the economy is drawn toward.
 
-p1 = plot(ks, result.optional[:c]; xlabel = "capital k", ylabel = "consumption c(k)", legend = false)
-p2 = plot(ks, result.optional[:μk]; xlabel = "capital k", ylabel = "capital drift μk", legend = false)
+p1 = plot(ks, result.saved[:c]; xlabel = "capital k", ylabel = "consumption c(k)", legend = false)
+p2 = plot(ks, result.saved[:μk]; xlabel = "capital k", ylabel = "capital drift μk", legend = false)
 hline!(p2, [0.0]; color = :gray, linestyle = :dash)
 vline!(p2, [k̄]; color = :red, linestyle = :dot)
 plot(p1, p2; layout = (1, 2), size = (800, 300))

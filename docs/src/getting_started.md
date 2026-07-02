@@ -85,20 +85,9 @@ end
 ```
 
 The function returns one *time derivative* per unknown, named `Symbol(unknown, :t)` — here
-`vt`. The sign convention matters:
-
-!!! note "Why `vt = -(...)`?"
-    `pdesolve` treats the stationary equation as the long-run limit of the time-dependent
-    equation ``\partial_t v = \text{vt}`` and integrates this *false transient* until it
-    stops moving. For an HJB written as
-    ``\rho v = u(c) + v'(k)\mu_k``, the time-dependent version is the backward equation
-    ``\rho v = u(c) + v'(k)\mu_k + \partial_t v``, so the PDE function must return
-    ``\text{vt} = -\left(u(c) + v'(k)\mu_k - \rho v\right)``.
-    With this sign, the false transient is stable — each pseudo-time step is a contraction
-    and the iteration converges to the stationary solution. Flip the sign and the iteration
-    runs *away* from the solution: if a model diverges immediately, this sign is the first
-    thing to check. See [Solving models](solving.md#Solver-and-troubleshooting) for how
-    the pseudo-transient scheme works.
+`vt`. For a stationary equation written as `0 = RHS - ρv`, return the negative residual:
+`vt = -(RHS - ρv)`. The full sign convention is explained
+[below](#The-return-value:-one-time-derivative-per-unknown).
 
 ### Solving
 
@@ -111,10 +100,11 @@ result.residual_norm       # should be ≈ 0
 `pdesolve` returns an [`EconPDEResult`](api.md) with the solved unknowns in `result.zero`,
 indexed by name.
 
-## Saving policies and other outputs
+## Exploring the solution
 
-Objects computed inside the PDE function — the optimal policy, a drift, an interest rate —
-can be stored on the grid by returning a *second* `NamedTuple`:
+`result.zero` holds the solved unknowns. Objects computed inside the PDE function — the
+optimal policy, a drift, an interest rate — can also be stored on the grid by returning a
+*second* `NamedTuple`:
 
 ```julia
 function hjb(state::NamedTuple, u::NamedTuple)
@@ -124,15 +114,36 @@ function hjb(state::NamedTuple, u::NamedTuple)
 end
 
 result = pdesolve(hjb, stategrid, guess)
-consumption = result.optional[:c]     # same shape as the grid
+consumption = result.saved[:c]     # same shape as the grid
 ```
 
-Each saved object has the same shape as the state grid, so it plots directly against it:
+Each saved object has the same shape as the state grid, so it plots directly against it.
+The saved drift is often the most useful diagnostic: it shows where the state moves and
+where it stops.
 
 ```julia
 using Plots
-plot(stategrid[:k], result.optional[:c]; xlabel = "k", ylabel = "consumption")
+plot(stategrid[:k], result.saved[:c]; xlabel = "k", ylabel = "consumption")
+plot(stategrid[:k], result.saved[:μk]; xlabel = "k", ylabel = "capital drift")
 ```
+
+Saved drifts are also the bridge to stationary distributions. Once the HJB is solved, the
+policy-implied law of motion is known. For a one-state model with drift `μk` and no
+diffusion:
+
+```julia
+using InfinitesimalGenerators
+
+kgrid = stategrid[:k]
+μk = result.saved[:μk]
+K = DiffusionProcess(kgrid, μk, zeros(length(kgrid)))
+stationary = stationary_distribution(K)
+```
+
+In stochastic models, pass the solved volatility as the third argument to
+`DiffusionProcess`. With discrete states, build one process per state and combine them with
+`SwitchingProcess`; see [InfinitesimalGenerators](infinitesimal_generators.md) for a full
+consumption-saving example.
 
 ## Model conventions
 
@@ -231,7 +242,7 @@ return (; vt), (; c, μa, r)
 ```
 
 Each object in the second `NamedTuple` is evaluated at every grid point and stored as an
-array with the same shape as the grid, available in `result.optional`.
+array with the same shape as the grid, available in `result.saved`.
 
 ### The result
 
@@ -240,10 +251,11 @@ array with the same shape as the grid, available in `result.optional`.
 - `zero`: the solved unknowns, indexed by name (`result.zero[:v]`);
 - `residual_norm`: the norm of the residual at the solution — check it is small before
   using the output;
-- `optional`: the saved objects, together with the solved unknowns for convenience.
+- `saved`: the saved objects, together with the solved unknowns for convenience.
 
 For a time-dependent problem, `zero` is instead a vector of solutions, one per time point
 (`result.zero[i][:v]`), and `residual_norm` a vector of residual norms.
+For older code, `result.optional` remains an alias for `result.saved`.
 
 ## Upwinding
 
@@ -267,6 +279,13 @@ not subtle: oscillating iterates, a residual that stalls, or a pseudo-time step 
 collapses (see [Solving models](solving.md#Solver-and-troubleshooting)). Central
 differences for the *second* derivative are always fine (their weights are automatically
 positive), which is why `vkk` comes in only one flavor.
+
+Monotonicity also has a probabilistic reading: a monotone scheme is exactly one whose
+discretized operator is a valid Markov generator, with non-negative jump rates to
+neighboring grid points. That is the condition under which
+[InfinitesimalGenerators.jl](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/univariate/)
+turns the same discretization into a Markov chain — and why an upwinded solution hands off
+exactly to its [distributions and expectations](infinitesimal_generators.md).
 
 ### Pattern 1: exogenous drift
 

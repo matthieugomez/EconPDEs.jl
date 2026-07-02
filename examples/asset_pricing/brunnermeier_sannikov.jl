@@ -175,4 +175,4 @@ result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, yend; autodif
 # constraint slackens.
 
 xs = stategrid[:x]
-plot(xs, result.optional[:q]; xlabel = "experts' wealth share x", ylabel = "capital price q", legend = false)
+plot(xs, result.saved[:q]; xlabel = "experts' wealth share x", ylabel = "capital price q", legend = false)

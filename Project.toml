@@ -1,6 +1,6 @@
 name = "EconPDEs"
 uuid = "a3315474-fad9-5060-8696-cee5f38a87b7"
-version = "1.5.0"
+version = "1.6.0"
 
 [deps]
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"

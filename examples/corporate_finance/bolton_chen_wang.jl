@@ -84,7 +84,7 @@ result = pdesolve(m, stategrid, yend; bc = (; vw = (1.5, 1.0)))
 
 function f(m, x, stategrid, y)
   result = pdesolve(m, stategrid, y; bc = (; vw = (x[1], x[2])), verbose = false)
-  v, vw, w = result.optional[:v], result.optional[:vw], result.optional[:w]
+  v, vw, w = result.saved[:v], result.saved[:vw], result.saved[:w]
   out = zeros(2)
   mi = argmin(abs.(1 + m.γ .- vw))
   out[1] =  v[mi] - m.ϕ - (1 + m.γ) * w[mi] - v[1]
@@ -106,8 +106,8 @@ result = pdesolve(m, stategrid, yend; bc = (; vw = (newsol.zero[1], newsol.zero[
 # panels use the solution at the boundary slopes pinned down by `NLsolve`.
 
 ws = stategrid[:w]
-v = result.optional[:v]
-vw = result.optional[:vw]
+v = result.saved[:v]
+vw = result.saved[:vw]
 i = (v ./ vw .- ws .- 1) ./ m.θ
 p1 = plot(ws, v; xlabel = "cash–capital ratio w", ylabel = "firm value v(w)", legend = false)
 p2 = plot(ws, i; xlabel = "cash–capital ratio w", ylabel = "investment rate i(w)", legend = false)

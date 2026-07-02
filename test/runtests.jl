@@ -41,8 +41,8 @@ end
     @test result.residual_norm <= 1e-6
 
     v = result.zero[:v]
-    c = result.optional[:c]
-    μk = result.optional[:μk]
+    c = result.saved[:c]
+    μk = result.saved[:μk]
     @test size(v) == size(grid.k)
     @test size(c) == size(grid.k)
     # value increasing and concave, consumption increasing
@@ -53,13 +53,17 @@ end
     icross = findfirst(<(0), μk)
     @test icross !== nothing
     @test abs(grid.k[icross] - kbar) < 0.05 * kbar
-    # optional also contains the solved unknowns
-    @test result.optional[:v] == v
+    # saved also contains the solved unknowns
+    @test result.saved[:v] == v
+    @test result.optional === result.saved
+    @test :saved in propertynames(result)
+    @test :optional in propertynames(result, true)
 
     # legacy tuple destructuring still works
-    y, residual_norm, optional = result
+    y, residual_norm, saved = result
     @test y === result.zero
     @test residual_norm === result.residual_norm
+    @test saved === result.saved
 
     # compact show: names and sizes, not the arrays
     str = sprint(show, result)
@@ -90,7 +94,8 @@ end
     @test length(result.zero) == length(τs)
     @test result.zero[end][:v] == collect(guess.v)   # terminal condition
     @test maximum(result.residual_norm[2:end]) <= 1e-6
-    @test size(result.optional[1][:c]) == size(grid.k)
+    @test size(result.saved[1][:c]) == size(grid.k)
+    @test result.optional === result.saved
 
     # three-argument function: time-varying equation is detected and used
     ts_seen = Float64[]

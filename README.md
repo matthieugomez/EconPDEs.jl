@@ -104,7 +104,8 @@ The source scripts live in [`examples/`](examples).
 
 ## Numerical Details
 
-For the finite-difference discretization and the backward implicit time-stepping scheme behind `pdesolve`, see [`examples/details.pdf`](examples/details.pdf) ([LaTeX source](examples/details.tex)).
+For the finite-difference discretization and the pseudo-transient Newton scheme behind
+`pdesolve`, see [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
 
 ## Citation
 

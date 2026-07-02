@@ -36,6 +36,15 @@ Here is a small linear equation on one state, with a mean-reverting drift:
 \mu(x) = -\kappa (x - 0.5).
 ```
 
+`pdesolve` finds the stationary solution by embedding the equation in a time-dependent
+problem and driving `v_t` to zero. For this example, the stationary residual is
+
+```math
+x + \mu(x) v_x(x) - \rho v(x),
+```
+
+so the PDE function returns its negative:
+
 ```julia
 using EconPDEs
 
@@ -59,9 +68,8 @@ value = result.zero[:v]
 ```
 
 The drift is positive below `0.5` and negative above `0.5`, so the equation chooses the
-forward or backward derivative at each grid point. The sign convention is: write the
-stationary equation as `0 = RHS - rho * v` and return `vt = -(RHS - rho * v)`. Full HJB
-examples, including policy choice and endogenous upwinding, are in the documentation.
+forward or backward derivative at each grid point. Full HJB examples, including policy
+choice and endogenous upwinding, are in the documentation.
 
 ## Interface
 

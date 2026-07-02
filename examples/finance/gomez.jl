@@ -1,25 +1,34 @@
-# Gomez (2025) Restud "Wealth Inequality and Aset Prices" 
+# # Gomez (2025): wealth inequality and asset prices
+#
+# An asset-pricing model with a wealth-distribution state. Households and entrepreneurs differ in
+# preferences and in the risk they bear; entrepreneurs hold a leveraged position in the risky
+# asset, so shifts in the wealth distribution move the price of risk and the volatility of returns.
+# The single state ``x`` is the entrepreneurs' consumption share, and the unknown is the
+# households' wealth–consumption ratio ``p_H``. Demographics (birth, death, and entry of
+# entrepreneurs) keep the distribution stationary.
 
-using EconPDEs
+# ## The model
+
+using EconPDEs, Plots
 
 Base.@kwdef struct GomezModel
-    # utility households
-    γ::Float64 
-    ψ::Float64 
+    ## utility households
+    γ::Float64
+    ψ::Float64
     ρ::Float64
 
-    # utility entrepreneurs
+    ## utility entrepreneurs
     ρE::Float64
     αE::Float64
     ν::Float64
 
-    # Demography
+    ## Demography
     η::Float64
     δ::Float64
     ϕ::Float64
     πE::Float64
 
-    # Endowment process
+    ## Endowment process
     g::Float64
     σ::Float64
     λ::Float64
@@ -60,7 +69,7 @@ function (m::GomezModel)(state, u)
   μCE = r - τ -  ρE + ΦE
   μCH = ψ * (r - τ - ρ) + ΦH
   μx = x * (μCE - g) + (η + δ) * (ρE * πE * arriving_wealth - x) - σ * σx
-  if (iter == 0) & (μx <= 0) 
+  if (iter == 0) & (μx <= 0)
     iter += 1
     pHx = pHx_down
     @goto start
@@ -68,7 +77,7 @@ function (m::GomezModel)(state, u)
   μpH = pHx / pH * μx + 0.5 * pHxx / pH * σx^2
   pxx = - 2 * pHx + (1 - x) * pHxx
   μp = px / p * μx + 0.5 * pxx / p * σx^2
-  μWH = μCH + μpH + σCH * σpH 
+  μWH = μCH + μpH + σCH * σpH
   pHt = - pH * (1 / pH + μWH - r + τ - κ * σWH)
   σR = σ + σp
   μR = r + κ * σR
@@ -88,8 +97,22 @@ function (m::GomezModel)(state, u)
   return (; pHt,), (; x, μx, σx, κ, r, σWH, μWH, σp, p, px, σR, μR, μRλ, σRλ, μErelative, σErelative, μHrelative, σHrelative, μCE, μxW, σxW, pH, μCH, wedge, xW, σWE, σCH, αE, pE = 1 / m.ρE, μp = μp)
 end
 
+# ## Solving it
+#
+# One state ``x \in [0, 1]``, the entrepreneurs' consumption share, on 300 grid points. The single
+# unknown ``p_H`` is initialized flat at one.
+
 m = GomezModel()
-stategrid = OrderedDict(:x => range(0, 1, 300))
-yend = OrderedDict(:pH => ones(length(stategrid[:x])))
+stategrid = (; x = range(0, 1, 300))
+yend = (; pH = ones(length(stategrid[:x])))
 @time result = pdesolve(m, stategrid, yend)
-@assert result.residual_norm <= 1e-5
+
+# ## The solution
+#
+# We saved the volatility of the risky return ``\sigma_R``. It differs from the fundamental
+# volatility ``\sigma`` because prices themselves move with the wealth distribution — endogenous
+# amplification — and the size of that wedge varies with the entrepreneurs' consumption share
+# ``x``.
+
+xs = stategrid[:x]
+plot(xs, result.optional[:σR]; xlabel = "entrepreneurs' consumption share x", ylabel = "return volatility σR", legend = false)

@@ -17,6 +17,15 @@ include("finiteschemesolve.jl")
 include("utils.jl")
 include("monotonicity.jl")
 
+"""
+    EconPDEResult
+
+The value returned by `pdesolve`, with fields:
+* `zero`: the solved unknown functions (an `OrderedDict`, or a vector of them for a
+  time-dependent problem).
+* `residual_norm`: the norm of the residual at the solution.
+* `optional`: the extra objects saved by the PDE function, together with the solved unknowns.
+"""
 struct EconPDEResult{Z, R, O}
 	zero::Z 			# solution
 	residual_norm::R   # norm of ydot for solution

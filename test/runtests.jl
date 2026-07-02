@@ -57,23 +57,6 @@ end
     end
 end
 
-for x in (:CampbellCochrane, :Wachter, :BansalYaron, :GarleanuPanageas, :DiTella, :Haddad, :TuckmanVila, :HeKrishnamurthy, :BrunnermeirSannikov)
-	@testset "$x" begin include("../examples/AssetPricing/$(x).jl") end
-end
-
-for x in (:AchdouHanLasryLionsMoll_Diffusion, :AchdouHanLasryLionsMoll_DiffusionTwoAssets, :AchdouHanLasryLionsMoll_TwoStates, :WangWangYang)
-	@testset "$x" begin include("../examples/ConsumptionProblem/$(x).jl") end
-end
-
-
-for x in (:BoltonChenWang, )
-	@testset "$x" begin include("../examples/InvestmentProblem/$(x).jl") end
-end
-
-for x in (:NeoclassicalGrowthModel, )
-	@testset "$x" begin include("../examples/GrowthModel/$(x).jl") end
-end
-
-for x in (:Leland, )
-	@testset "$x" begin include("../examples/OptimalStoppingTime/$(x).jl") end
-end
+# The worked examples now live in examples/macro and examples/finance as Literate scripts.
+# They import Plots and are executed (and thus tested) by the documentation build
+# (see docs/make.jl), so they are no longer included here.

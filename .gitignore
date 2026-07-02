@@ -4,3 +4,17 @@ other
 Manifest.toml
 examples/AssetPricing/constraint.jl
 
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+
+# Documenter output and Literate-generated pages
+docs/build/
+docs/src/examples/
+

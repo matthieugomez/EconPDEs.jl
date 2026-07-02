@@ -1,29 +1,59 @@
 """
-    pdesolve(f, grid, yend [, τs]; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, check_monotonicity = false)
-    
-    solves a system of pdes with an arbitrary number of functions and up to state variable. Denote  F the number of functions to solve for and S the number of state variables.
+    pdesolve(f, grid, yend [, τs]; kwargs...)
 
-    ### Arguments
-    *  f: is a function (state, u) -> out
-    where:
-       state is a NamedTuple of length S with the current state-grid values
-       u is a NamedTuple with the unknown functions and their finite-difference derivatives at that state
-       out is a NamedTuple of length F with the time derivatives of the unknown functions at that state
-    * grid is an OrderedDict that, for each state, associates an AbstractVector (for the grid)
-    * yend is an OrderedDict that gives the terminal value of each function in the system of PDEs
-    * τs (optional) is a time grid on which to solve the pde on. In this case, yend corresponds to the solution at time τs[end]
+Solve a system of nonlinear ODEs/PDEs — typically Hamilton–Jacobi–Bellman equations —
+by finite differences. Handles an arbitrary number of coupled unknown functions on a
+state grid of one, two, or three state variables.
 
-    ### Keyword arguments
-    * check_monotonicity: if true, warn when the assembled residual Jacobian has same-variable spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false.
-    * monotonicity_tol: tolerance for the monotonicity check. Defaults to 1e-6.
-    * monotonicity_max_warnings: maximum number of monotonicity warnings to print. Defaults to 5.
+### Positional arguments
+* `f`: the local equation, a function `(state, u) -> out` (or `(state, u, t) -> out` for a
+  time-dependent equation), where
+    - `state` is a `NamedTuple` with the current grid point (one entry per state variable),
+    - `u` is a `NamedTuple` with each unknown function and its finite-difference derivatives
+      at that point (e.g. `v`, `vk_up`, `vk_down`, `vkk`, …),
+    - `out` is a `NamedTuple` with one time derivative per unknown (e.g. `(; vt)`).
+  `f` may also return a second `NamedTuple` of extra objects to save on the grid; these are
+  returned in `result.optional`.
+* `grid`: a `NamedTuple` (or `OrderedDict`) mapping each state variable name to an
+  `AbstractVector` (its grid), e.g. `(; k = range(...))`.
+* `yend`: a `NamedTuple` (or `OrderedDict`) mapping each unknown name to an array of initial
+  values with the same shape as the grid. For a time-dependent problem, it is the terminal
+  value at `τs[end]`.
+* `τs` (optional): an increasing time grid. The equation is then solved backward from
+  `τs[end]`, and `result.zero[i]` is the solution at time `τs[i]`.
+
+### Keyword arguments
+* `bc`: boundary derivatives, a `NamedTuple` (or `OrderedDict`) mapping each
+  `Symbol(unknown, state)` to a `(lower, upper)` tuple. Defaults to reflecting boundaries
+  (zero outward first derivative).
+* `is_algebraic`: a `NamedTuple` (or `OrderedDict`) of `Bool`s marking equations that are
+  algebraic (no time derivative) rather than PDEs. Defaults to all `false`.
+* `y̲`, `ȳ`: lower/upper bounds for HJB variational inequalities (optimal stopping), solved as a
+  mixed complementarity problem. Default to `-Inf`/`Inf` (unbounded).
+* `method`: `:newton` (default) or `:trust_region`.
+* `maxdist`: convergence tolerance on the residual. Defaults to `sqrt(eps())`.
+* `iterations`: maximum number of pseudo-transient iterations. Defaults to 100.
+* `Δ`: initial pseudo-transient time step. Defaults to `1.0`; pass `Δ = Inf` to solve in a
+  single Newton step (no continuation).
+* `autodiff`: `:forward` (default), `:finite`, or `:central`.
+* `verbose`: print convergence progress. Defaults to `true`.
+* `check_monotonicity`: if true, warn when the assembled residual Jacobian has same-variable
+  spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false.
+* `monotonicity_tol`: tolerance for the monotonicity check. Defaults to 1e-6.
+* `monotonicity_max_warnings`: maximum number of monotonicity warnings to print. Defaults to 5.
+
+Returns an `EconPDEResult` with fields `zero` (the solved unknowns), `residual_norm`,
+and `optional` (the saved objects, together with the solved unknowns).
 """
-function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = OrderedDict(k => false for k in keys(yend)), bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
-    stategrid = StateGrid(NamedTuple(grid))
+function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
+    # `grid`, `yend`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
+    # NamedTuple. Normalize to a NamedTuple so everything below runs on one uniform representation.
+    grid = _asnamedtuple(grid)
+    yend = _asnamedtuple(yend)
+    stategrid = StateGrid(grid)
     S = size(stategrid)
     all(size(v) == S for v in values(yend)) || throw(ArgumentError("The length of initial guess (e.g. terminal value) does not equal the length of the state space"))
-    all(keys(is_algebraic) .== keys(yend)) || throw(ArgumentError("the terminal guess yend and the is_algebric keyword argument must have the same names"))
-    is_algebraic = OrderedDict(first(p) => fill(last(p), S) for p in pairs(is_algebraic))
+    is_algebraic = _fill_is_algebraic(is_algebraic, yend, S)
     if τs isa AbstractVector
         issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
         ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(yend)) for t in τs]
@@ -85,6 +115,19 @@ end
 
 catlast(iter) = cat(iter...; dims = ndims(first(iter)) + 1)
 
+# Accept either an OrderedDict (or any symbol-keyed collection) or a NamedTuple.
+_asnamedtuple(x::NamedTuple) = x
+_asnamedtuple(x) = NamedTuple(x)
+
+# Expand the `is_algebraic` flags into a NamedTuple of arrays (one Bool per grid point),
+# with the same names and order as `yend`. Defaults to all-false when not provided.
+_fill_is_algebraic(::Nothing, yend, S) = map(_ -> fill(false, S), yend)
+function _fill_is_algebraic(is_algebraic, yend, S)
+    ia = _asnamedtuple(is_algebraic)
+    keys(ia) == keys(yend) || throw(ArgumentError("the terminal guess yend and the is_algebraic keyword argument must have the same names"))
+    map(v -> fill(v, S), ia)
+end
+
 _Array_bc(::Nothing, yend, grid) = zeros(size(first(values(yend)))..., length(yend))
 function _Array_bc(bc, yend, grid)
     keys_grid = collect(keys(grid))
@@ -109,7 +152,11 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
     i0 = first(eachindex(stategrid))
     derivatives = differentiate(Tsolution, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], derivatives)
-    if length(result) == 1
+    # Discriminate by type, not by length: a single-return model gives a NamedTuple
+    # of time derivatives whose first entry is a Number, while a two-return model gives
+    # (residual, optional) whose first entry is the residual NamedTuple. Using length
+    # here would misclassify any model with several unknowns (see hjb! for the same test).
+    if isa(result[1], Number)
         return nothing
     else
         return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(result[2]))

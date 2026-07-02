@@ -67,7 +67,18 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     end
 end
 
-# Solve for steady state
+"""
+    finiteschemesolve(F!, y0; kwargs...)
+
+Lower-level nonlinear solver behind `pdesolve`. Finds `y` such that `F!(ydot, y)` writes the
+residual into `ydot` and returns zero, using Newton's method with pseudo-transient
+continuation from the initial guess `y0`.
+
+`pdesolve` assembles `F!` (the finite-difference residual of the PDE) and calls this function,
+so most users should call `pdesolve` instead. It accepts the same solver keyword arguments —
+`Δ`, `iterations`, `method`, `maxdist`, `autodiff`, `y̲`, `ȳ`, … — and returns the tuple
+`(y, residual_norm)`.
+"""
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     ypost = y0
     ydot = zero(y0)

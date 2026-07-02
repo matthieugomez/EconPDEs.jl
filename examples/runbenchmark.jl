@@ -1,25 +1,22 @@
 using EconPDEs
 
+# The example scripts now import Plots for their figures, so this benchmark also needs Plots
+# available in the active environment.
+
 const EXAMPLES_DIR = joinpath(pkgdir(EconPDEs), "examples")
 
 # PDE with 1 state variable
-include(joinpath(EXAMPLES_DIR, "AssetPricing", "CampbellCochrane.jl"))
+include(joinpath(EXAMPLES_DIR, "finance", "campbell_cochrane.jl"))
 @time pdesolve(m, stategrid, yend)
-#   0.011112 seconds (286.45 k allocations: 12.268 MiB)
-
 
 # PDE with 2 state variables
-include(joinpath(EXAMPLES_DIR, "AssetPricing", "BansalYaron.jl"))
+include(joinpath(EXAMPLES_DIR, "finance", "bansal_yaron.jl"))
 @time pdesolve(m, stategrid, yend)
-# 0.081095 seconds (485.84 k allocations: 78.910 MiB, 11.41% gc time)
 
 # System of 4 PDEs with 1 state variable
-include(joinpath(EXAMPLES_DIR, "AssetPricing", "GarleanuPanageas.jl"))
+include(joinpath(EXAMPLES_DIR, "finance", "garleanu_panageas.jl"))
 @time pdesolve(m, stategrid, yend)
-# 0.047346 seconds (167.95 k allocations: 65.049 MiB, 12.90% gc time)
-
 
 # System of 3 PDEs with 2 state variables
-include(joinpath(EXAMPLES_DIR, "AssetPricing", "DiTella.jl"))
+include(joinpath(EXAMPLES_DIR, "finance", "di_tella.jl"))
 @time pdesolve(m, stategrid, yend)
-# 0.912719 seconds (2.55 M allocations: 1.303 GiB, 9.01% gc time)

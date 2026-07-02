@@ -1,5 +1,6 @@
 [![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 [![Coverage Status](http://codecov.io/github/matthieugomez/EconPDEs.jl/coverage.svg?branch=main)](http://codecov.io/github/matthieugomez/EconPDEs.jl/?branch=main)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://matthieugomez.github.io/EconPDEs.jl/dev)
 
 # EconPDEs.jl
 
@@ -41,11 +42,11 @@ const γ = 2.0
 # Declare the state grid: one state variable named `k`.
 # Steady-state capital satisfies α A k̄^(α - 1) = ρ + δ.
 k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
-stategrid = OrderedDict(:k => range(0.1 * k̄, 5.0 * k̄, length = 200))
+stategrid = (; k = range(0.1 * k̄, 5.0 * k̄, length = 200))
 
 # Declare the unknown value function: one function named `v`,
 # with one initial value at each point of the `k` grid.
-guess = OrderedDict(:v => [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
+guess = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 
 # `hjb` encodes the HJB equation at one grid point.
 # `u.vk_up` and `u.vk_down` are one-sided finite-difference derivatives.
@@ -100,6 +101,8 @@ Field names concatenate the unknown name, the state name or names, and an option
 
 With several unknowns, the same naming rule applies to each one. For example, if the unknowns are `v` and `w` on states `k` and `l`, then `u` contains fields such as `v`, `vk_up`, `vkl`, `w`, `wk_up`, and `wkl`. The argument name `u` is only a convention; the fields are what matter. The PDE function must return one time derivative per unknown, e.g. `(; vt, wt)`.
 
+The state grid and the initial guess are `NamedTuple`s keyed by the state names and the unknown names, e.g. `(; k = range(...))` and `(; v = [...])`. Use the `(; name = value)` form (an `OrderedDict` is also accepted). The solved unknowns come back in `result.zero`, indexed by name, e.g. `result.zero[:v]`.
+
 ## Saving Intermediate Outputs
 
 Sometimes you compute useful objects inside the PDE function: a selected first derivative, an optimal policy, a drift, an interest rate, or a market price of risk. To store these objects on the grid, return two `NamedTuple`s from the PDE function. The first one is the PDE residual as before. The second one contains the extra outputs to save:
@@ -133,6 +136,14 @@ capital_drift = result.optional[:μk]
 ```
 
 Each object in the second `NamedTuple` is evaluated at every state-grid point and stored as an array with the same shape as the grid. `result.zero` contains the solved unknowns. `result.optional` contains the saved outputs, and also includes the solved unknowns for convenience.
+
+Because each saved object has the same shape as the state grid, it plots directly against it:
+
+```julia
+using Plots
+plot(stategrid[:k], result.optional[:c];  xlabel = "k", ylabel = "consumption")
+plot(stategrid[:k], result.optional[:μk]; xlabel = "k", ylabel = "drift of k")
+```
 
 ## Time-Dependent Problems
 
@@ -179,7 +190,7 @@ equals the boundary-node value, so the first derivative is zero beyond the bound
 Use the `bc` keyword to impose a different boundary derivative:
 
 ```julia
-pdesolve(f, grid, guess; bc = OrderedDict(:vx => (0.0, 1.0)))
+pdesolve(f, grid, guess; bc = (; vx = (0.0, 1.0)))
 ```
 
 
@@ -229,27 +240,15 @@ This checks the effective neighbor weights in the fully assembled equation, afte
 
 ## Examples
 
-The [examples folder](https://github.com/matthieugomez/EconPDEs.jl/tree/master/examples) works through a wide range of models, grouped by type. Together they exercise the full range of what `pdesolve` handles — one to several state variables, single and coupled value functions, stationary and time-dependent HJBs, and reflecting, state-constraint, degenerate, and free (optimal-stopping) boundaries.
+The **[documentation](https://matthieugomez.github.io/EconPDEs.jl/dev)** works through a gallery of models — each one solves the model, plots the solution, and explains it economically. Together they exercise the full range of what `pdesolve` handles: one to several state variables, single and coupled value functions, stationary and time-dependent HJBs, and reflecting, state-constraint, degenerate, and free (optimal-stopping) boundaries. The runnable source scripts live in [`examples/macro`](examples/macro) and [`examples/finance`](examples/finance).
 
-**Asset pricing** ([examples/AssetPricing](examples/AssetPricing))
-- *Habit*: Campbell–Cochrane (1999), Wachter (2005)
-- *Long-run risk*: Bansal–Yaron (2004) — expected growth + stochastic variance
-- *Disaster risk*: Wachter (2013)
-- *Arbitrage with holding costs*: Tuckman–Vila (1992) — finite-horizon, time-dependent
-- *Heterogeneous agents*: He–Krishnamurthy (2013), Brunnermeier–Sannikov (2013), Gârleanu–Panageas (2015), Di Tella (2017), Haddad — endogenous volatility, occasionally-binding constraints, up to several coupled value functions
+**Macro** — deterministic neoclassical (Ramsey) growth, and consumption–saving with a borrowing constraint: Achdou–Han–Lasry–Lions–Moll (one-asset, two-asset, and two-income-state variants) and Wang–Wang–Yang (2016).
 
-**Consumption-saving with a borrowing constraint** ([examples/ConsumptionProblem](examples/ConsumptionProblem))
-- Achdou–Han–Lasry–Lions–Moll (2018) — diffusion, two-asset, and two-income-state variants
-- Wang–Wang–Yang (2016)
+**Finance** — habit (Campbell–Cochrane 1999), long-run risk (Bansal–Yaron 2004), disaster risk (Wachter 2013), finite-horizon arbitrage (Tuckman–Vila 1992), heterogeneous-agent and intermediary asset pricing (He–Krishnamurthy 2013, Brunnermeier–Sannikov 2013, Gârleanu–Panageas 2015, Di Tella 2017, Haddad, Gomez), optimal default (Leland 1994), and investment with a financing constraint (Bolton–Chen–Wang 2009).
 
-**Investment with a financing constraint** ([examples/InvestmentProblem](examples/InvestmentProblem))
-- Bolton–Chen–Wang (2009)
+## Numerical Details
 
-**Optimal stopping** ([examples/OptimalStoppingTime](examples/OptimalStoppingTime)) — free-boundary problems as HJB variational inequalities (value-matching + smooth-pasting)
-- Leland (1994) — endogenous default
-
-**Growth** ([examples/GrowthModel](examples/GrowthModel))
-- Deterministic neoclassical (Ramsey) growth, on a grid centered on its closed-form steady state
+For the finite-difference discretization and the backward implicit (pseudo-transient) time-stepping scheme behind `pdesolve`, see [`examples/details.pdf`](examples/details.pdf) ([LaTeX source](examples/details.tex)).
 
 ## Citation
 If you use EconPDEs.jl in your work, please cite it. You can use the "Cite this repository" button on the [GitHub page](https://github.com/matthieugomez/EconPDEs.jl) (generated from [`CITATION.cff`](CITATION.cff)), or the following BibTeX entry:

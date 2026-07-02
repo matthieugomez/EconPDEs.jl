@@ -1,16 +1,23 @@
-using EconPDEs, Roots
+# # Brunnermeier–Sannikov (2014): a macroeconomic model with a financial sector
+#
+# Experts and households both hold capital, but experts are more productive and can issue equity
+# only if they retain at least a fraction ``\chi`` of it — a skin-in-the-game constraint. The
+# state ``x`` is the experts' wealth share. The model has a **crisis region** (experts
+# constrained, ``\Psi < 1``) and a **normal region** (``\Psi = 1``); the capital price ``q`` and
+# the experts' capital share ``\Psi`` are recovered with a root-find, sweeping ``x`` from the
+# lower boundary upward so each step reuses the previous ``q`` to build ``q_x`` by finite
+# difference. That order-dependent sweep is why the model struct is mutable and carries `q_old`.
 
+# ## The model
 
-# There are households and experts, with different productivity
-# Experts can issue equity but must retain at least a fraction χlow of their equity. This is similar to HK: households can only invest up  to w^E * m in intermediaries; with m = 1 / χlow - 1
-# Ψ is the fraction of capital held by experts. Compared to HK, can be lower than one
-# Moreover, experts can issue equity at lower required returns than the return on capital (ie. they earn management fee)
+using EconPDEs, Roots, Plots
+
 Base.@kwdef mutable struct BrunnermeierSannikov
-  # Calibration uses Section 3.6 of the textbook chapter (I think r is typo for ρH)
+  ## Calibration uses Section 3.6 of the textbook chapter (I think r is typo for ρH)
   ρE::Float64 = 0.06
   ρH::Float64 = 0.05
-  γ::Float64 = 2.0 
-  ψ::Float64 = 0.5 
+  γ::Float64 = 2.0
+  ψ::Float64 = 0.5
   δ::Float64 = 0.05
   σ::Float64 = 0.1
   κ::Float64 = 10.0
@@ -22,33 +29,33 @@ Base.@kwdef mutable struct BrunnermeierSannikov
   Ψ_old::Float64 = 1.0
 end
 
-function (m::BrunnermeierSannikov)(state::NamedTuple, y::NamedTuple, Δx, xmin)
+function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   (; ρE, ρH, γ, ψ, δ, σ, κ, a, alow, χlow) = m
   (; x) = state
-  (; pE, pEx_up, pEx_down, pExx, pH, pHx_up, pHx_down, pHxx) = y
+  (; pE, pEx_up, pEx_down, pExx, pH, pHx_up, pHx_down, pHxx) = u
   pE = max(pE, 1e-3)
-  pH = max(pH, 1e-3)  
+  pH = max(pH, 1e-3)
   χ = max(χlow, x)
   pEx, pHx = pEx_up, pHx_up
-  iter = 0 
+  iter = 0
   @label start
   q_old = m.q_old
   qx_old = m.qx_old
   Ψ_old = m.Ψ_old
 
-  # First, solve for q, qx, and qxx
+  ## First, solve for q, qx, and qxx
   if abs(x - xmin) < 1e-9
-    # initial condition at lower boundery of x grid (point outside the grid technically)
-    # We must have that expert consumption approaches zero as xt approaches zero (linked to transversality condition)
+    ## initial condition at lower boundery of x grid (point outside the grid technically)
+    ## We must have that expert consumption approaches zero as xt approaches zero (linked to transversality condition)
     Ψ_old = 0.0
     q_old = (alow + 1 / κ) / (1 / pH + 1 / κ)
     qx_old = 0.0
   end
   if Ψ_old < 1.0
-    # crisis region. 
-    # in this case, we do not have Ψ = 1.0 but we have
-    # (a - alow) / q = (κE - κH) * (σ + σq)
-    # note that 
+    ## crisis region.
+    ## in this case, we do not have Ψ = 1.0 but we have
+    ## (a - alow) / q = (κE - κH) * (σ + σq)
+    ## note that
     out = find_zero(Ψ_old) do Ψ
         local q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
         local qx = (q - q_old) / Δx
@@ -72,7 +79,7 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, y::NamedTuple, Δx, xmin)
     end
   end
   if Ψ_old ≥ 1.0
-    # normal region. 
+    ## normal region.
     Ψ = 1.0
     q = (a + 1 / κ) / ((x / pE + (1 - x) / pH) + 1 / κ)
     qx = - (a + 1 / κ) / ((x / pE + (1 - x) / pH) + 1 / κ)^2 * (1 / pE - 1 / pH - x / pE^2 * pEx - (1-x) / pH^2 * pHx)
@@ -83,7 +90,7 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, y::NamedTuple, Δx, xmin)
   m.Ψ_old = Ψ
 
 
-  # having solved for q, do the time step
+  ## having solved for q, do the time step
   q = max(q, sqrt(eps()))
   ι = (q - 1) / κ
   Φ = log(q) / κ
@@ -100,18 +107,17 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, y::NamedTuple, Δx, xmin)
   μx = x * (1 - x) * (κE * σE - κH * σH + 1 / pH - 1 / pE - (σE - σH) * (σ + σq))
   μx2 = x * ((a - ι) / q - 1 / pE) + σx * (κE - σ - σq) + x * (1 - χ) * (κE - κH) * (σ + σq)
   if (iter == 0) && (μx < 0)
-    # upwinding
+    ## upwinding
     iter += 1
     pEx, pHx = pEx_down, pHx_down
     @goto start
-  end  
-  #@assert abs((a - ι) / q - (x / pE + (1 - x) / pH)) < 1e-6
-  μpE = pEx / pE * μx + 0.5 * pExx / pE * σx^2 
-  μpH = pHx / pH * μx + 0.5 * pHxx / pH * σx^2 
+  end
+  μpE = pEx / pE * μx + 0.5 * pExx / pE * σx^2
+  μpH = pHx / pH * μx + 0.5 * pHxx / pH * σx^2
   μq = qx / q * μx + 0.5 * qxx / q * σx^2
 
   r = clamp((a - ι) / q + Φ - δ + μq + σ * σq - (χ * κE + (1 - χ) * κH) * (σ + σq), -3.0, 3.0)
-  # Market Pricing
+  ## Market Pricing
   pEt = -  pE * (1 / pE - ψ * ρE + (ψ - 1) * (r + κE * σE) + μpE - (ψ - 1) * γ / 2 * σE^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpE^2 + (1 - γ) * σpE * σE)
   pHt = -  pH * (1 / pH - ψ * ρH + (ψ - 1) * (r + κH * σH) + μpH - (ψ - 1) * γ / 2 * σH^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpH^2 + (1 - γ) * σpH * σH)
   d = Ψ * a + (1 - Ψ) * alow - ι
@@ -119,11 +125,25 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, y::NamedTuple, Δx, xmin)
   (; pEt, pHt), (; x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, pEt, pHt, q, qx, qxx, μq, μx2, Φ, χ, d, μR, pExx, pHxx)
 end
 
+# ## Solving it
+#
+# One state ``x \in (0, 1)``, the experts' wealth share, on 200 interior grid points. The sweep is
+# order-dependent — it marches from the lower boundary `xmin` upward — so the grid spacing `Δx`
+# and `xmin` are passed into the model and finite-difference autodiff is used.
+
 m = BrunnermeierSannikov()
 xn = 200
-stategrid =  OrderedDict(:x => range(0, 1.0, length = xn+2)[2:(end-1)])
+stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
 Δx = step(stategrid[:x])
 xmin = minimum(stategrid[:x])
-yend = OrderedDict(:pE =>  9 .* ones(xn), :pH =>   10 .* ones(xn))
-@time y, residual_norm, a = pdesolve((state, y) -> m(state, y, Δx, xmin), stategrid, yend; autodiff = :finite)
-@assert residual_norm <= 1e-5
+yend = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
+@time result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, yend; autodiff = :finite)
+
+# ## The solution
+#
+# We saved the capital price ``q``. It is depressed when experts are poorly capitalized (low
+# ``x``) — the crisis region — and tends to rise with the experts' wealth share as the retention
+# constraint slackens.
+
+xs = stategrid[:x]
+plot(xs, result.optional[:q]; xlabel = "experts' wealth share x", ylabel = "capital price q", legend = false)

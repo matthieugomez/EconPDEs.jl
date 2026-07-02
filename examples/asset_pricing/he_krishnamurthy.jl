@@ -8,6 +8,8 @@
 # ties the aggregate price–consumption ratio ``p`` to it.
 
 # ## The model
+#
+# The parameters:
 
 using EconPDEs, Plots
 
@@ -21,6 +23,34 @@ Base.@kwdef mutable struct HeKrishnamurthy
   γ::Float64 = 2.0 # risk aversion specialist
   l::Float64 = 1.84 # labor income ratio
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere else.
+# The grid is a `NamedTuple` whose key is the state variable (`x`, the specialists' wealth share);
+# the guess is a `NamedTuple` whose key is the unknown function (`pS`), holding one starting value
+# at each grid point. These names are what reappear inside the equation below — e.g. `pSx_up` will
+# be the forward finite difference of `pS` in `x`.
+#
+# One state ``x \in (0, 1)`` on a grid stretched toward the lower boundary where the constraint
+# bites. The single unknown ``p_S`` is initialized flat at one.
+
+m = HeKrishnamurthy()
+xn = 100
+stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
+yend = (; pS = ones(length(stategrid[:x])))
+
+# ## The equation
+#
+# We now write the function encoding the equilibrium conditions. Following the package convention,
+# it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and
+# its finite-difference derivatives there (`pS`, `pSx_up`, `pSx_down`, `pSxx`) — and returns the
+# time derivative `pSt`.
+#
+# Goods-market clearing expresses the aggregate price–consumption ratio ``p`` (and its
+# derivatives) in terms of ``p_S``. The state volatility ``\sigma_x`` feeds back through prices, so
+# the upwind direction is chosen from the drift ``\mu_x``: forward `pSx_up` unless the drift turns
+# negative, then backward `pSx_down`.
 
 function (m::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
   (; m, λ, g, σ, ρ, γ, l) = m
@@ -66,15 +96,8 @@ function (m::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
   (; pSt), (; pS, p, r, κ, σp, μR, σR, αI, μx, σx, x, px, pxx, σI)
 end
 
-# ## Solving it
-#
-# One state ``x \in (0, 1)``, the specialists' wealth share, on a grid stretched toward the lower
-# boundary where the constraint bites. The single unknown ``p_S`` is initialized flat at one.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = HeKrishnamurthy()
-xn = 100
-stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
-yend = (; pS = ones(length(stategrid[:x])))
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

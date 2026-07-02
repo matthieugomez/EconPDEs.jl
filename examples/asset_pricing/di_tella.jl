@@ -8,28 +8,42 @@
 # market-clearing constraint (`is_algebraic`) rather than by its own time derivative.
 
 # ## The model
+#
+# The parameters:
 
 using EconPDEs, Distributions, Plots
 
 Base.@kwdef mutable struct DiTellaModel
   ## Utility Function
-  γ::Float64 = 5.0
-  ψ::Float64 = 1.5
-  ρ::Float64 = 0.05
-  τ::Float64 = 0.4
+  γ::Float64 = 5.0        # relative risk aversion
+  ψ::Float64 = 1.5        # elasticity of intertemporal substitution
+  ρ::Float64 = 0.05       # rate of time preference (discount rate)
+  τ::Float64 = 0.4        # transition rate between experts and households
 
   ## Technology
-  A::Float64 = 200.0
-  σ::Float64 = 0.03
+  A::Float64 = 200.0      # investment adjustment-cost (technology) parameter
+  σ::Float64 = 0.03       # aggregate (fundamental) volatility of capital
 
   ## MoralHazard
-  ϕ::Float64 = 0.2
+  ϕ::Float64 = 0.2        # moral-hazard idiosyncratic-risk retention parameter
 
   ## Idiosyncratic
-  νbar::Float64 = 0.24
-  κν::Float64 = 0.22
-  σνbar::Float64 = -0.13
+  νbar::Float64 = 0.24    # long-run mean of idiosyncratic variance ν
+  κν::Float64 = 0.22      # mean-reversion speed of ν (uncertainty process)
+  σνbar::Float64 = -0.13  # volatility loading of the ν process
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere else.
+# The grid is a `NamedTuple` whose keys are the two state variables (`x`, the experts' wealth
+# share, and `ν`, the idiosyncratic variance); the guess is a `NamedTuple` whose keys are the
+# unknown functions (`pA, pB, p`), holding one starting value at each grid point. These names are
+# what reappear inside the equation below — e.g. `pAx_up` will be the forward finite difference of
+# `pA` in `x`.
+#
+# Two helpers build a 30×30 grid over ``(x, \nu)`` and a flat guess. The variance state ``\nu``
+# follows a Gamma-distributed CIR process, so its grid spans that ergodic range.
 
 function initialize_stategrid(m::DiTellaModel; xn = 30, νn = 30)
   xs = range(0.01, 0.99, length = xn)
@@ -43,6 +57,21 @@ function initialize_y(m::DiTellaModel, stategrid)
   νn = length(stategrid[:ν])
   (; pA = 20 * ones(xn, νn), pB = 20 * ones(xn, νn), p = 20 * ones(xn, νn))
 end
+
+m = DiTellaModel()
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
+
+# ## The equation
+#
+# We now write the function encoding the equilibrium conditions. Following the package convention,
+# it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
+# its finite-difference derivatives there — and returns the time derivative of each unknown
+# (`pAt, pBt, pt`).
+#
+# With two states, both first derivatives and the cross derivative are upwinded — the first
+# derivatives on the sign of their drifts, the cross term on the sign of the ``x``–``\nu``
+# covariance.
 
 function (m::DiTellaModel)(state::NamedTuple, u::NamedTuple)
   (; γ, ψ, ρ, τ, A, σ, ϕ, νbar, κν, σνbar) = m
@@ -99,15 +128,8 @@ function (m::DiTellaModel)(state::NamedTuple, u::NamedTuple)
   return (; pAt, pBt, pt)
 end
 
-# ## Solving it
-#
-# A 30×30 grid over ``(x, \nu)``. The variance state ``\nu`` follows a Gamma-distributed CIR
-# process, so its grid spans that ergodic range. `p` enters as an algebraic (constraint) variable,
-# and a small time step `Δ` is used.
+# `p` enters as an algebraic (constraint) variable, and a small time step `Δ` is used:
 
-m = DiTellaModel()
-stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend; is_algebraic = (; pA = false, pB = false, p = true), Δ = 1e-2)
 
 # ## The solution

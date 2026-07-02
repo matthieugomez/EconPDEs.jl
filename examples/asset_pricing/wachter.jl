@@ -15,26 +15,57 @@
 # consumption is smooth outside disasters.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Distributions, Plots
 
 Base.@kwdef struct WachterModel{T<: Distribution}
     ## consumption process parameters
-    μ::Float64 = 0.025
-    σ::Float64 = 0.02
+    μ::Float64 = 0.025      # expected consumption growth
+    σ::Float64 = 0.02       # volatility of consumption growth
 
     ## disaster process parameters
-    λbar::Float64 = 0.0355
-    κλ::Float64 = 0.08
-    νλ::Float64 = 0.067
-    ZDistribution::T = Normal(-0.4, 0.25) # from Ian Martin higher order cumulants paper
+    λbar::Float64 = 0.0355  # long-run mean disaster intensity
+    κλ::Float64 = 0.08      # mean-reversion speed of disaster intensity
+    νλ::Float64 = 0.067     # volatility of disaster intensity
+    ZDistribution::T = Normal(-0.4, 0.25) # distribution of disaster jump size Z (log consumption drop); from Ian Martin higher order cumulants paper
 
     ## utility parameters
-    ρ::Float64 = 0.012
-    γ::Float64 = 3.0
-    ψ::Float64 = 1.1
-    ϕ::Float64 = 2.6
+    ρ::Float64 = 0.012      # discount rate
+    γ::Float64 = 3.0        # relative risk aversion
+    ψ::Float64 = 1.1        # elasticity of intertemporal substitution
+    ϕ::Float64 = 2.6        # leverage of dividends on consumption
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the state variable (`λ`, the disaster
+# intensity); the guess is a `NamedTuple` whose key is the unknown function (`p`, the
+# wealth–consumption ratio). These names reappear inside the equation below — e.g. `pλ_up` will
+# be the forward finite difference of `p` in `λ`. The state ``\lambda`` ranges over intensities
+# from zero up to well above its long-run mean ``\bar\lambda``. The ``\sqrt\lambda`` diffusion
+# vanishes at ``\lambda = 0``, a degenerate boundary where no condition is imposed.
+
+function initialize_stategrid(m::WachterModel; λn = 30)
+  (; λ = range(0.0, 0.1, length = λn))
+end
+
+function initialize_y(m::WachterModel, stategrid)
+    λn = length(stategrid[:λ])
+    (; p = ones(λn))
+end
+
+m = WachterModel()
+stategrid = initialize_stategrid(m)
+yend = initialize_y(m, stategrid)
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
 
 function (m::WachterModel)(state::NamedTuple, u::NamedTuple)
     (; μ, σ, λbar, κλ, νλ, ZDistribution, ρ, γ, ψ, ϕ) = m
@@ -63,24 +94,8 @@ function (m::WachterModel)(state::NamedTuple, u::NamedTuple)
     return (; pt)
 end
 
-# ## Solving it
-#
-# The state ``\lambda`` ranges over intensities from zero up to well above its long-run mean
-# ``\bar\lambda``. The ``\sqrt\lambda`` diffusion vanishes at ``\lambda = 0``, a degenerate
-# boundary where no condition is imposed.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-function initialize_stategrid(m::WachterModel; λn = 30)
-  (; λ = range(0.0, 0.1, length = λn))
-end
-
-function initialize_y(m::WachterModel, stategrid)
-    λn = length(stategrid[:λ])
-    (; p = ones(λn))
-end
-
-m = WachterModel()
-stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

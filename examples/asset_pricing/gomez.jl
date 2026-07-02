@@ -8,36 +8,60 @@
 # entrepreneurs) keep the distribution stationary.
 
 # ## The model
+#
+# The parameters:
 
 using EconPDEs, Plots
 
 Base.@kwdef struct GomezModel
-    ## utility households
-    γ::Float64
-    ψ::Float64
-    ρ::Float64
+    ## utility, households
+    γ::Float64 = 10.3      # households' relative risk aversion
+    ψ::Float64 = 0.05      # households' elasticity of intertemporal substitution
+    ρ::Float64 = 0.1       # households' discount rate
 
-    ## utility entrepreneurs
-    ρE::Float64
-    αE::Float64
-    ν::Float64
+    ## utility, entrepreneurs
+    ρE::Float64 = 0.022    # entrepreneurs' discount rate
+    αE::Float64 = 2        # entrepreneurs' risk aversion
+    ν::Float64 = 0.1       # entrepreneurs' preference parameter
 
-    ## Demography
-    η::Float64
-    δ::Float64
-    ϕ::Float64
-    πE::Float64
+    ## demography
+    η::Float64 = 0.015     # birth rate
+    δ::Float64 = 0.025     # death rate
+    ϕ::Float64 = 0.01      # demographic transition rate
+    πE::Float64 = 0.09     # entry rate into entrepreneurship
 
-    ## Endowment process
-    g::Float64
-    σ::Float64
-    λ::Float64
-    τ::Float64
+    ## endowment process
+    g::Float64 = 0.02      # expected consumption growth
+    σ::Float64 = 0.04      # consumption volatility
+    λ::Float64 = 2.3       # endowment-process parameter
+    τ::Float64 = 0.0       # tax rate
 end
 
-function GomezModel(;γ = 10.3, ψ = 0.05, ρ = 0.1, ρE = 0.022, αE = 2, ν = 0.1, η = 0.015, δ = 0.025, ϕ = 0.01, πE = 0.09, g = 0.02, σ = 0.04,  λ = 2.3, τ = 0.0)
-  GomezModel(γ, ψ, ρ, ρE, αE, ν, η, δ, ϕ, πE, g, σ, λ, τ)
-end
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere else.
+# The grid is a `NamedTuple` whose key is the state variable (`x`, the entrepreneurs' consumption
+# share); the guess is a `NamedTuple` whose key is the unknown function (`pH`), holding one
+# starting value at each grid point. These names are what reappear inside the equation below —
+# e.g. `pHx_up` will be the forward finite difference of `pH` in `x`.
+#
+# One state ``x \in [0, 1]`` on a squared grid of 300 points. The single unknown ``p_H`` is
+# initialized flat at one.
+
+m = GomezModel()
+stategrid = (; x = range(0, 1, 300) .^ 2)
+yend = (; pH = ones(length(stategrid[:x])))
+
+# ## The equation
+#
+# We now write the function encoding the equilibrium conditions. Following the package convention,
+# it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and
+# its finite-difference derivatives there — and returns the time derivative of the unknown
+# (`pHt`).
+#
+# The volatility of the state ``\sigma_x`` is endogenous, feeding back through prices, so the
+# upwind direction is picked from the drift ``\mu_x``: forward difference `pHx_up` unless the drift
+# turns negative, then backward `pHx_down`.
 
 function (m::GomezModel)(state, u)
   (; γ, ψ, ρ, ρE, αE, ν, η, δ, ϕ, πE, g, σ, λ, τ) = m
@@ -97,14 +121,8 @@ function (m::GomezModel)(state, u)
   return (; pHt,), (; x, μx, σx, κ, r, σWH, μWH, σp, p, px, σR, μR, μRλ, σRλ, μErelative, σErelative, μHrelative, σHrelative, μCE, μxW, σxW, pH, μCH, wedge, xW, σWE, σCH, αE, pE = 1 / m.ρE, μp = μp)
 end
 
-# ## Solving it
-#
-# One state ``x \in [0, 1]``, the entrepreneurs' consumption share, on 300 grid points. The single
-# unknown ``p_H`` is initialized flat at one.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = GomezModel()
-stategrid = (; x = range(0, 1, 300))
-yend = (; pH = ones(length(stategrid[:x])))
 @time result = pdesolve(m, stategrid, yend)
 
 # ## The solution

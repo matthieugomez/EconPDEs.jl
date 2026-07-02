@@ -18,20 +18,44 @@
 # with the consumption–income ratio recovered from ``c = (r + \psi(\rho - r))\, p\, p'^{-\psi}``.
 
 # ## The model
+#
+# The parameters live in a `struct`:
 
 using EconPDEs, Plots
 
 Base.@kwdef mutable struct WangWangYangModel
-    μ::Float64 = 0.015
-    σ::Float64 = 0.1
-    r::Float64 = 0.035
-    ρ::Float64 = 0.04
-    γ::Float64 = 3.0
-    ψ::Float64 = 1.1
-    wmin::Float64 = 0.0
-    wmax::Float64 = 1000.0
+    μ::Float64 = 0.015       # expected growth rate of labor income
+    σ::Float64 = 0.1         # volatility of labor income
+    r::Float64 = 0.035       # risk-free rate
+    ρ::Float64 = 0.04        # discount rate
+    γ::Float64 = 3.0         # relative risk aversion
+    ψ::Float64 = 1.1         # elasticity of intertemporal substitution
+    wmin::Float64 = 0.0      # borrowing limit (minimum wealth-income ratio)
+    wmax::Float64 = 1000.0   # maximum wealth-income ratio (grid upper bound)
 end
 
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere
+# else. The grid is a `NamedTuple` whose key is the state variable (`w`, the wealth-to-income
+# ratio); the guess is a `NamedTuple` whose key is the unknown function (`p`), one starting value
+# per grid point. These names are what reappear inside the equation below — e.g. `pw_up` will be
+# the forward finite difference of `p` in `w`.
+#
+# The state ``w`` runs from the borrowing limit to a large upper bound on a grid that is denser
+# near the constraint. The initial guess ``p = 1 + w`` reflects total wealth as financial plus
+# one unit of human wealth.
+
+m = WangWangYangModel()
+stategrid = (; w = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
+yend = (; p = 1 .+ stategrid[:w])
+
+# ## The equation
+#
+# We now write the function encoding the HJB equation. Following the package convention, it
+# takes the current `state` (a grid point) and `u` (each unknown together with its
+# finite-difference derivatives there) and returns the time derivative of each unknown.
+#
 # We upwind on the physical wealth drift ``\mu_w`` of the controlled state, falling back to
 # ``\mu_w = 0`` when the borrowing constraint binds.
 
@@ -66,32 +90,26 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
     end
     ## At the top, I use the solution of the unconstrainted, i.e. pw = 1 (I could also do reflecting boundary but less elegant)
     pt = - ((((r + ψ * (ρ - r)) * pw^(1 - ψ) - ψ * ρ) / (ψ - 1) + μ - γ * σ^2 / 2) * p + ((r - μ + γ * σ^2) * w + 1) * pw + σ^2 * w^2 / 2  * (pww - γ * pw^2 / p))
-    return (; pt)
+    return (; pt), (; c, μw)
 end
 
-# ## Solving it
-#
-# The state ``w`` runs from the borrowing limit to a large upper bound on a grid that is denser
-# near the constraint. The initial guess ``p = 1 + w`` reflects total wealth as financial plus
-# one unit of human wealth, and the boundary condition ``p'(w) = 1`` pins the marginal value of
-# wealth at both ends.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system, imposing
+# the boundary condition ``p'(w) = 1`` — which pins the marginal value of wealth — at both ends:
 
-m = WangWangYangModel()
-stategrid = (; w = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
-yend = (; p = 1 .+ stategrid[:w])
 result = pdesolve(m, stategrid, yend, bc = (; pw = (1.0, 1.0)))
 
 # ## The solution
 #
-# The scaled value ``p(w)`` is increasing and concave in the wealth-to-income ratio:
+# The consumption–income ratio and the saving rate, over the low-wealth region:
 
 ws = stategrid[:w]
-plot(ws, result.zero[:p]; xlabel = "wealth-income ratio w", ylabel = "scaled value p(w)", legend = false)
+idx = 1:div(length(ws), 3)          # left third of the grid, where the curvature is
+p1 = plot(ws[idx], result.optional[:c][idx]; xlabel = "wealth-income ratio w", ylabel = "consumption c", legend = false)
+p2 = plot(ws[idx], result.optional[:μw][idx]; xlabel = "wealth-income ratio w", ylabel = "saving μw", legend = false)
+hline!(p2, [0.0]; color = :gray, linestyle = :dash)
+plot(p1, p2; layout = (1, 2), size = (800, 300))
 
-# ``p(w)`` measures total wealth — financial plus human — per unit of income. Its intercept
-# ``p(0)`` is the value of human wealth (the capitalized income stream) for a household stuck at
-# the borrowing constraint, and its slope approaches one as financial wealth grows and human
-# wealth becomes negligible in comparison. The concavity near ``w = 0`` reflects the shadow value
-# of the borrowing constraint: an extra unit of wealth is worth most to a constrained household,
-# which is exactly where the precautionary motive and the marginal propensity to consume are
-# highest.
+# Consumption (left) is increasing and concave in the wealth-to-income ratio, steepest near the
+# borrowing constraint where the marginal propensity to consume is highest. The saving rate (right)
+# is largest for constrained, low-wealth households and declines as wealth rises toward its target —
+# the shadow value of the borrowing constraint fading as financial wealth accumulates.

@@ -19,4 +19,4 @@ reference lists every solver option.
 
 The **Examples** in the sidebar each solve a model, plot the solution, and explain what it
 means economically. They are grouped into macro and finance models and ordered roughly from the simplest to the
-most involved — start with [Neoclassical growth](examples/macro/neoclassical_growth.md).
+most involved — start with [Neoclassical growth](examples/neoclassical_growth.md).

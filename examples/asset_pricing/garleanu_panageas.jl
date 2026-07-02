@@ -12,25 +12,52 @@
 # must be recomputed from the resulting drift ``\mu_x`` each iteration.
 
 # ## The model
+#
+# The parameters:
 
 using EconPDEs, Plots
 
 Base.@kwdef struct GarleanuPanageasModel
-    γA::Float64 = 1.5
-    ψA::Float64 = 0.7
-    γB::Float64 = 10.0
-    ψB::Float64 = 0.05
-    ρ::Float64 = 0.001
-    δ::Float64 = 0.02
-    νA::Float64 = 0.01
-    μ::Float64 = 0.02
-    σ::Float64 = 0.041
-    B1::Float64 = 30.72
-    δ1::Float64 = 0.0525
-    B2::Float64 = -30.29
-    δ2::Float64 = 0.0611
-    ω::Float64 = 0.92
+    γA::Float64 = 1.5      # relative risk aversion, type A (bold)
+    ψA::Float64 = 0.7      # elasticity of intertemporal substitution, type A
+    γB::Float64 = 10.0     # relative risk aversion, type B (conservative)
+    ψB::Float64 = 0.05     # elasticity of intertemporal substitution, type B
+    ρ::Float64 = 0.001     # rate of time preference (discount rate)
+    δ::Float64 = 0.02      # death (turnover) rate
+    νA::Float64 = 0.01     # share of type A among newborns
+    μ::Float64 = 0.02      # aggregate consumption growth (drift)
+    σ::Float64 = 0.041     # aggregate consumption volatility
+    B1::Float64 = 30.72    # loading on first component of labor-income profile
+    δ1::Float64 = 0.0525   # decay rate of first labor-income component
+    B2::Float64 = -30.29   # loading on second component of labor-income profile
+    δ2::Float64 = 0.0611   # decay rate of second labor-income component
+    ω::Float64 = 0.92      # labor share of aggregate output
 end
+
+# ## The state space
+#
+# We build the grid and the initial guess first, because they fix the names used everywhere else.
+# The grid is a `NamedTuple` whose key is the state variable (`x`, the consumption share of type
+# A); the guess is a `NamedTuple` whose keys are the unknown functions (`pA, pB, ϕ1, ϕ2`), holding
+# one starting value at each grid point. These names are what reappear inside the equation below —
+# e.g. `pAx_up` will be the forward finite difference of `pA` in `x`.
+#
+# One state ``x \in [0, 1]``, four coupled unknowns, all initialized flat at one.
+
+m = GarleanuPanageasModel()
+stategrid = (; x = range(0.0, 1.0, length = 100))
+yend = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
+
+# ## The equation
+#
+# We now write the function encoding the equilibrium conditions. Following the package convention,
+# it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
+# its finite-difference derivatives there — and returns the time derivative of each unknown
+# (`pAt, pBt, ϕ1t, ϕ2t`).
+#
+# Because ``\sigma_x`` is endogenous, the loop recomputes the upwind direction from the drift
+# ``\mu_x``: it starts with forward differences (`*_up`) and switches to backward (`*_down`) when
+# the drift turns negative.
 
 function (m::GarleanuPanageasModel)(state::NamedTuple, u::NamedTuple)
     (; γA, ψA, γB, ψB, ρ, δ, νA, μ, σ, B1, δ1, B2, δ2, ω) = m
@@ -80,14 +107,8 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, u::NamedTuple)
     return (; pAt, pBt, ϕ1t, ϕ2t), (; r, κ)
 end
 
-# ## Solving it
-#
-# One state ``x \in [0, 1]`` (the consumption share of type A), four coupled unknowns, all
-# initialized flat at one.
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-m = GarleanuPanageasModel()
-stategrid = (; x = range(0.0, 1.0, length = 100))
-yend = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
 result = pdesolve(m, stategrid, yend)
 
 # ## The solution

@@ -28,17 +28,21 @@ function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     (; k) = state
     (; v, vk_up, vk_down) = u
     # upwind the first derivative on the sign of the drift
-    cF = max(vk_up, eps())^(-1 / γ)
-    μF = A * k^α - δ * k - cF
-    cB = max(vk_down, eps())^(-1 / γ)
-    μB = A * k^α - δ * k - cB
-    if μF > 0
-        c, vk, μk = cF, vk_up, μF
-    elseif μB < 0
-        c, vk, μk = cB, vk_down, μB
+    c_up = vk_up >= 0 ? min(vk_up^(-1/γ), A * k^α) : A * k^α
+    μk_up = A * k^α - δ * k - c_up
+    if μk_up > 0
+        c, vk, μk = c_up, vk_up, μk_up
     else
+        c_down = vk_down >= 0 ? min(vk_down^(-1/γ), A * k^α) : A * k^α
+        μk_down = A * k^α - δ * k - c_down
+        if μk_down < 0
+            c, vk, μk = c_down, vk_down, μk_down
+        else
         # at the steady state the household consumes its net output
-        c, vk, μk = A * k^α - δ * k, vk_up, 0.0
+            μk = 0
+            c = A * k^α - δ * k
+            vk = c^(-γ)
+        end
     end
     vt = - (c^(1 - γ) / (1 - γ) + μk * vk - ρ * v)
     return (; vt)

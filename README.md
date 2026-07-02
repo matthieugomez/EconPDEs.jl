@@ -74,11 +74,9 @@ Return one time derivative per unknown, named by appending `t`: `(; vt)` for unk
 The manual gives the details:
 
 - [Getting started](https://matthieugomez.github.io/EconPDEs.jl/dev/getting_started/)
-- [Model conventions](https://matthieugomez.github.io/EconPDEs.jl/dev/conventions/)
-- [Upwinding](https://matthieugomez.github.io/EconPDEs.jl/dev/upwinding/)
-- [Boundary conditions](https://matthieugomez.github.io/EconPDEs.jl/dev/boundary_conditions/)
-- [Time-dependent problems](https://matthieugomez.github.io/EconPDEs.jl/dev/time_dependent/)
-- [Solver and troubleshooting](https://matthieugomez.github.io/EconPDEs.jl/dev/solver/)
+- [Solving models](https://matthieugomez.github.io/EconPDEs.jl/dev/solving/)
+- [Why EconPDEs](https://matthieugomez.github.io/EconPDEs.jl/dev/design/)
+- [InfinitesimalGenerators](https://matthieugomez.github.io/EconPDEs.jl/dev/infinitesimal_generators/)
 
 The documentation also includes a gallery of runnable examples:
 

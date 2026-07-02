@@ -2,6 +2,6 @@
 
 ```@docs
 pdesolve
-finiteschemesolve
 EconPDEs.EconPDEResult
+finiteschemesolve
 ```

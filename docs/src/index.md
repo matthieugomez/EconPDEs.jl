@@ -13,7 +13,7 @@ Repository: [github.com/matthieugomez/EconPDEs.jl](https://github.com/matthieugo
 ] add EconPDEs
 ```
 
-## Getting started
+## Where to start
 
 Start with [Getting started](getting_started.md), which solves a first model end to end.
 It also covers the package's naming conventions and the upwinding patterns used in most

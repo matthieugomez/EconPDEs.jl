@@ -11,11 +11,10 @@ that general PDE interfaces often do not make convenient.
 
 | Economic HJBs need | What this means in practice |
 | --- | --- |
-| Infinitesimal generators | The operator looks like ``b(x) v_x + \frac12 \sigma(x)^2 v_{xx}``, not a conservation-law flux. |
-| Endogenous policies | Drift, diffusion, and other coefficients can depend on the current guess for the value function. |
+| Infinitesimal generators | The operator describes how the state moves locally: drift times the first derivative plus volatility squared times the second derivative. |
+| Policies inside the equation | Drift, diffusion, controls, and nonlinear terms can depend on the current guess for the value function. You write these terms directly, in the same place as the policy rule. |
 | Upwinding by drift sign | The first derivative must be taken from the right side. If the drift changes during the solve, the stencil changes too. See [Getting started](getting_started.md#Upwinding). |
 | Economic boundaries | Borrowing limits, reflecting states, and degenerate diffusions are not just Dirichlet or periodic boundary conditions. See [Solving models](solving.md#Boundary-conditions). |
-| Direct nonlinear terms | Terms like ``\sigma^2 p_x^2 / p`` are easier to write directly than to force into a flux/source split. |
 | Stationary nonlinear solves | Sparse finite-difference Jacobians and continuation make fine grids practical. See [Solving models](solving.md#Solver-and-troubleshooting). |
 
 `EconPDEs.jl` handles those details so the model code can stay close to the economics:

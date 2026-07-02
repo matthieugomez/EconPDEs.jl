@@ -175,6 +175,10 @@ starts cautiously and adapts:
 3. If the inner Newton solve fails, shrink `Δ` by 10 and retry.
 4. Stop when the residual norm falls below `maxdist`.
 
+This adaptive scheme is *pseudo-transient continuation*, imported from computational fluid
+dynamics; formal convergence conditions are given in
+[Kelley and Keyes (1998)](https://doi.org/10.1137/S0036142996304796).
+
 The Jacobian is sparse because each finite-difference equation only depends on nearby grid
 points. For one-, two-, and three-state problems, `pdesolve` builds this sparsity pattern
 and computes the Jacobian by colored finite differences. This is why fine grids remain

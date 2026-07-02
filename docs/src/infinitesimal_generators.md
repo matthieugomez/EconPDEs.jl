@@ -17,7 +17,11 @@ This page extends the short workflow in
 full version on the
 [consumption–saving model with two income states](examples/consumption_saving/consumption_saving_two_income.md):
 solve the coupled HJB with `pdesolve`, build the solved Markov process, compute the
-stationary wealth distribution, and check the solution with Feynman–Kac.
+stationary wealth distribution, and check the solution with Feynman–Kac. The
+[HJB tutorial in the InfinitesimalGenerators documentation](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/hjb/)
+solves the *same model with the same parameters* from the opposite direction — building the
+implicit finite-difference method by hand from generator matrices, and ending with
+`pdesolve` — so the two pages can be read as mirrors of each other.
 
 ## From `pdesolve` to a Markov process
 
@@ -104,11 +108,11 @@ nothing # hide
 
 The solved model is a Markov process on `(a, y)`: income is a two-state Markov chain, and
 within each income state assets drift deterministically at the policy-implied rate. This is
-exactly what `SwitchingProcess` represents — a `MarkovChain` plus one continuous process per
+exactly what `SwitchingProcess` represents — a `ContinuousTimeMarkovChain` plus one continuous process per
 income state, here two `DiffusionProcess`es with zero volatility:
 
 ```@example infinitesimal_generators
-Z = MarkovChain([m.yl, m.yh], [-m.λlh m.λlh; m.λhl -m.λhl])
+Z = ContinuousTimeMarkovChain([m.yl, m.yh], [-m.λlh m.λlh; m.λhl -m.λhl])
 Xl = DiffusionProcess(as, μla, zeros(length(as)))
 Xh = DiffusionProcess(as, μha, zeros(length(as)))
 X = SwitchingProcess(Z, [Xl, Xh])
@@ -173,7 +177,10 @@ nothing # hide
 
 ## Checking the solution with Feynman–Kac
 
-`feynman_kac` computes conditional expectations under the solved process. A natural check:
+`feynman_kac` computes conditional expectations under the solved process — see the
+[expectations tutorial](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/expectations/)
+in the InfinitesimalGenerators documentation for what it computes in general (forecasts,
+present values, state-dependent discounting). Here it gives a natural check:
 the expected discounted utility from following the solved policy,
 ``E[\int_0^\infty e^{-\rho t} u(c_t) \, dt \mid a_0, y_0]``, must reproduce the value
 function itself.
@@ -210,7 +217,10 @@ calls [`finiteschemesolve`](api.md); see
 want a lower-level version, you can skip `pdesolve` and construct each derivative yourself
 with `InfinitesimalGenerators.jl`'s `FirstDerivative`, writing directly into the residual
 array — here for the same two-income model, with the two value functions stored as the
-columns of a matrix:
+columns of a matrix. (The
+[HJB tutorial](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/hjb/) in the
+InfinitesimalGenerators documentation shows the same construction driving the classic
+fixed-``\Delta`` linear iteration of Achdou et al. instead of `finiteschemesolve`.)
 
 ```@example infinitesimal_generators
 function two_income_residual!(vt, m, as, v)

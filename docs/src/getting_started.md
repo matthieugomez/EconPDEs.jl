@@ -280,6 +280,13 @@ collapses (see [Solving models](solving.md#Solver-and-troubleshooting)). Central
 differences for the *second* derivative are always fine (their weights are automatically
 positive), which is why `vkk` comes in only one flavor.
 
+Monotonicity also has a probabilistic reading: a monotone scheme is exactly one whose
+discretized operator is a valid Markov generator, with non-negative jump rates to
+neighboring grid points. That is the condition under which
+[InfinitesimalGenerators.jl](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/univariate/)
+turns the same discretization into a Markov chain — and why an upwinded solution hands off
+exactly to its [distributions and expectations](infinitesimal_generators.md).
+
 ### Pattern 1: exogenous drift
 
 When the drift of a state does not depend on the derivative you are choosing, upwinding is

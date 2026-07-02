@@ -92,7 +92,7 @@ The manual gives the details:
 - [Getting started](https://www.matthieugomez.com/EconPDEs.jl/dev/getting_started/)
 - [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/)
 - [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/design/)
-- [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/)
+- [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/) — using the companion package [InfinitesimalGenerators.jl](https://github.com/matthieugomez/InfinitesimalGenerators.jl) for stationary distributions and expectations after solving
 
 The documentation also includes a gallery of runnable examples:
 

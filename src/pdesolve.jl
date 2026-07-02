@@ -205,7 +205,7 @@ function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::A
     derivatives = differentiate(Tsolution, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], derivatives)
     residual, optional = _split_pde_output(result)
-    _check_residual_names(residual, Tsolution.parameters[1])
+    _check_residual_names(residual, _first_type_parameter(Tsolution))
     optional === nothing && return nothing
     return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(optional))
 end
@@ -294,9 +294,10 @@ function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M:
  end
 
  @generated function _setindex!(ydot_M::AbstractArray, ::Type{Tsolution}, outi::NamedTuple, i::CartesianIndex) where {Tsolution}
-     N = length(Tsolution.parameters[1])
+     solnames = _first_type_parameter(Tsolution)
+     N = length(solnames)
      quote
           $(Expr(:meta, :inline))
-          $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(Tsolution.parameters[1][k], :t))), :i, k) for k in 1:N]...))
+          $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(solnames[k], :t))), :i, k) for k in 1:N]...))
      end
  end

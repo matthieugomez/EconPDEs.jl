@@ -31,6 +31,12 @@ Derive
 # Helpers for building index expressions at compile time.
 # Called inside the @generated function body to construct Expr nodes.
 
+@static if isdefined(Base, :type_parameter)
+    _first_type_parameter(T) = Base.type_parameter(T)
+else
+    _first_type_parameter(T) = T.parameters[1]
+end
+
 # Build y[i1, ..., iN, k] with optional substitutions at specific dimensions.
 function _y_ref(N::Int, k::Int, subs::Pair{Int}...)
     idx = Any[Symbol("i", d) for d in 1:N]
@@ -50,7 +56,7 @@ function _bc_ref(N::Int, k::Int, d::Int, boundary)
 end
 
 @generated function differentiate(::Type{Tsolution}, grid::StateGrid{T1, Ndim, <: NamedTuple{Names}}, y::AbstractArray{T}, icar, bc) where {Tsolution, T1, Ndim, Names, T}
-    solnames = Tsolution.parameters[1]
+    solnames = _first_type_parameter(Tsolution)
     statenames = Names
 
     # Preamble: extract indices and compute grid spacings

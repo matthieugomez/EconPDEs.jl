@@ -169,19 +169,12 @@ result = pdesolve(hjb, stategrid, guess, τs)
 
 If the PDE function has only two arguments, `pdesolve` uses the same equation at each time on the grid.
 
-## Endogenous Choices and Borrowing Constraints
-
-Borrowing constraints and other endogenous state constraints are usually part of the PDE. Put assets, wealth, or the constrained object on the state grid. Then compute the policy inside the PDE function, form the state drift, and choose the upwind derivative from the sign of that drift.
-
-For example, in a consumption-saving problem with asset state `a`, compute consumption from the marginal value of assets, form the asset drift `μa`, and then use `va_up` or `va_down` depending on the sign of `μa`. At the borrowing limit, impose feasibility directly: prevent the drift from moving below the lower asset bound, or impose the boundary derivative implied by the constraint.
-
-The `y̲` and `ȳ` keywords have a different role. They impose bounds on the unknown function itself in a variational inequality, as in optimal stopping. They are not the right tool for an ordinary borrowing constraint on a state variable or policy choice.
-
-See [WangWangYang.jl](examples/ConsumptionProblem/WangWangYang.jl), [AchdouHanLasryLionsMoll_Diffusion.jl](examples/ConsumptionProblem/AchdouHanLasryLionsMoll_Diffusion.jl), and [BoltonChenWang.jl](examples/InvestmentProblem/BoltonChenWang.jl) for examples.
 
 ## Boundary Conditions
 
-Finite-difference schemes need ghost-node values outside the grid to construct derivatives at the boundary. By default, `EconPDEs.jl` uses reflecting boundaries: the ghost-node value equals the boundary-node value, so the first derivative is zero beyond the boundary.
+Finite-difference schemes typicall need ghost-node values outside the grid to construct
+derivatives at the boundaries. More precisely, ghost-node values are required to construct second derivatives when the state volatility is nonzero, or for first derivatives when the state drift points toward the boundary. By default, `EconPDEs.jl` uses reflecting boundaries: the ghost-node value
+equals the boundary-node value, so the first derivative is zero beyond the boundary.
 
 Use the `bc` keyword to impose a different boundary derivative:
 
@@ -189,15 +182,28 @@ Use the `bc` keyword to impose a different boundary derivative:
 pdesolve(f, grid, guess; bc = OrderedDict(:vx => (0.0, 1.0)))
 ```
 
+
+
+Borrowing constraints and other endogenous state constraints are usually part of the PDE. Put assets, wealth, or the constrained object on the state grid. Then compute the policy inside the PDE function, form the state drift, and choose the upwind derivative from the sign of that drift.
+
+For example, in a consumption-saving problem with asset state `a`, compute consumption from the marginal value of assets, form the asset drift `μa`, and then use `va_up` or `va_down` depending on the sign of `μa`. At the borrowing limit, impose feasibility directly: prevent the drift from moving below the lower asset bound, or impose the boundary derivative implied by the constraint.
+
+See [WangWangYang.jl](examples/ConsumptionProblem/WangWangYang.jl), [AchdouHanLasryLionsMoll_Diffusion.jl](examples/ConsumptionProblem/AchdouHanLasryLionsMoll_Diffusion.jl), and [BoltonChenWang.jl](examples/InvestmentProblem/BoltonChenWang.jl) for examples.
+
 ## Optimal Stopping
 
 Optimal stopping problems are supported through HJB variational inequalities. For a payoff `S(x)`, the HJBVI is:
 
-<img src="img/hjbvi.png">
+```math
+\min\left\{
+    \rho v(x) - f(x) - \mu(x) v'(x) - \frac{1}{2}\sigma^2(x) v''(x),
+    v(x) - S(x)
+\right\} = 0.
+```
 
 Pass the exercise payoff as a lower bound with `y̲`; use `ȳ` for upper bounds in minimization problems. This formulation implies the usual value-matching and smooth-pasting conditions. See [Leland.jl](examples/OptimalStoppingTime/Leland.jl) for a working example and Ben Moll's [notes on stopping time problems](https://benjaminmoll.com/codes/) for background.
 
-Internally, these bounded problems are mixed complementarity problems and use `NLsolve.mcpsolve`. Ordinary nonlinear PDE solves use `NonlinearSolve.jl`.
+Internally, these bounded problems are mixed complementarity problems and use `NLsolve.mcpsolve`.
 
 ## Diagnostics and Solver Backend
 

@@ -5,6 +5,8 @@ Hamilton–Jacobi–Bellman equations. You write the local equation; the package
 finite-difference derivatives, upwinding, sparse Jacobians, and pseudo-transient Newton
 iteration.
 
+Repository: [github.com/matthieugomez/EconPDEs.jl](https://github.com/matthieugomez/EconPDEs.jl)
+
 ## Installation
 
 ```julia

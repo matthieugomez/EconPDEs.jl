@@ -19,37 +19,62 @@ Current versions require Julia 1.10 or later.
 
 ## Quickstart
 
-The main function is `pdesolve`. A stationary problem needs a PDE function, a state grid, and an initial guess. Here is an example for the PDE `∂v_t = x^2 - 0.04 * v + μx * vx + 0.05 * vxx`. 
+The main function is `pdesolve`. A stationary problem needs a PDE function, a state grid, and an initial guess. Here is a simple deterministic neoclassical growth model:
+
+```math
+\rho v(k) = \max_c \left\{ \frac{c^{1-\gamma}}{1-\gamma}
+    + v'(k) \left(A k^\alpha - \delta k - c\right) \right\}.
+```
+
+The first-order condition is `c = v'(k)^(-1 / γ)`. 
 
 ```julia
 using EconPDEs
 
-# Declare the state grid: one state variable named `x`.
-grid = OrderedDict(:x => range(-1.0, 1.0, length = 100))
+# Model parameters.
+const A = 0.5
+const α = 0.3
+const δ = 0.05
+const ρ = 0.05
+const γ = 2.0
+
+# Declare the state grid: one state variable named `k`.
+# Steady-state capital satisfies α A k̄^(α - 1) = ρ + δ.
+k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
+stategrid = OrderedDict(:k => range(0.1 * k̄, 5.0 * k̄, length = 200))
 
 # Declare the unknown value function: one function named `v`,
-# with one initial value at each point of the `x` grid.
-guess = OrderedDict(:v => ones(length(grid[:x])))
+# with one initial value at each point of the `k` grid.
+guess = OrderedDict(:v => [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 
-# `hjb` encodes the PDE at one point in the state space
-# `state.x` is one value from `grid[:x]`.
-# `u.v` is the local value of `v`; `u.vx_up`, `u.vx_down`, and `u.vxx`
-# are finite-difference derivatives inferred from the names `v` and `x`.
+# `hjb` encodes the HJB equation at one grid point.
+# `u.vk_up` and `u.vk_down` are one-sided finite-difference derivatives.
 function hjb(state::NamedTuple, u::NamedTuple)
-    x = state.x
-    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
+    k = state.k
 
-    μx = -x
-    vx = μx >= 0 ? vx_up : vx_down
+    # Since capital can drift up or down, use the upwinded derivative.
+    c_up = max(u.vk_up, eps())^(-1 / γ)
+    μ_up = A * k^α - δ * k - c_up
 
-    vt = -(x^2 + μx * vx + 0.05 * vxx - 0.04 * v)
+    c_down = max(u.vk_down, eps())^(-1 / γ)
+    μ_down = A * k^α - δ * k - c_down
+
+    if μ_up > 0
+        c, vk, μk = c_up, u.vk_up, μ_up
+    elseif μ_down < 0
+        c, vk, μk = c_down, u.vk_down, μ_down
+    else
+        c, vk, μk = A * k^α - δ * k, u.vk_up, 0.0
+    end
+
+    vt = -(c^(1 - γ) / (1 - γ) + μk * vk - ρ * u.v)
     return (; vt)
 end
 
 # Solve the stationary HJB.
-result = pdesolve(hjb, grid, guess; verbose = false)
+result = pdesolve(hjb, stategrid, guess)
 value = result.zero[:v]
-residual_norm = result.residual_norm
+@assert result.residual_norm <= 1e-4
 ```
 
 ## Model Conventions
@@ -62,44 +87,18 @@ f(state::NamedTuple, u::NamedTuple) -> NamedTuple
 
 `state` gives the current grid point. `u` gives each unknown function and its finite-difference derivatives at that point. Think of `u` as the local finite-difference bundle: it contains the value and all stencil candidates the HJB may need at this grid node. The model then chooses the economically correct derivative, usually by the sign of a drift.
 
-Field names concatenate the unknown name, the state name or names, and an optional direction suffix. If the unknown is `v` and the states are `x` and `z`, then `u` contains:
+Field names concatenate the unknown name, the state name or names, and an optional direction suffix. If the unknown is `v` and the states are `k` and `l`, then `u` contains:
 
 | Field | Meaning |
 |---|---|
 | `v` | local value of the unknown |
-| `vx_up`, `vx_down` | forward and backward first derivatives in `x` |
-| `vz_up`, `vz_down` | forward and backward first derivatives in `z` |
-| `vxx`, `vzz` | own second derivatives |
-| `vxz` | central cross derivative |
-| `vxz_up`, `vxz_down` | directional cross derivatives for positive and negative cross terms |
+| `vk_up`, `vk_down` | forward and backward first derivatives in `k` |
+| `vl_up`, `vl_down` | forward and backward first derivatives in `l` |
+| `vkk`, `vll` | own second derivatives |
+| `vkl` | central cross derivative |
+| `vkl_up`, `vkl_down` | directional cross derivatives for positive and negative cross terms |
 
-With several unknowns, the same rule applies to each one: an unknown `w` has fields such as `w`, `wx_up`, `wxx`, and `wxz`. The argument name `u` is only a convention; the fields are what matter. The PDE function must return one time derivative for each unknown; for `v`, return `vt`.
-
-For higher-dimensional systems, the same rule applies:
-
-```julia
-# Two state variables, named `a` and `z`.
-grid = OrderedDict(:a => range(0.0, 10.0, length = 100), :z => range(-0.5, 0.5, length = 50))
-
-# Two unknown value functions, named `v` and `w`.
-# Each array has lengths consistent with the `grid' for state variables
-guess = OrderedDict(
-    :v => ones(length(grid[:a]), length(grid[:z])),
-    :w => ones(length(grid[:a]), length(grid[:z])),
-)
-
-# A PDE function called with this `grid` and `guess` receives
-# `state.a` and `state.z`.
-#
-# For `v`, `u` contains `u.v`, first derivatives such as
-# `u.va_up`, `u.va_down`, `u.vz_up`, and `u.vz_down`,
-# second derivatives such as `u.vaa` and `u.vzz`,
-# and cross derivatives such as `u.vaz`, `u.vaz_up`, and `u.vaz_down`.
-#
-# For `w`, `u` contains the analogous fields: `u.w`, `u.wa_up`,
-# `u.wz_down`, `u.waa`, `u.wzz`, `u.waz`, and so on.
-# The PDE function must return one time derivative per unknown: `(; vt, wt)`.
-```
+With several unknowns, the same naming rule applies to each one. For example, if the unknowns are `v` and `w` on states `k` and `l`, then `u` contains fields such as `v`, `vk_up`, `vkl`, `w`, `wk_up`, and `wkl`. The argument name `u` is only a convention; the fields are what matter. The PDE function must return one time derivative per unknown, e.g. `(; vt, wt)`.
 
 ## Saving Intermediate Outputs
 
@@ -107,52 +106,66 @@ Sometimes you compute useful objects inside the PDE function: a selected first d
 
 ```julia
 function hjb(state::NamedTuple, u::NamedTuple)
-    x = state.x
-    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
+    k = state.k
 
-    μx = -x
-    vx = μx >= 0 ? vx_up : vx_down
+    c_up = max(u.vk_up, eps())^(-1 / γ)
+    μ_up = A * k^α - δ * k - c_up
 
-    vt = -(x^2 + μx * vx + 0.05 * vxx - 0.04 * v)
-    return (; vt), (; vx, μx)
+    c_down = max(u.vk_down, eps())^(-1 / γ)
+    μ_down = A * k^α - δ * k - c_down
+
+    if μ_up > 0
+        c, vk, μk = c_up, u.vk_up, μ_up
+    elseif μ_down < 0
+        c, vk, μk = c_down, u.vk_down, μ_down
+    else
+        c, vk, μk = A * k^α - δ * k, u.vk_up, 0.0
+    end
+
+    vt = -(c^(1 - γ) / (1 - γ) + μk * vk - ρ * u.v)
+    return (; vt), (; c, μk)
 end
 
-result = pdesolve(hjb, grid, guess; verbose = false)
+result = pdesolve(hjb, stategrid, guess)
 value = result.zero[:v]
-vx = result.optional[:vx]
-drift = result.optional[:μx]
+consumption = result.optional[:c]
+capital_drift = result.optional[:μk]
 ```
 
 Each object in the second `NamedTuple` is evaluated at every state-grid point and stored as an array with the same shape as the grid. `result.zero` contains the solved unknowns. `result.optional` contains the saved outputs, and also includes the solved unknowns for convenience.
 
 ## Time-Dependent Problems
 
-For a time-dependent problem, pass an increasing time grid as the fourth argument:
-
-```julia
-τs = range(0, 100, length = 50)
-result = pdesolve(hjb, grid, guess, τs; verbose = false)
-```
-
-`pdesolve` solves backward over this grid. In this case, `guess` is the terminal value at `τs[end]`, and `result.zero[i]` is the solution dictionary at time `τs[i]`; for example, `result.zero[i][:v]` is the value function at that time.
-
-If the HJB itself depends on time, define the PDE function with a third argument:
+For a time-dependent problem, pass an increasing time grid as the fourth argument. If the HJB itself depends on time, define the PDE function with a third argument. For example, suppose productivity follows a deterministic path:
 
 ```julia
 function hjb(state::NamedTuple, u::NamedTuple, t)
-    x = state.x
-    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
+    k = state.k
+    A_t = A * (1 + 0.1 * exp(-0.05 * t))
 
-    μx = -x
-    vx = μx >= 0 ? vx_up : vx_down
+    c_up = max(u.vk_up, eps())^(-1 / γ)
+    μ_up = A_t * k^α - δ * k - c_up
 
-    flow_payoff = exp(-0.01 * t) * x^2
-    vt = -(flow_payoff + μx * vx + 0.05 * vxx - 0.04 * v)
+    c_down = max(u.vk_down, eps())^(-1 / γ)
+    μ_down = A_t * k^α - δ * k - c_down
+
+    if μ_up > 0
+        c, vk, μk = c_up, u.vk_up, μ_up
+    elseif μ_down < 0
+        c, vk, μk = c_down, u.vk_down, μ_down
+    else
+        c, vk, μk = A_t * k^α - δ * k, u.vk_up, 0.0
+    end
+
+    vt = -(c^(1 - γ) / (1 - γ) + μk * vk - ρ * u.v)
     return (; vt)
 end
 
-result = pdesolve(hjb, grid, guess, τs; verbose = false)
+τs = range(0, 100, length = 50)
+result = pdesolve(hjb, stategrid, guess, τs)
 ```
+
+`pdesolve` solves backward over this grid. In this case, `guess` is the terminal value at `τs[end]`, and `result.zero[i]` is the solution dictionary at time `τs[i]`; for example, `result.zero[i][:v]` is the value function at that time.
 
 If the PDE function has only two arguments, `pdesolve` uses the same equation at each time on the grid.
 

@@ -79,12 +79,13 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
     # create sparsity
     J0 = sparse_jacobian(stategrid, yend)
     monotonicity_check = check_monotonicity ? MonotonicityChecker(stategrid, yend; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings) : nothing
-    Tsolution = Type{tuple(keys(yend)...)}
+    ynames = tuple(keys(yend)...)
+    solutionnames = Val(ynames)
 
     # iterate on time
     if τs isa AbstractVector
         apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
-        a = get_a(apm_onestep, stategrid, Tsolution, yend_M, bc_M)
+        a = get_a(apm_onestep, stategrid, solutionnames, ynames, yend_M, bc_M)
         as = (a === nothing) ? nothing : [deepcopy(a) for τ in τs]
         y_M = yend_M
         residual_norms = zeros(length(τs))
@@ -96,11 +97,11 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
             _setindex!(ys[iτ], y_M)
             apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[iτ]) : apm
             if a !== nothing
-                _setindex!(as[iτ], apm_onestep, stategrid, Tsolution, y_M, bc_M)
+                _setindex!(as[iτ], apm_onestep, stategrid, solutionnames, y_M, bc_M)
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
                 end
@@ -109,12 +110,12 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
         end
         return EconPDEResult(ys, residual_norms, as)
     else
-        a = get_a(apm, stategrid, Tsolution, yend_M, bc_M)
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, Tsolution, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
+        a = get_a(apm, stategrid, solutionnames, ynames, yend_M, bc_M)
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
         y_M = reshape(y_M, size(yend_M)...)
         _setindex!(y, y_M)
         if a !== nothing
-            _setindex!(a, apm, stategrid, Tsolution, y_M, bc_M)
+            _setindex!(a, apm, stategrid, solutionnames, y_M, bc_M)
             a = merge(y, a)
         end
         return EconPDEResult(y, residual_norm, a)
@@ -200,12 +201,12 @@ function _Array_bc(bc, yend, grid)
 end
 
 
-function get_a(apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+function get_a(apm, stategrid::StateGrid, solutionnames, ynames, y_M::AbstractArray, bc_M::AbstractArray)
     i0 = first(eachindex(stategrid))
-    derivatives = differentiate(Tsolution, stategrid, y_M, i0, bc_M)
+    derivatives = differentiate(solutionnames, stategrid, y_M, i0, bc_M)
     result = apm(stategrid[i0], derivatives)
     residual, optional = _split_pde_output(result)
-    _check_residual_names(residual, _first_type_parameter(Tsolution))
+    _check_residual_names(residual, ynames)
     optional === nothing && return nothing
     return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(optional))
 end
@@ -262,9 +263,9 @@ function _setindex!(@nospecialize(y), y_M::AbstractArray)
     end
 end
 
-function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M::AbstractArray, bc_M::AbstractArray)
+function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, solutionnames, y_M::AbstractArray, bc_M::AbstractArray)
     for i in eachindex(stategrid)
-         solution = differentiate(Tsolution, stategrid, y_M, i, bc_M)
+         solution = differentiate(solutionnames, stategrid, y_M, i, bc_M)
          outi = apm(stategrid[i], solution)[2]
          for (k, v) in zip(values(a), values(outi))
             k[i] = v
@@ -274,27 +275,26 @@ function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, Tsolution, y_M:
 
 
  # create hjb! that accepts and returns AbstractVector rather than AbstractArrays
- function hjb!(apm, stategrid::StateGrid, Tsolution, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
+ function hjb!(apm, stategrid::StateGrid, solutionnames, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
      y_M = reshape(y, ysize...)
      ydot_M = reshape(ydot, ysize...)
-     vec(hjb!(apm, stategrid, Tsolution, ydot_M, y_M, bc_M))
+     vec(hjb!(apm, stategrid, solutionnames, ydot_M, y_M, bc_M))
  end
 
- function hjb!(apm, stategrid::StateGrid, Tsolution, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
+ function hjb!(apm, stategrid::StateGrid, solutionnames, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
      for i in eachindex(stategrid)
-         solution = differentiate(Tsolution, stategrid, y_M, i, bc_M)
+         solution = differentiate(solutionnames, stategrid, y_M, i, bc_M)
          outi = apm(stategrid[i], solution)
          if isa(outi[1], Number)
-            _setindex!(ydot_M, Tsolution, outi, i)
+            _setindex!(ydot_M, solutionnames, outi, i)
         else
-            _setindex!(ydot_M, Tsolution, outi[1], i)
+            _setindex!(ydot_M, solutionnames, outi[1], i)
         end
      end
      return ydot_M
  end
 
- @generated function _setindex!(ydot_M::AbstractArray, ::Type{Tsolution}, outi::NamedTuple, i::CartesianIndex) where {Tsolution}
-     solnames = _first_type_parameter(Tsolution)
+ @generated function _setindex!(ydot_M::AbstractArray, ::Val{solnames}, outi::NamedTuple, i::CartesianIndex) where {solnames}
      N = length(solnames)
      quote
           $(Expr(:meta, :inline))

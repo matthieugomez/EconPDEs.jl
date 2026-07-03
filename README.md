@@ -23,12 +23,6 @@ Current versions require Julia 1.10 or later.
 
 ## Quickstart
 
-The main function is `pdesolve`. It takes three objects:
-
-- a local equation `f(state, u)`;
-- a named state grid, such as `(; k = range(...))`;
-- a named initial guess, such as `(; v = [...])`.
-
 Here is a small linear equation on one state, with a mean-reverting drift:
 
 ```math
@@ -43,6 +37,12 @@ problem, solved backward in time from an initial guess until the time derivative
 \rho v(x, t) = x + \mu(x) v_x(x, t) + v_t(x, t),
 ```
 
+The main function `pdesolve` takes three objects:
+
+- a local equation `f(state, u)` encoding the PDE;
+- a `NamedTuple` encoding the state grid, such as `(; k = range(...))`;
+- a `NamedTuple` encoding the initial guess, such as `(; v = [...])`.
+
 Here is how to solve this equation using this package:
 ```julia
 using EconPDEs
@@ -55,6 +55,7 @@ guess = (; v = zeros(length(grid.x)))
 
 function equation(state, u)
     mu = -kappa * (state.x - 0.5)
+    # The grid and guess names determine the fields: state.x, u.v, u.vx_up, and u.vx_down.
     vx = mu >= 0 ? u.vx_up : u.vx_down
     # Return the time derivative implied by rho*v = x + mu*v_x + v_t.
     vt = -(state.x + mu * vx - rho * u.v)
@@ -68,12 +69,10 @@ value = result.zero[:v]
 ```
 
 The drift is positive below `0.5` and negative above `0.5`, so the equation chooses the
-forward or backward derivative at each grid point. Full HJB examples, including policy
-choice and endogenous upwinding, are in the documentation.
+forward or backward derivative at each grid point.
 
-## Interface
-
-The state grid and the initial guess are `NamedTuple`s keyed by state names and unknown names. Grid entries can be ranges or vectors, and different dimensions can use different vector containers:
+The same interface extends to multiple states or unknowns. Grid entries can be ranges or
+vectors, and different dimensions can use different vector containers:
 
 ```julia
 grid = (; a = range(0.0, 100.0, length = 500),
@@ -81,9 +80,10 @@ grid = (; a = range(0.0, 100.0, length = 500),
 guess = (; v = zeros(length(grid.a), length(grid.y)))
 ```
 
-Inside your equation, `state` is the current grid point and `u` contains the value and derivative stencils. If the unknown is `v` and the state is `k`, then `u.v` is the local value and `u.vk_up`, `u.vk_down`, and `u.vkk` are finite-difference derivatives.
-
-Return one time derivative per unknown, named by appending `t`: `(; vt)` for unknown `v`, or `(; vt, wt)` for unknowns `v` and `w`. Return a second `NamedTuple` to save policies, drifts, prices, or other objects on the grid; they are available as `result.saved`.
+For two unknowns, return `(; vt, wt)`. Return a second `NamedTuple` to save policies,
+drifts, prices, or other objects on the grid; they are available as `result.saved`.
+Full HJB examples, including policy choice and endogenous upwinding, are in the
+documentation.
 
 ## Documentation
 
@@ -104,11 +104,6 @@ The documentation also includes a gallery of runnable examples:
 - corporate-finance models, including optimal default and investment with financing constraints.
 
 The source scripts live in [`examples/`](examples).
-
-## Numerical Details
-
-For the finite-difference discretization and the pseudo-transient Newton scheme behind
-`pdesolve`, see [Solver and troubleshooting](https://www.matthieugomez.com/EconPDEs.jl/dev/solver/).
 
 ## Citation
 

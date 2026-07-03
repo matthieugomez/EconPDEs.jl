@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Brunnermeier–Sannikov: macro-finance · EconPDEs.jl</title><meta name="title" content="Brunnermeier–Sannikov: macro-finance · EconPDEs.jl"/><meta property="og:title" content="Brunnermeier–Sannikov: macro-finance · EconPDEs.jl"/><meta property="twitter:title" content="Brunnermeier–Sannikov: macro-finance · EconPDEs.jl"/><meta name="description" content="Documentation for EconPDEs.jl."/><meta property="og:description" content="Documentation for EconPDEs.jl."/><meta property="twitter:description" content="Documentation for EconPDEs.jl."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script><link href="../../../assets/sidebar.css" rel="stylesheet" type="text/css"/><script src="../../../assets/sidebar-scroll.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">EconPDEs.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../../getting_started/">Getting started</a></li><li><a class="tocitem" href="../../../pde_function/">Writing the PDE function</a></li><li><a class="tocitem" href="../../../boundary_conditions/">Boundary conditions</a></li><li><a class="tocitem" href="../../../time_dependent/">Time-dependent problems</a></li><li><a class="tocitem" href="../../../solver/">Solver and troubleshooting</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../../../examples_overview/">Overview</a></li><li><a class="tocitem" href="../../neoclassical_growth/">Neoclassical growth</a></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Consumption–saving</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../consumption_saving/consumption_saving_two_income/">Consumption–saving: two income states</a></li><li><a class="tocitem" href="../../consumption_saving/consumption_saving_diffusion_income/">Consumption–saving: diffusion income</a></li><li><a class="tocitem" href="../../consumption_saving/consumption_saving_risky_asset/">Consumption–saving: risky asset</a></li><li><a class="tocitem" href="../../consumption_saving/wang_wang_yang/">Wang–Wang–Yang: liquidity management</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox" checked/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Asset pricing</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../campbell_cochrane/">Campbell–Cochrane: habit</a></li><li><a class="tocitem" href="../wachter/">Wachter: rare disasters</a></li><li><a class="tocitem" href="../bansal_yaron/">Bansal–Yaron: long-run risk</a></li><li><a class="tocitem" href="../haddad/">Haddad: endogenous volatility</a></li><li><a class="tocitem" href="../tuckman_vila/">Tuckman–Vila: finite horizon</a></li><li><a class="tocitem" href="../garleanu_panageas/">Gârleanu–Panageas: heterogeneous agents</a></li><li><a class="tocitem" href="../he_krishnamurthy/">He–Krishnamurthy: intermediaries</a></li><li class="is-active"><a class="tocitem" href>Brunnermeier–Sannikov: macro-finance</a><ul class="internal"><li><a class="tocitem" href="#The-model"><span>The model</span></a></li><li><a class="tocitem" href="#The-state-space"><span>The state space</span></a></li><li><a class="tocitem" href="#The-equation"><span>The equation</span></a></li><li><a class="tocitem" href="#The-solution"><span>The solution</span></a></li></ul></li><li><a class="tocitem" href="../di_tella/">Di Tella: balance-sheet risk</a></li><li><a class="tocitem" href="../gomez/">Gomez: wealth distribution</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-5" type="checkbox"/><label class="tocitem" for="menuitem-3-5"><span class="docs-label">Corporate finance</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../corporate_finance/leland/">Leland: optimal default</a></li><li><a class="tocitem" href="../../corporate_finance/bolton_chen_wang/">Bolton–Chen–Wang: financing constraint</a></li></ul></li></ul></li><li><a class="tocitem" href="../../../infinitesimal_generators/">InfinitesimalGenerators</a></li><li><a class="tocitem" href="../../../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li><a class="is-disabled">Asset pricing</a></li><li class="is-active"><a href>Brunnermeier–Sannikov: macro-finance</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Brunnermeier–Sannikov: macro-finance</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/matthieugomez/EconPDEs.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/asset_pricing/brunnermeier_sannikov.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Brunnermeier–Sannikov-(2014):-a-macroeconomic-model-with-a-financial-sector"><a class="docs-heading-anchor" href="#Brunnermeier–Sannikov-(2014):-a-macroeconomic-model-with-a-financial-sector">Brunnermeier–Sannikov (2014): a macroeconomic model with a financial sector</a><a id="Brunnermeier–Sannikov-(2014):-a-macroeconomic-model-with-a-financial-sector-1"></a><a class="docs-heading-anchor-permalink" href="#Brunnermeier–Sannikov-(2014):-a-macroeconomic-model-with-a-financial-sector" title="Permalink"></a></h1><p>Experts and households both hold capital, but experts are more productive and can issue equity only if they retain at least a fraction <span>$\chi$</span> of it — a skin-in-the-game constraint. The state <span>$x$</span> is the experts&#39; wealth share. The model has a <strong>crisis region</strong> (experts constrained, <span>$\Psi &lt; 1$</span>) and a <strong>normal region</strong> (<span>$\Psi = 1$</span>); the capital price <span>$q$</span> and the experts&#39; capital share <span>$\Psi$</span> are recovered with a root-find, sweeping <span>$x$</span> from the lower boundary upward so each step reuses the previous <span>$q$</span> to build <span>$q_x$</span> by finite difference. That order-dependent sweep is why the model struct is mutable and carries <code>q_old</code>.</p><h2 id="The-model"><a class="docs-heading-anchor" href="#The-model">The model</a><a id="The-model-1"></a><a class="docs-heading-anchor-permalink" href="#The-model" title="Permalink"></a></h2><p>The parameters:</p><pre><code class="language-julia hljs">using EconPDEs, Roots, Plots
+
+Base.@kwdef mutable struct BrunnermeierSannikov
+  # Calibration uses Section 3.6 of the textbook chapter (the paper&#39;s r here appears to be a typo for ρH)
+  ρE::Float64 = 0.06      # experts&#39; rate of time preference (discount rate)
+  ρH::Float64 = 0.05      # households&#39; rate of time preference (discount rate)
+  γ::Float64 = 2.0        # relative risk aversion
+  ψ::Float64 = 0.5        # elasticity of intertemporal substitution
+  δ::Float64 = 0.05       # depreciation rate of capital
+  σ::Float64 = 0.1        # exogenous (fundamental) volatility of capital
+  κ::Float64 = 10.0       # investment adjustment-cost parameter
+  a::Float64 = 0.11       # experts&#39; productivity (output per unit capital)
+  alow::Float64 = 0.03    # households&#39; productivity (output per unit capital)
+  χlow::Float64 = 0.5     # minimum equity retention (skin-in-the-game floor)
+  q_old::Float64 = 1.0    # previous capital price q (carried across the sweep)
+  qx_old::Float64 = 0.0   # previous q_x (carried across the sweep)
+  Ψ_old::Float64 = 1.0    # previous experts&#39; capital share Ψ (carried across the sweep)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Main.BrunnermeierSannikov</code></pre><h2 id="The-state-space"><a class="docs-heading-anchor" href="#The-state-space">The state space</a><a id="The-state-space-1"></a><a class="docs-heading-anchor-permalink" href="#The-state-space" title="Permalink"></a></h2><p>We build the grid and the initial guess first, because they fix the names used everywhere else. The grid is a <code>NamedTuple</code> whose key is the state variable (<code>x</code>, the experts&#39; wealth share); the guess is a <code>NamedTuple</code> whose keys are the unknown functions (<code>pE, pH</code>), holding one starting value at each grid point. These names are what reappear inside the equation below — e.g. <code>pEx_up</code> will be the forward finite difference of <code>pE</code> in <code>x</code>.</p><p>One state <span>$x \in (0, 1)$</span> on 200 interior grid points. Because the sweep marches from the lower boundary upward, the grid spacing <code>Δx</code> and its minimum <code>xmin</code> are computed here and later passed into the model.</p><pre><code class="language-julia hljs">m = BrunnermeierSannikov()
+xn = 200
+stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
+Δx = step(stategrid[:x])
+xmin = minimum(stategrid[:x])
+guess = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(pE = [9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0  …  9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0], pH = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0  …  10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])</code></pre><h2 id="The-equation"><a class="docs-heading-anchor" href="#The-equation">The equation</a><a id="The-equation-1"></a><a class="docs-heading-anchor-permalink" href="#The-equation" title="Permalink"></a></h2><p>We now write the function encoding the equilibrium conditions. Following the package convention, it takes the current <code>state</code> (a grid point) and <code>u</code> — the local bundle holding each unknown and its finite-difference derivatives there — plus the grid spacing <code>Δx</code> and lower bound <code>xmin</code>, and returns the time derivative of each unknown (<code>pEt, pHt</code>). Inside, a root-find recovers the capital price <span>$q$</span> and the experts&#39; capital share <span>$\Psi$</span>, distinguishing the crisis region (<span>$\Psi &lt; 1$</span>) from the normal region (<span>$\Psi = 1$</span>).</p><pre><code class="language-julia hljs">function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
+  (; ρE, ρH, γ, ψ, δ, σ, κ, a, alow, χlow) = m
+  (; x) = state
+  (; pE, pEx_up, pEx_down, pExx, pH, pHx_up, pHx_down, pHxx) = u
+  # Floor the wealth–consumption ratios before dividing by them: a Newton trial iterate can wander
+  # nonpositive, which would blow up the equilibrium conditions. Slack at the converged solution,
+  # where both stay well above 1e-3.
+  pE = max(pE, 1e-3)
+  pH = max(pH, 1e-3)
+  χ = max(χlow, x)
+  pEx, pHx = pEx_up, pHx_up
+  iter = 0
+  @label start
+  q_old = m.q_old
+  qx_old = m.qx_old
+  Ψ_old = m.Ψ_old
+
+  # First, solve for q, qx, and qxx
+  if abs(x - xmin) &lt; 1e-9
+    # initial condition at lower boundary of x grid (point outside the grid technically)
+    # We must have that expert consumption approaches zero as xt approaches zero (linked to transversality condition)
+    Ψ_old = 0.0
+    q_old = (alow + 1 / κ) / (1 / pH + 1 / κ)
+    qx_old = 0.0
+  end
+  if Ψ_old &lt; 1.0
+    # crisis region.
+    # in this case, we do not have Ψ = 1.0 but we have
+    # (a - alow) / q = (κE - κH) * (σ + σq)
+    # note that
+    out = find_zero(Ψ_old) do Ψ
+        local q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
+        local qx = (q - q_old) / Δx
+        local αE = χ * Ψ / x
+        local σx = x * (αE - 1) * σ / (1 - x * (αE - 1) * qx / q)
+        local σpE = pEx / pE * σx
+        local σpH = pHx / pH * σx
+        local σq = qx / q * σx
+        local σE = αE * (σ + σq)
+        local αH = (1 - αE * x) / (1 - x)
+        local σH = αH * (σ + σq)
+        local κE = γ * (σE - (1 / γ - 1) / (ψ - 1) * σpE)
+        local κH = γ * (σH - (1 / γ - 1) / (ψ - 1) * σpH)
+        return (a - alow) / q -  χ * (κE - κH) * (σ + σq)
+      end
+    Ψ = out[1]
+    q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
+    qx = (q - q_old) / Δx
+    if Ψ &gt; 1
+      Ψ_old = 1.0
+    end
+  end
+  if Ψ_old ≥ 1.0
+    # normal region.
+    Ψ = 1.0
+    q = (a + 1 / κ) / ((x / pE + (1 - x) / pH) + 1 / κ)
+    qx = - (a + 1 / κ) / ((x / pE + (1 - x) / pH) + 1 / κ)^2 * (1 / pE - 1 / pH - x / pE^2 * pEx - (1-x) / pH^2 * pHx)
+  end
+  qxx = (qx - qx_old) / Δx
+  m.q_old = q
+  m.qx_old = qx
+  m.Ψ_old = Ψ
+
+
+  # having solved for q, do the time step
+  # Floor q the same way before it enters ι, Φ, μq, and r; slack at the converged solution (q ≈ 1).
+  q = max(q, sqrt(eps()))
+  ι = (q - 1) / κ
+  Φ = log(q) / κ
+  αE = χ * Ψ / x
+  σx = x * (αE - 1) * σ / (1 - x * (αE - 1) * qx / q)
+  σpE = pEx / pE * σx
+  σpH = pHx / pH * σx
+  σq = qx / q * σx
+  σE = αE * (σ + σq)
+  αH = (1 - αE * x) / (1 - x)
+  σH = αH * (σ + σq)
+  κE = γ * (σE - (1 / γ - 1) / (ψ - 1) * σpE)
+  κH = γ * (σH - (1 / γ - 1) / (ψ - 1) * σpH)
+  μx = x * (1 - x) * (κE * σE - κH * σH + 1 / pH - 1 / pE - (σE - σH) * (σ + σq))
+  μx2 = x * ((a - ι) / q - 1 / pE) + σx * (κE - σ - σq) + x * (1 - χ) * (κE - κH) * (σ + σq)
+  if (iter == 0) &amp;&amp; (μx &lt; 0)
+    # upwinding
+    iter += 1
+    pEx, pHx = pEx_down, pHx_down
+    @goto start
+  end
+  μpE = pEx / pE * μx + 0.5 * pExx / pE * σx^2
+  μpH = pHx / pH * μx + 0.5 * pHxx / pH * σx^2
+  μq = qx / q * μx + 0.5 * qxx / q * σx^2
+
+  # Clamp r to a wide band: a Newton trial iterate outside the economic domain can produce a wild
+  # interest rate that would overflow the exponential price updates below. Slack at the converged
+  # solution, where r stays within a few percent of zero.
+  r = clamp((a - ι) / q + Φ - δ + μq + σ * σq - (χ * κE + (1 - χ) * κH) * (σ + σq), -3.0, 3.0)
+  # Market Pricing
+  pEt = -  pE * (1 / pE - ψ * ρE + (ψ - 1) * (r + κE * σE) + μpE - (ψ - 1) * γ / 2 * σE^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpE^2 + (1 - γ) * σpE * σE)
+  pHt = -  pH * (1 / pH - ψ * ρH + (ψ - 1) * (r + κH * σH) + μpH - (ψ - 1) * γ / 2 * σH^2 + (2 - ψ - γ) / (2 * (ψ - 1)) * σpH^2 + (1 - γ) * σpH * σH)
+  d = Ψ * a + (1 - Ψ) * alow - ι
+  μR = r + (χ * κE + (1 - χ) * κH) * (σ + σq)
+  (; pEt, pHt), (; x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, q, qx, qxx, μq, μx2, Φ, χ, d, μR)
+end</code></pre><p>The sweep is order-dependent — it marches from the lower boundary <code>xmin</code> upward, each step reusing the previous <span>$q$</span> carried in the mutable model — so <code>Δx</code> and <code>xmin</code> are passed into the model and finite-difference autodiff is used:</p><pre><code class="language-julia hljs">result = pdesolve((state, u) -&gt; m(state, u, Δx, xmin), stategrid, guess; autodiff = :finite)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EconPDEResult
+  zero:          pE (200), pH (200)
+  saved:         pE, pH, x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, q, qx, qxx, μq, μx2, Φ, χ, d, μR
+  residual_norm: 9.336667419992141e-11</code></pre><h2 id="The-solution"><a class="docs-heading-anchor" href="#The-solution">The solution</a><a id="The-solution-1"></a><a class="docs-heading-anchor-permalink" href="#The-solution" title="Permalink"></a></h2><p>We saved the capital price <span>$q$</span>. It is depressed when experts are poorly capitalized (low <span>$x$</span>) — the crisis region — and tends to rise with the experts&#39; wealth share as the retention constraint slackens.</p><pre><code class="language-julia hljs">xs = stategrid[:x]
+plot(xs, result.saved[:q]; xlabel = &quot;experts&#39; wealth share x&quot;, ylabel = &quot;capital price q&quot;, legend = false)</code></pre><img src="21bbce80.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../he_krishnamurthy/">« He–Krishnamurthy: intermediaries</a><a class="docs-footer-nextpage" href="../di_tella/">Di Tella: balance-sheet risk »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 3 July 2026 15:58">Friday 3 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

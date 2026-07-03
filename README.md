@@ -89,9 +89,7 @@ documentation.
 
 ## Documentation
 
-The [manual](https://www.matthieugomez.com/EconPDEs.jl/dev/) gives further details.
-
-The documentation also includes a gallery of runnable examples:
+The [documentation](https://www.matthieugomez.com/EconPDEs.jl/dev/) gives further details. It also includes a gallery of runnable examples:
 
 - consumption-saving models, including borrowing constraints, income risk, and risky assets;
 - asset-pricing models, including habit, long-run risk, rare disasters, and intermediary finance;

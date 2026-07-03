@@ -90,8 +90,11 @@ Return one time derivative per unknown, named by appending `t`: `(; vt)` for unk
 The manual gives the details:
 
 - [Getting started](https://www.matthieugomez.com/EconPDEs.jl/dev/getting_started/)
-- [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/)
-- [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/design/)
+- [Writing the PDE function](https://www.matthieugomez.com/EconPDEs.jl/dev/pde_function/)
+- [Boundary conditions](https://www.matthieugomez.com/EconPDEs.jl/dev/boundary_conditions/)
+- [Time-dependent problems](https://www.matthieugomez.com/EconPDEs.jl/dev/time_dependent/)
+- [Solver and troubleshooting](https://www.matthieugomez.com/EconPDEs.jl/dev/solver/)
+- [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/#Why-EconPDEs)
 - [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/) — using the companion package [InfinitesimalGenerators.jl](https://github.com/matthieugomez/InfinitesimalGenerators.jl) for stationary distributions and expectations after solving
 
 The documentation also includes a gallery of runnable examples:
@@ -105,7 +108,7 @@ The source scripts live in [`examples/`](examples).
 ## Numerical Details
 
 For the finite-difference discretization and the pseudo-transient Newton scheme behind
-`pdesolve`, see [Solving models](https://www.matthieugomez.com/EconPDEs.jl/dev/solving/#Solver-and-troubleshooting).
+`pdesolve`, see [Solver and troubleshooting](https://www.matthieugomez.com/EconPDEs.jl/dev/solver/).
 
 ## Citation
 

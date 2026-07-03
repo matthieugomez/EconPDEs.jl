@@ -1,5 +1,5 @@
 """
-    pdesolve(f, grid, yend [, τs]; kwargs...)
+    pdesolve(f, grid, guess [, τs]; kwargs...)
 
 Solve a system of nonlinear ODEs/PDEs — typically Hamilton–Jacobi–Bellman equations —
 by finite differences. Handles an arbitrary number of coupled unknown functions on a
@@ -16,7 +16,7 @@ state grid of one, two, or three state variables.
   returned in `result.saved`.
 * `grid`: a `NamedTuple` (or `OrderedDict`) mapping each state variable name to an
   `AbstractVector` (its grid), e.g. `(; k = range(...))`.
-* `yend`: a `NamedTuple` (or `OrderedDict`) mapping each unknown name to an array of initial
+* `guess`: a `NamedTuple` (or `OrderedDict`) mapping each unknown name to an array of initial
   values with the same shape as the grid. For a time-dependent problem, it is the terminal
   value at `τs[end]`.
 * `τs` (optional): an increasing time grid. The equation is then solved backward from
@@ -29,8 +29,9 @@ state grid of one, two, or three state variables.
   pairs default to reflecting boundaries (zero outward first derivative).
 * `is_algebraic`: a `NamedTuple` (or `OrderedDict`) of `Bool`s marking equations that are
   algebraic (no time derivative) rather than PDEs. Defaults to all `false`.
-* `y̲`, `ȳ`: lower/upper bounds for HJB variational inequalities (optimal stopping), solved as a
-  mixed complementarity problem. Default to `-Inf`/`Inf` (unbounded).
+* `lower_bound`, `upper_bound`: lower/upper bounds on the unknowns for HJB variational
+  inequalities (optimal stopping), solved as a mixed complementarity problem. Default to
+  `-Inf`/`Inf` (unbounded). The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
 * `method`: `:newton` (default) or `:trust_region`.
 * `maxdist`: convergence tolerance on the residual. Defaults to `sqrt(eps())`.
 * `iterations`: maximum number of pseudo-transient iterations. Defaults to 100.
@@ -46,7 +47,10 @@ state grid of one, two, or three state variables.
   `inner_verbose`, `reformulation`, `autoscale`) are forwarded to
   [`finiteschemesolve`](@ref); see its docstring, especially when a solve stalls.
 * `check_monotonicity`: if true, warn when the assembled residual Jacobian has same-variable
-  spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false.
+  spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false. A flipped
+  sign convention — returning `RHS - ρv` instead of `-(RHS - ρv)`, which makes the Jacobian
+  diagonal negative at every grid point — is detected and warned about regardless of this
+  option (whenever `Δ` is finite).
 * `monotonicity_tol`: tolerance for the monotonicity check. Defaults to 1e-6.
 * `monotonicity_max_warnings`: maximum number of monotonicity warnings to print. Defaults to 5.
 
@@ -54,41 +58,42 @@ Returns an `EconPDEResult` with fields `zero` (the solved unknowns), `residual_n
 and `saved` (the saved objects, together with the solved unknowns). `result.optional`
 is kept as a backward-compatible alias for `result.saved`.
 """
-function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
-    # `grid`, `yend`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
+function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
+    # `grid`, `guess`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
     # NamedTuple. Normalize to a NamedTuple so everything below runs on one uniform representation.
     grid = _asnamedtuple(grid)
-    yend = _asnamedtuple(yend)
-    _check_generated_names(collect(keys(grid)), collect(keys(yend)))
+    guess = _asnamedtuple(guess)
+    _check_generated_names(collect(keys(grid)), collect(keys(guess)))
     stategrid = StateGrid(grid)
     S = size(stategrid)
-    for (name, v) in pairs(yend)
+    for (name, v) in pairs(guess)
         size(v) == S || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` has size $(size(v)) but the state grid has size $S"))
     end
-    is_algebraic = _fill_is_algebraic(is_algebraic, yend, S)
+    is_algebraic = _fill_is_algebraic(is_algebraic, guess, S)
     if τs isa AbstractVector
         issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
-        ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(yend)) for t in τs]
+        ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(guess)) for t in τs]
     else
-        y = OrderedDict(first(p) => collect(last(p)) for p in pairs(yend))
+        y = OrderedDict(first(p) => collect(last(p)) for p in pairs(guess))
     end
     # convert to Matrix
-    yend_M = catlast(values(yend))
+    guess_M = catlast(values(guess))
     is_algebraic_M = catlast(values(is_algebraic))
-    bc_M = _Array_bc(bc, yend, grid)
+    bc_M = _Array_bc(bc, guess, grid)
 
     # create sparsity
-    J0 = sparse_jacobian(stategrid, yend)
-    monotonicity_check = check_monotonicity ? MonotonicityChecker(stategrid, yend; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings) : nothing
-    ynames = tuple(keys(yend)...)
+    J0 = sparse_jacobian(stategrid, guess)
+    # the sign-convention check runs by default; the stencil (monotonicity) warnings are opt-in
+    monotonicity_check = MonotonicityChecker(stategrid, guess; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings, check_stencils = check_monotonicity)
+    ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
 
     # iterate on time
     if τs isa AbstractVector
         apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
-        a = get_a(apm_onestep, stategrid, solutionnames, ynames, yend_M, bc_M)
+        a = get_a(apm_onestep, stategrid, solutionnames, ynames, guess_M, bc_M)
         as = (a === nothing) ? nothing : [deepcopy(a) for τ in τs]
-        y_M = yend_M
+        y_M = guess_M
         residual_norms = zeros(length(τs))
         if verbose
             @printf "    Time Residual\n"
@@ -102,18 +107,18 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(yend), τs::Union{Noth
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(yend_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
                 end
-                y_M = reshape(y_M, size(yend_M)...)
+                y_M = reshape(y_M, size(guess_M)...)
             end
         end
         return EconPDEResult(ys, residual_norms, as)
     else
-        a = get_a(apm, stategrid, solutionnames, ynames, yend_M, bc_M)
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(yend_M)), vec(yend_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
-        y_M = reshape(y_M, size(yend_M)...)
+        a = get_a(apm, stategrid, solutionnames, ynames, guess_M, bc_M)
+        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(guess_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
+        y_M = reshape(y_M, size(guess_M)...)
         _setindex!(y, y_M)
         if a !== nothing
             _setindex!(a, apm, stategrid, solutionnames, y_M, bc_M)
@@ -168,25 +173,25 @@ function _check_generated_names(statenames::Vector{Symbol}, ynames::Vector{Symbo
 end
 
 # Expand the `is_algebraic` flags into a NamedTuple of arrays (one Bool per grid point),
-# with the same names and order as `yend`. Defaults to all-false when not provided.
-_fill_is_algebraic(::Nothing, yend, S) = map(_ -> fill(false, S), yend)
-function _fill_is_algebraic(is_algebraic, yend, S)
+# with the same names and order as `guess`. Defaults to all-false when not provided.
+_fill_is_algebraic(::Nothing, guess, S) = map(_ -> fill(false, S), guess)
+function _fill_is_algebraic(is_algebraic, guess, S)
     ia = _asnamedtuple(is_algebraic)
-    issetequal(keys(ia), keys(yend)) || throw(ArgumentError("`is_algebraic` must have the same names as the initial guess: got $(collect(keys(ia))), expected $(collect(keys(yend)))"))
+    issetequal(keys(ia), keys(guess)) || throw(ArgumentError("`is_algebraic` must have the same names as the initial guess: got $(collect(keys(ia))), expected $(collect(keys(guess)))"))
     # reorder to match the guess, so the flags line up with the right unknowns
-    NamedTuple{keys(yend)}(map(n -> fill(ia[n], S), keys(yend)))
+    NamedTuple{keys(guess)}(map(n -> fill(ia[n], S), keys(guess)))
 end
 
-_Array_bc(::Nothing, yend, grid) = zeros(size(first(values(yend)))..., length(yend))
-function _Array_bc(bc, yend, grid)
+_Array_bc(::Nothing, guess, grid) = zeros(size(first(values(guess)))..., length(guess))
+function _Array_bc(bc, guess, grid)
     bc = _asnamedtuple(bc)
     keys_grid = collect(keys(grid))
-    valid = [Symbol(yname, s) for yname in keys(yend) for s in keys_grid]
+    valid = [Symbol(yname, s) for yname in keys(guess) for s in keys_grid]
     for key in keys(bc)
         key in valid || throw(ArgumentError("unknown `bc` entry `$key`: valid entries are $(valid), i.e. Symbol(unknown, state)"))
     end
-    bc_M = _Array_bc(nothing, yend, grid)
-    for (k, yname) in enumerate(keys(yend))
+    bc_M = _Array_bc(nothing, guess, grid)
+    for (k, yname) in enumerate(keys(guess))
         bck = selectdim(bc_M, ndims(bc_M), k)
         for (d, s) in enumerate(keys_grid)
             key = Symbol(yname, s)
@@ -229,10 +234,10 @@ function _check_residual_names(residual::NamedTuple, ynames)
 end
 
 
-function sparse_jacobian(stategrid::StateGrid, @nospecialize(yend))
+function sparse_jacobian(stategrid::StateGrid, @nospecialize(guess))
     s = size(stategrid)
     if 1 <= ndims(stategrid) <= 3
-        return local_stencil_jacobian(s, length(yend))
+        return local_stencil_jacobian(s, length(guess))
     else
         return nothing
     end

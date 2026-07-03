@@ -48,7 +48,7 @@ end
 
 m = TuckmanVilaModel()
 stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+guess = initialize_y(m, stategrid)
 τs = range(0, m.T, length = 10)
 
 # ## The equation
@@ -84,7 +84,7 @@ end
 # `pdesolve` takes the time grid `τs` as a fourth argument and marches backward from the terminal
 # condition:
 
-result = pdesolve(m, stategrid, yend, τs)
+result = pdesolve(m, stategrid, guess, τs)
 
 # ## The solution
 #

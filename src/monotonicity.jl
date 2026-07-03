@@ -6,22 +6,57 @@ mutable struct MonotonicityChecker
     max_warnings::Int
     warned::Set{Tuple{Int, Int}}
     suppressed::Bool
+    check_stencils::Bool
+    sign_checked::Bool
 end
 
-function MonotonicityChecker(stategrid::StateGrid, @nospecialize(yend); tol = 1e-6, max_warnings = 5)
+function MonotonicityChecker(stategrid::StateGrid, @nospecialize(guess); tol = 1e-6, max_warnings = 5, check_stencils = true)
     return MonotonicityChecker(
         stategrid,
-        collect(keys(yend)),
-        tuple(size(stategrid)..., length(yend)),
+        collect(keys(guess)),
+        tuple(size(stategrid)..., length(guess)),
         tol,
         max_warnings,
         Set{Tuple{Int, Int}}(),
         false,
+        check_stencils,
+        false,
     )
 end
 
-_run_monotonicity_check!(::Nothing, J, y) = nothing
-_run_monotonicity_check!(checker::MonotonicityChecker, J, y) = _check_monotonicity!(checker, J)
+_run_monotonicity_check!(::Nothing, J, y, Δ, is_algebraic) = nothing
+function _run_monotonicity_check!(checker::MonotonicityChecker, J, y, Δ, is_algebraic)
+    _check_sign_convention!(checker, J, Δ, is_algebraic)
+    checker.check_stencils && _check_monotonicity!(checker, J)
+    return nothing
+end
+
+# Under the `vt = -(RHS - ρv)` convention, the diagonal of the residual Jacobian is positive
+# (ρ plus the outflow rates of the discretized generator). If the user returns `RHS - ρv`
+# instead, every diagonal entry flips negative and the false transient is unstable — the most
+# common reason a solve diverges from iteration 1. Checked once, on the first assembled
+# Jacobian. Skipped when Δ = Inf: a single Newton solve is sign-agnostic, so either sign is
+# then legitimate.
+function _check_sign_convention!(checker::MonotonicityChecker, J, Δ, is_algebraic)
+    checker.sign_checked && return nothing
+    isfinite(Δ) || return nothing
+    checker.sign_checked = true
+    n = prod(checker.ysize)
+    (size(J, 1) == n && size(J, 2) == n) || return nothing
+    npos = nneg = 0
+    for i in 1:n
+        is_algebraic[i] && continue
+        # the assembled Jacobian is that of the implicit time step, which adds 1/Δ to
+        # non-algebraic diagonal entries; remove it to recover the residual's own diagonal
+        d = J[i, i] - 1 / Δ
+        abs(d) > checker.tol || continue
+        d < 0 ? (nneg += 1) : (npos += 1)
+    end
+    if nneg > 0 && npos == 0
+        @warn "The residual Jacobian has a negative diagonal at every grid point: the PDE function most likely returns `RHS - ρv` instead of `-(RHS - ρv)`, which makes the false transient unstable (the solve typically diverges from iteration 1). Flip the sign of the returned time derivative."
+    end
+    return nothing
+end
 
 _sparse_for_check(J::SparseMatrixCSC) = J
 _sparse_for_check(J) = sparse(J)

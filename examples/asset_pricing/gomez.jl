@@ -50,7 +50,7 @@ end
 
 m = GomezModel()
 stategrid = (; x = range(0, 1, 300) .^ 2)
-yend = (; pH = ones(length(stategrid[:x])))
+guess = (; pH = ones(length(stategrid[:x])))
 
 # ## The equation
 #
@@ -119,7 +119,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

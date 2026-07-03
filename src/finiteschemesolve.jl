@@ -4,10 +4,13 @@
 ##
 ##############################################################################
 
-_has_bounds(y̲, ȳ) = any(x -> x != -Inf, y̲) || any(x -> x != Inf, ȳ)
+_has_bounds(lower_bound, upper_bound) = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
 
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, y̲ = fill(-Inf, length(ypost)), ȳ = fill(Inf, length(ypost)), reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
+    # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
+    y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :implicit_timestep); lower_bound = y̲)
+    ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :implicit_timestep); upper_bound = ȳ)
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
 
     jac = nothing
@@ -18,20 +21,20 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         fdcache = JacobianCache(ypost, fdtype, eltype(ypost); colorvec = colorvec, sparsity = J0c)
         function jac!(J, y)
             finite_difference_jacobian!(J, G_helper!, y, fdcache)
-            _run_monotonicity_check!(monotonicity_check, J, y)
+            _run_monotonicity_check!(monotonicity_check, J, y, Δ, is_algebraic)
             return J
         end
         jac = jac!
     end
 
-    if _has_bounds(y̲, ȳ)
+    if _has_bounds(lower_bound, upper_bound)
         # HJBVI bounds are mixed complementarity conditions, not box-constrained roots.
         if jac === nothing
             nlsolve_autodiff = autodiff == :finite ? :finiteforward : autodiff
-            result = mcpsolve(G_helper!, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff, kwargs...)
+            result = mcpsolve(G_helper!, lower_bound, upper_bound, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff, kwargs...)
         else
             df = OnceDifferentiable(G_helper!, jac, deepcopy(ypost), deepcopy(ypost), J0c)
-            result = mcpsolve(df, y̲, ȳ, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, kwargs...)
+            result = mcpsolve(df, lower_bound, upper_bound, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, kwargs...)
         end
         return result.zero, result.residual_norm
     else
@@ -95,14 +98,18 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   AD is used only without a sparsity pattern.
 * `is_algebraic`: `Bool` per entry of `y0`, marking algebraic (no time-derivative) equations.
 * `J0 = nothing`: sparsity pattern of the Jacobian.
-* `y̲`, `ȳ`: lower/upper bounds. When any bound is finite, the problem is solved as a mixed
-  complementarity problem with `NLsolve.mcpsolve`, with `reformulation` (`:smooth`, the
-  default, or `:minmax`) and `autoscale = true` passed through to it.
+* `lower_bound`, `upper_bound`: lower/upper bounds on `y`. When any bound is finite, the
+  problem is solved as a mixed complementarity problem with `NLsolve.mcpsolve`, with
+  `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
+  through to it. The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
 * `verbose = true`: print outer-iteration progress (`Iter`, `TimeStep`, `Residual`). A `NaN`
   residual line means the inner Newton solve failed and the time step was reduced.
 """
-function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, y̲ = fill(-Inf, length(y0)), ȳ = fill(Inf, length(y0)), reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
+    # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
+    y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :finiteschemesolve); lower_bound = y̲)
+    ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :finiteschemesolve); upper_bound = ȳ)
     ypost = y0
     ydot = zero(y0)
     # check that does not return NAN or zero
@@ -114,7 +121,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         return ypost, residual_norm
     elseif Δ == Inf
         # infinite time step => solve in one step
-        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0, y̲ = y̲, ȳ = ȳ, monotonicity_check = monotonicity_check, kwargs...)
+        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0, lower_bound = lower_bound, upper_bound = upper_bound, monotonicity_check = monotonicity_check, kwargs...)
         return ypost, residual_norm
     else
         coef = 1.0
@@ -126,11 +133,11 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
         while (iter < iterations) && (Δ >= minΔ) && (residual_norm > maxdist)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, y̲ = y̲, ȳ = ȳ, reformulation = reformulation, monotonicity_check = monotonicity_check, kwargs...)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
-            if _has_bounds(y̲, ȳ)
+            if _has_bounds(lower_bound, upper_bound)
                 # only unconstrained ydot is relevant for residual_norm calculation
-                mask = y̲ .+ eps() .<= y .<= ȳ .- eps() 
+                mask = lower_bound .+ eps() .<= y .<= upper_bound .- eps() 
                 residual_norm, oldresidual_norm = norm(ydot .* mask) / sum(mask), residual_norm
             else
                 residual_norm, oldresidual_norm = norm(ydot) / length(ydot), residual_norm

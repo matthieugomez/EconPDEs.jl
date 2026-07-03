@@ -1,7 +1,7 @@
 # # Bansal–Yaron (2004): long-run risk (two states)
 #
 # The long-run-risk model has **two** state variables, so it exercises the package's 2D
-# machinery — cross-derivatives and a sparse Jacobian on a genuine grid. Consumption growth
+# machinery — a matrix of unknowns and a sparse Jacobian on a genuine grid. Consumption growth
 # has a small, persistent expected-growth component ``\mu`` and a stochastic variance ``v``:
 #
 # ```math
@@ -37,7 +37,7 @@ end
 # else. This model has two state variables, so the grid is a `NamedTuple` with two keys (`μ` and
 # `v`); the guess is a `NamedTuple` whose key is the unknown function (`p`, the wealth–consumption
 # ratio), a matrix over the ``(\mu, v)`` grid. These names reappear inside the equation below —
-# e.g. `pμ_up` is the forward finite difference of `p` in `μ`, and `pμv` is the cross-partial. The
+# e.g. `pμ_up` is the forward finite difference of `p` in `μ`, and `pμμ` is the second derivative. The
 # grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v`` diffusion
 # vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
 
@@ -48,7 +48,7 @@ m = BansalYaronModel()
 νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
 vs = range(quantile(νdistribution, 0.0), quantile(νdistribution, 0.99), length = vn)
 stategrid = (; μ = μs, v = vs)
-yend = (; p = ones(μn, vn))
+guess = (; p = ones(μn, vn))
 
 # ## The equation
 #
@@ -59,7 +59,7 @@ yend = (; p = ones(μn, vn))
 function (m::BansalYaronModel)(state::NamedTuple, u::NamedTuple)
     (; μbar, vbar, κμ, νμ, κv, νv, ρ, γ, ψ) = m
     (; μ, v) = state
-    (; p, pμ_up, pμ_down, pv_up, pv_down, pμμ, pμv, pvv) = u
+    (; p, pμ_up, pμ_down, pv_up, pv_down, pμμ, pvv) = u
 
     ## drifts and volatilities of consumption, μ and v
     μc = μ
@@ -90,7 +90,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

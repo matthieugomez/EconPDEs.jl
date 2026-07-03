@@ -49,7 +49,7 @@ end
 
 m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
-yend = (; p = ones(length(stategrid[:s])))
+guess = (; p = ones(length(stategrid[:s])))
 
 # ## The equation
 #
@@ -79,7 +79,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

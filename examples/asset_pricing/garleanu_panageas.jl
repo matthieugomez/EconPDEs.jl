@@ -51,7 +51,7 @@ end
 
 m = GarleanuPanageasModel()
 stategrid = (; x = range(0.0, 1.0, length = 100))
-yend = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
+guess = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
 
 # ## The equation
 #
@@ -110,7 +110,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

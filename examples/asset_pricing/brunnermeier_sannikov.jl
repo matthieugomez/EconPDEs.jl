@@ -48,7 +48,7 @@ xn = 200
 stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
 Δx = step(stategrid[:x])
 xmin = minimum(stategrid[:x])
-yend = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
+guess = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
 
 # ## The equation
 #
@@ -166,7 +166,7 @@ end
 # reusing the previous ``q`` carried in the mutable model — so `Δx` and `xmin` are passed into the
 # model and finite-difference autodiff is used:
 
-result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, yend; autodiff = :finite)
+result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, guess; autodiff = :finite)
 
 # ## The solution
 #

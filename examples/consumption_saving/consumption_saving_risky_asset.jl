@@ -67,7 +67,7 @@ ys = collect(range(quantile(distribution, 0.001), quantile(distribution, 0.999),
 as = m.amin .+ (m.amax - m.amin) .* collect(range(0.0, 1.0, length = 150)).^2
 stategrid = (; y = ys, a = as)
 cshare = _merton_consumption_rate(m)
-yend = (; v = [cshare^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
+guess = (; v = [cshare^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
 # ## The equation
 #
@@ -188,7 +188,7 @@ end
 
 bc = (; va = ((stategrid.y .+ m.r * m.amin).^(-m.γ),
               fill(cshare^(-m.γ) * m.amax^(-m.γ), length(stategrid.y))))
-result = pdesolve(m, stategrid, yend; bc, Δ = 1e-3, method = :trust_region,
+result = pdesolve(m, stategrid, guess; bc, Δ = 1e-3, method = :trust_region,
                   inner_iterations = 50, iterations = 150)
 
 # ## The solution

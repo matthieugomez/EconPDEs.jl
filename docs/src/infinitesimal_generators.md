@@ -2,22 +2,23 @@
 
 `EconPDEs.jl` and
 [`InfinitesimalGenerators.jl`](https://github.com/matthieugomez/InfinitesimalGenerators.jl)
-are complementary.
+are complementary. `EconPDEs.jl` solves *nonlinear* problems — optimal policies,
+equilibrium prices: equations in which drifts, volatilities, or the upwind direction itself
+depend on the unknown solution. `InfinitesimalGenerators.jl` solves *linear* problems —
+stationary distributions, expectations, tail indices: given a known Markov process, it
+builds the generator matrix and works with it directly.
 
-`EconPDEs.jl` solves the nonlinear problem: policies, prices, drifts, volatilities, or
-occasionally the upwind direction itself are functions of the unknown solution, and
-`pdesolve` handles the local nonlinear equation, the generated derivative names, the sparse
-residual, and pseudo-transient Newton. Once that problem is solved, the model reduces to a
-*known* Markov process — the states follow the policy-implied law of motion — and that is
-where `InfinitesimalGenerators.jl` takes over: it turns the solved law of motion into a
-generator matrix and computes stationary distributions, expectations, and tail indices.
+That gives two ways to combine them:
 
-This page extends the short workflow in
-[Exploring the solution](getting_started.md#Exploring-the-solution). It walks through the
-full version on the
-[consumption–saving model with two income states](examples/consumption_saving/consumption_saving_two_income.md):
-solve the coupled HJB with `pdesolve`, build the solved Markov process, compute the
-stationary wealth distribution, and check the solution with Feynman–Kac. The
+1. **After `pdesolve`.** Once the nonlinear problem is solved, the model reduces to a
+   *known* Markov process — the states follow the policy-implied law of motion — and
+   `InfinitesimalGenerators.jl` turns it into stationary distributions and expectations.
+2. **Instead of `pdesolve`.** Skip the high-level interface and use
+   `InfinitesimalGenerators.jl`'s derivative objects to write the nonlinear finite scheme
+   yourself, calling the underlying solver directly.
+
+This page shows both on the
+[consumption–saving model with two income states](examples/consumption_saving/consumption_saving_two_income.md). The
 [HJB tutorial in the InfinitesimalGenerators documentation](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/hjb/)
 solves the *same model with the same parameters* from the opposite direction — building the
 implicit finite-difference method by hand from generator matrices, and ending with
@@ -26,11 +27,12 @@ implicit finite-difference method by hand from generator matrices, and ending wi
 ## From `pdesolve` to a Markov process
 
 In the two-income model, a household saves in a riskless asset ``a`` while its labor income
-switches between ``y_l`` and ``y_h`` as a two-state Poisson process. The model definition is
-the one from the [example page](examples/consumption_saving/consumption_saving_two_income.md);
-the only thing that matters here is that the equation returns the policy-implied asset
-drifts `μla` and `μha` as
-[saved objects](getting_started.md#Exploring-the-solution), so that `pdesolve` saves
+switches between ``y_l`` and ``y_h`` as a two-state Poisson process. The model, the grid,
+the guess, and the solve are exactly those of the
+[example page](examples/consumption_saving/consumption_saving_two_income.md) and are not
+repeated here; the only thing that matters is that the equation returns the policy-implied
+asset drifts `μla` and `μha` as
+[saved objects](pde_function.md#Saving-intermediate-outputs), so that `pdesolve` saves
 them on the grid:
 
 ```@example infinitesimal_generators
@@ -89,15 +91,14 @@ function (m::AchdouHanLasryLionsMollModel_TwoStates)(state::NamedTuple, u::Named
     return (; vlt, vht), (; cl, ch, μla, μha) # hide
 end # hide
 
-m = AchdouHanLasryLionsMollModel_TwoStates()
-m.amin += 0.001
-stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
-yend = (;
-    vl = (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
-    vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
-)
-
-result = pdesolve(m, stategrid, yend; verbose = false)
+m = AchdouHanLasryLionsMollModel_TwoStates() # hide
+m.amin += 0.001 # hide
+stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2) # hide
+guess = (; # hide
+    vl = (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ), # hide
+    vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ), # hide
+) # hide
+result = pdesolve(m, stategrid, guess; verbose = false)
 @assert result.residual_norm <= 1e-6 # hide
 
 as = stategrid[:a]
@@ -120,15 +121,11 @@ size(X)
 ```
 
 `generator(X)` is the transition-rate matrix of the discretized process, built with the same
-[upwind convention](getting_started.md#Upwinding) `pdesolve` uses (forward differences where
+[upwind convention](pde_function.md#Upwinding) `pdesolve` uses (forward differences where
 the drift is positive, backward where it is negative, with the same default
-[reflecting boundaries](solving.md#Boundary-conditions)). That consistency matters below.
+[reflecting boundaries](boundary_conditions.md)). That consistency matters below.
 
 ## Stationary distribution
-
-The one-state version of this step is shown in
-[Exploring the solution](getting_started.md#Exploring-the-solution). Here the same idea is
-applied to the switching process.
 
 The stationary distribution solves the Kolmogorov forward equation — the left null vector of
 the generator. `stationary_distribution` returns the probability mass at each grid point,
@@ -175,45 +172,17 @@ the same discretized generator that solved the HJB.
 nothing # hide
 ```
 
-## Checking the solution with Feynman–Kac
-
-`feynman_kac` computes conditional expectations under the solved process — see the
-[expectations tutorial](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/expectations/)
-in the InfinitesimalGenerators documentation for what it computes in general (forecasts,
-present values, state-dependent discounting). Here it gives a natural check:
-the expected discounted utility from following the solved policy,
-``E[\int_0^\infty e^{-\rho t} u(c_t) \, dt \mid a_0, y_0]``, must reproduce the value
-function itself.
-
-```@example infinitesimal_generators
-uc = [cl ch] .^ (1 - m.γ) ./ (1 - m.γ)
-ts = range(0, 600, step = 2)
-V = feynman_kac(X, ts; f = uc, v = m.ρ .* ones(size(X)...))
-maximum(abs, V[:, :, 1] .- [result.zero[:vl] result.zero[:vh]])
-```
-
-The two agree to solver tolerance, not just to discretization error. This is again because
-the two packages share the upwind convention: at convergence, the discretized HJB solved by
-`pdesolve` is exactly ``\rho v = u(c) + \mathbb{T} v`` where ``\mathbb{T}`` is
-`generator(X)`. If the recovered `V` were far from `result.zero`, it would flag an
-inconsistency — for example a drift saved in `result.saved` that does not match the upwind
-branch actually used in the equation.
-
-```@example infinitesimal_generators
-@assert maximum(abs, V[:, :, 1] .- [result.zero[:vl] result.zero[:vh]]) <= 1e-6 # hide
-nothing # hide
-```
-
 The division of labor is deliberate: `EconPDEs.jl` solves the nonlinear policy problem;
 `InfinitesimalGenerators.jl` turns the solved law of motion into a linear generator and
-computes distributions and expectations under it.
+computes distributions and expectations under it (see the
+[expectations tutorial](https://matthieugomez.github.io/InfinitesimalGenerators.jl/dev/expectations/)
+for `feynman_kac`: forecasts, present values, state-dependent discounting).
 
-## Writing the residual yourself
+## Writing the nonlinear finite scheme yourself
 
 `pdesolve` is the high-level interface. It creates the derivative bundle `u`, applies
 boundary conditions, assembles the vector residual, builds a sparse Jacobian pattern, and
-calls [`finiteschemesolve`](api.md); see
-[Solving models](solving.md#Solver-and-troubleshooting) for the solver structure. If you
+hands the resulting nonlinear system to [`finiteschemesolve`](api.md). If you
 want a lower-level version, you can skip `pdesolve` and construct each derivative yourself
 with `InfinitesimalGenerators.jl`'s `FirstDerivative`, writing directly into the residual
 array — here for the same two-income model, with the two value functions stored as the
@@ -253,10 +222,20 @@ function two_income_residual!(vt, m, as, v)
     end
     return vt
 end
+nothing # hide
+```
 
+[`finiteschemesolve`](api.md) is the nonlinear solver underneath `pdesolve`: it takes a
+function that fills in the time derivative ``\dot y = F(y)`` of the stacked system — here
+`y` is the matrix whose columns are the two value functions — and finds the zero of ``F``
+by Newton's method with pseudo-transient continuation, the algorithm described in
+[How `pdesolve` finds the solution](solver.md#How-pdesolve-finds-the-solution). Called on
+the hand-written residual, it converges to the same fixed point as the `pdesolve` version:
+
+```@example infinitesimal_generators
 v, residual_norm = finiteschemesolve(
     (ydot, y) -> two_income_residual!(ydot, m, as, y),
-    [yend.vl yend.vh];
+    [guess.vl guess.vh];
     verbose = false,
 )
 
@@ -269,8 +248,8 @@ maximum(abs, v .- [result.zero[:vl] result.zero[:vh]])
 nothing # hide
 ```
 
-This computes the same fixed point as the `pdesolve` version. The tradeoff is transparency
-for bookkeeping: you choose how to construct each derivative and write directly into the
+The tradeoff is transparency for bookkeeping: you choose how to construct each derivative
+and write directly into the
 residual array, but you also lose the named derivative bundle, automatic saving of outputs,
 multidimensional stencil assembly, and the sparse Jacobian pattern that `pdesolve`
 constructs for one-, two-, and three-state problems.

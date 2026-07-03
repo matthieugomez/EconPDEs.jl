@@ -40,7 +40,7 @@ end
 
 m = LelandModel()
 stategrid = (; δ = range(0, 0.2, step = 0.005))
-yend = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
+guess = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
 
 # ## The equation
 #
@@ -59,13 +59,13 @@ function (m::LelandModel)(state::NamedTuple, u::NamedTuple)
     return (; Et)
 end
 
-# The stopping (default) region is imposed with the lower bound `y̲ = 0`: equity can never be
+# The stopping (default) region is imposed by passing zero as `lower_bound`: equity can never be
 # worth less than zero. We also pin the slope at the top boundary to that of a debt-free claim,
 # ``1/(r-\mu)``. With these in hand, `pdesolve` solves the variational inequality:
 
-y̲ = zeros(length(stategrid[:δ]))
+lower_bound = zeros(length(stategrid[:δ]))
 bc = (; Eδ = (0.0, 1 / (m.r - m.μ)))
-result = pdesolve(m, stategrid, yend; y̲ = y̲, bc = bc, reformulation = :smooth)
+result = pdesolve(m, stategrid, guess; lower_bound = lower_bound, bc = bc)
 
 # ## The solution
 #

@@ -59,7 +59,7 @@ end
 
 m = WachterModel()
 stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+guess = initialize_y(m, stategrid)
 
 # ## The equation
 #
@@ -96,7 +96,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

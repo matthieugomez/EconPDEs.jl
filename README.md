@@ -11,6 +11,8 @@ You write the equation at one grid point. The package builds the finite-differen
 
 Use it for stationary or time-dependent HJBs on one or more state variables, with one or more value functions.
 
+`EconPDEs.jl` is robust, fast, and solves virtually all textbook continuous-time models; see the Examples for a list.
+
 ## Installation
 
 The package is registered in the Julia `General` registry:

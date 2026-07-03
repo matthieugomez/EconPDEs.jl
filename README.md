@@ -11,7 +11,7 @@ You write the equation at one grid point. The package builds the finite-differen
 
 Use it for stationary or time-dependent HJBs on one or more state variables, with one or more value functions.
 
-`EconPDEs.jl` is robust, fast, and solves virtually all textbook continuous-time models; see the Examples for a list.
+`EconPDEs.jl` is robust, fast, and solves virtually all textbook continuous-time models; see the [Examples](https://www.matthieugomez.com/EconPDEs.jl/dev/examples_overview/) for a list.
 
 ## Installation
 
@@ -89,15 +89,7 @@ documentation.
 
 ## Documentation
 
-The manual gives the details:
-
-- [Getting started](https://www.matthieugomez.com/EconPDEs.jl/dev/getting_started/)
-- [Writing the PDE function](https://www.matthieugomez.com/EconPDEs.jl/dev/pde_function/)
-- [Boundary conditions](https://www.matthieugomez.com/EconPDEs.jl/dev/boundary_conditions/)
-- [Time-dependent problems](https://www.matthieugomez.com/EconPDEs.jl/dev/time_dependent/)
-- [Solver and troubleshooting](https://www.matthieugomez.com/EconPDEs.jl/dev/solver/)
-- [Why EconPDEs](https://www.matthieugomez.com/EconPDEs.jl/dev/#Why-EconPDEs)
-- [InfinitesimalGenerators](https://www.matthieugomez.com/EconPDEs.jl/dev/infinitesimal_generators/) — using the companion package [InfinitesimalGenerators.jl](https://github.com/matthieugomez/InfinitesimalGenerators.jl) for stationary distributions and expectations after solving
+The [manual](https://www.matthieugomez.com/EconPDEs.jl/dev/) gives further details.
 
 The documentation also includes a gallery of runnable examples:
 

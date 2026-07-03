@@ -125,7 +125,7 @@ size(X)
 the drift is positive, backward where it is negative, with the same default
 [reflecting boundaries](boundary_conditions.md)). That consistency matters below.
 
-## Stationary distribution
+### Stationary distribution
 
 The stationary distribution solves the Kolmogorov forward equation — the left null vector of
 the generator. `stationary_distribution` returns the probability mass at each grid point,

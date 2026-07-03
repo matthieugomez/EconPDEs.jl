@@ -21,7 +21,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         fdcache = JacobianCache(ypost, fdtype, eltype(ypost); colorvec = colorvec, sparsity = J0c)
         function jac!(J, y)
             finite_difference_jacobian!(J, G_helper!, y, fdcache)
-            _run_monotonicity_check!(monotonicity_check, J, y, Δ, is_algebraic)
+            _try_run_monotonicity_check!(monotonicity_check, J, y, Δ, is_algebraic)
             return J
         end
         jac = jac!

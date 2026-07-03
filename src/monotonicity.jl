@@ -8,6 +8,7 @@ mutable struct MonotonicityChecker
     suppressed::Bool
     check_stencils::Bool
     sign_checked::Bool
+    disabled::Bool
 end
 
 function MonotonicityChecker(stategrid::StateGrid, @nospecialize(guess); tol = 1e-6, max_warnings = 5, check_stencils = true)
@@ -21,6 +22,7 @@ function MonotonicityChecker(stategrid::StateGrid, @nospecialize(guess); tol = 1
         false,
         check_stencils,
         false,
+        false,
     )
 end
 
@@ -28,6 +30,18 @@ _run_monotonicity_check!(::Nothing, J, y, Δ, is_algebraic) = nothing
 function _run_monotonicity_check!(checker::MonotonicityChecker, J, y, Δ, is_algebraic)
     _check_sign_convention!(checker, J, Δ, is_algebraic)
     checker.check_stencils && _check_monotonicity!(checker, J)
+    return nothing
+end
+
+_try_run_monotonicity_check!(::Nothing, J, y, Δ, is_algebraic) = nothing
+function _try_run_monotonicity_check!(checker::MonotonicityChecker, J, y, Δ, is_algebraic)
+    checker.disabled && return nothing
+    try
+        _run_monotonicity_check!(checker, J, y, Δ, is_algebraic)
+    catch err
+        checker.disabled = true
+        @debug "Monotonicity diagnostic failed; continuing without diagnostics" exception = (err, catch_backtrace())
+    end
     return nothing
 end
 

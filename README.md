@@ -43,8 +43,6 @@ problem, solved backward in time from an initial guess until the time derivative
 \rho v(x, t) = x + \mu(x) v_x(x, t) + v_t(x, t),
 ```
 
-Equivalently, the function returns `v_t = \rho v - x - \mu(x) v_x`, which is zero at the stationary solution.
-
 Here is how to solve this equation using this package:
 ```julia
 using EconPDEs
@@ -58,6 +56,7 @@ guess = (; v = zeros(length(grid.x)))
 function equation(state, u)
     mu = -kappa * (state.x - 0.5)
     vx = mu >= 0 ? u.vx_up : u.vx_down
+    # Return the time derivative implied by rho*v = x + mu*v_x + v_t.
     vt = -(state.x + mu * vx - rho * u.v)
     return (; vt)
 end

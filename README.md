@@ -1,5 +1,6 @@
 [![Build status](https://github.com/matthieugomez/EconPDEs.jl/workflows/CI/badge.svg)](https://github.com/matthieugomez/EconPDEs.jl/actions)
 [![Coverage Status](http://codecov.io/github/matthieugomez/EconPDEs.jl/coverage.svg?branch=main)](http://codecov.io/github/matthieugomez/EconPDEs.jl/?branch=main)
+[![Stable Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://www.matthieugomez.com/EconPDEs.jl/stable/)
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://www.matthieugomez.com/EconPDEs.jl/dev/)
 
 # EconPDEs.jl

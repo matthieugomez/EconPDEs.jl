@@ -1,5 +1,6 @@
 using Test
 using Logging
+using SparseArrays
 using EconPDEs
 
 #========================================================================================
@@ -182,6 +183,10 @@ end
     end
 
     @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
+
+    checker = EconPDEs.MonotonicityChecker(EconPDEs.StateGrid((; x = range(0.0, 1.0, length = 2))), (; V = ones(2)))
+    @test EconPDEs._try_run_monotonicity_check!(checker, spzeros(2, 2), zeros(2), 1.0, Bool[]) === nothing
+    @test checker.disabled
 end
 
 @testset "Sign-convention diagnostic" begin
@@ -195,7 +200,7 @@ end
         return (; Vt)
     end
 
-    @test_logs (:warn, r"negative diagonal at every grid point") pdesolve(flipped_sign, grid, y0; iterations = 1, verbose = false)
+    @test_logs (:warn, r"negative diagonal at every grid point") pdesolve(flipped_sign, grid, y0; Δ = 0.5, iterations = 1, verbose = false)
 
     # the correct convention triggers no warning under the default (finite Δ) solve
     function correct_sign(state, y)

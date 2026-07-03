@@ -136,10 +136,11 @@ result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false,
 
 # ## The solution
 #
-# We show the equilibrium capital price ``p`` as a heatmap over the two states — the wealth
-# distribution ``x`` and the idiosyncratic-uncertainty state ``\nu``. The price varies across the
-# whole state space, reflecting how balance sheets and uncertainty jointly move asset prices.
+# We show the equilibrium capital price ``p`` as a three-dimensional graph over the two states —
+# the wealth distribution ``x`` and the idiosyncratic-uncertainty state ``\nu``. The price varies
+# across the whole state space, reflecting how balance sheets and uncertainty jointly move asset
+# prices.
 
 xs = stategrid[:x]
 νs = stategrid[:ν]
-heatmap(νs, xs, result.zero[:p]; xlabel = "idiosyncratic variance ν", ylabel = "experts' wealth share x", title = "capital price p(x, ν)")
+surface(νs, xs, result.zero[:p]; xlabel = "variance ν", ylabel = "wealth share x", zlabel = "capital price p", colorbar = false, size = (720, 460), left_margin = 8Plots.mm, bottom_margin = 8Plots.mm, right_margin = 6Plots.mm)

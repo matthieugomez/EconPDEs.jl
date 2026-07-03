@@ -31,7 +31,7 @@ asset_pricing = [
     "He–Krishnamurthy: intermediaries"        => "asset_pricing/he_krishnamurthy.jl",
     "Brunnermeier–Sannikov: macro-finance"    => "asset_pricing/brunnermeier_sannikov.jl",
     "Di Tella: balance-sheet risk"            => "asset_pricing/di_tella.jl",
-    "Gomez: wealth distribution"              => "asset_pricing/gomez.jl",
+    "Gomez: wealth inequality"                => "asset_pricing/gomez.jl",
 ]
 corporate_finance = [
     "Leland: optimal default"                => "corporate_finance/leland.jl",

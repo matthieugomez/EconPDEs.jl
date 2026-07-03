@@ -96,10 +96,8 @@ result = pdesolve(m, stategrid, guess)
 #
 # The wealth–consumption ratio increases in expected growth ``\mu`` and falls with variance
 # ``v``: investors pay more for the claim when future growth is high, and less when the economy
-# is riskier. Because ``p`` is defined over the ``(\mu, v)`` plane, we can show it as a surface
-# and as a heatmap.
+# is riskier. Because ``p`` is defined over the ``(\mu, v)`` plane, we show the full state-space
+# pattern as a three-dimensional graph.
 
 p = result.zero[:p]
-s1 = surface(vs, μs, p; xlabel = "variance v", ylabel = "growth μ", zlabel = "p", colorbar = false, title = "wealth–consumption ratio")
-s2 = heatmap(vs, μs, p; xlabel = "variance v", ylabel = "growth μ", title = "p(μ, v)")
-plot(s1, s2; size = (900, 360))
+surface(vs, μs, p; xlabel = "variance v", ylabel = "growth μ", zlabel = "p", colorbar = false, size = (720, 460), left_margin = 8Plots.mm, bottom_margin = 8Plots.mm, right_margin = 6Plots.mm)

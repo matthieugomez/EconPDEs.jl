@@ -21,6 +21,6 @@ example adds beyond the baseline workflow — nothing, for the simplest ones.
 | [He–Krishnamurthy: intermediaries](examples/asset_pricing/he_krishnamurthy.md) | |
 | [Brunnermeier–Sannikov: macro-finance](examples/asset_pricing/brunnermeier_sannikov.md) | two unknown functions + inner static root-find |
 | [Di Tella: balance-sheet risk](examples/asset_pricing/di_tella.md) | 2D + three unknown functions + algebraic equations (`is_algebraic`) |
-| [Gomez: wealth distribution](examples/asset_pricing/gomez.md) | |
+| [Gomez: wealth inequality](examples/asset_pricing/gomez.md) | |
 | [Leland: optimal default](examples/corporate_finance/leland.md) | variational inequality (`lower_bound`) |
 | [Bolton–Chen–Wang: financing constraint](examples/corporate_finance/bolton_chen_wang.md) | free boundary (outer solve on `bc`) |

@@ -16,6 +16,11 @@
 # ```
 #
 # with first-order condition ``c = v'(k)^{-1/\gamma}``.
+#
+# This is the same model solved step by step in [Getting started](../getting_started.md).
+# Here it is packaged the way the rest of the examples are — parameters in a `struct`, the
+# equation as a callable on it — and the solution is plotted against the closed-form
+# steady state.
 
 # ## The model
 #
@@ -47,7 +52,7 @@ m = NeoclassicalGrowthModel()
 (; A, α, δ, ρ, γ) = m
 k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
 stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
-yend = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
+guess = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 
 # ## The equation
 #
@@ -92,7 +97,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

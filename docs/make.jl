@@ -24,13 +24,13 @@ consumption_saving = [
 asset_pricing = [
     "Campbell–Cochrane: habit"                => "asset_pricing/campbell_cochrane.jl",
     "Wachter: rare disasters"                 => "asset_pricing/wachter.jl",
-    "Bansal–Yaron: long-run risk (2D)"        => "asset_pricing/bansal_yaron.jl",
-    "Haddad: endogenous volatility (2D)"      => "asset_pricing/haddad.jl",
+    "Bansal–Yaron: long-run risk"             => "asset_pricing/bansal_yaron.jl",
+    "Haddad: endogenous volatility"           => "asset_pricing/haddad.jl",
     "Tuckman–Vila: finite horizon"            => "asset_pricing/tuckman_vila.jl",
     "Gârleanu–Panageas: heterogeneous agents" => "asset_pricing/garleanu_panageas.jl",
     "He–Krishnamurthy: intermediaries"        => "asset_pricing/he_krishnamurthy.jl",
     "Brunnermeier–Sannikov: macro-finance"    => "asset_pricing/brunnermeier_sannikov.jl",
-    "Di Tella: balance-sheet risk (2D)"       => "asset_pricing/di_tella.jl",
+    "Di Tella: balance-sheet risk"            => "asset_pricing/di_tella.jl",
     "Gomez: wealth distribution"              => "asset_pricing/gomez.jl",
 ]
 corporate_finance = [
@@ -60,11 +60,14 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Manual" => [
-            "Getting started" => "getting_started.md",
-            "Solving models"  => "solving.md",
-            "Why EconPDEs"    => "design.md",
+            "Getting started"            => "getting_started.md",
+            "Writing the PDE function"   => "pde_function.md",
+            "Boundary conditions"        => "boundary_conditions.md",
+            "Time-dependent problems"    => "time_dependent.md",
+            "Solver and troubleshooting" => "solver.md",
         ],
         "Examples" => [
+            "Overview" => "examples_overview.md",
             "Neoclassical growth" => "examples/neoclassical_growth.md",
             "Consumption–saving"  => literate_page.(consumption_saving),
             "Asset pricing"       => literate_page.(asset_pricing),

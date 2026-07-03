@@ -38,7 +38,7 @@ end
 m = HeKrishnamurthy()
 xn = 100
 stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
-yend = (; pS = ones(length(stategrid[:x])))
+guess = (; pS = ones(length(stategrid[:x])))
 
 # ## The equation
 #
@@ -96,7 +96,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

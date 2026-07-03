@@ -184,16 +184,43 @@ end
     @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
 end
 
+@testset "Sign-convention diagnostic" begin
+    grid = OrderedDict(:x => range(0.0, 1.0, length = 5))
+    y0 = OrderedDict(:V => collect(range(1.0, 2.0, length = 5)))
+
+    # stationary equation 0 = 1 + Vx - V, with the sign of the returned time derivative flipped
+    function flipped_sign(state, y)
+        (; V, Vx_up) = y
+        Vt = 1.0 + Vx_up - V
+        return (; Vt)
+    end
+
+    @test_logs (:warn, r"negative diagonal at every grid point") pdesolve(flipped_sign, grid, y0; iterations = 1, verbose = false)
+
+    # the correct convention triggers no warning under the default (finite Δ) solve
+    function correct_sign(state, y)
+        (; V, Vx_up) = y
+        Vt = -(1.0 + Vx_up - V)
+        return (; Vt)
+    end
+
+    @test_logs min_level=Logging.Warn pdesolve(correct_sign, grid, y0; verbose = false)
+end
+
 @testset "Bounded solve without sparse prototype" begin
     function bounded_residual!(ydot, y)
         ydot[1] = y[1] - 2.0
         return ydot
     end
 
-    y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
+    y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0])
 
     @test y[1] ≈ 1.0 atol = 1e-6
     @test residual_norm <= 1e-6
+
+    # deprecated Unicode aliases still solve the bounded problem
+    y_dep, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
+    @test y_dep[1] ≈ 1.0 atol = 1e-6
 end
 
 @testset "2D multi-function sparsity" begin

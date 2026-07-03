@@ -60,7 +60,7 @@ end
 
 m = DiTellaModel()
 stategrid = initialize_stategrid(m)
-yend = initialize_y(m, stategrid)
+guess = initialize_y(m, stategrid)
 
 # ## The equation
 #
@@ -132,7 +132,7 @@ end
 # `p` enters as an algebraic (constraint) variable, and a small time step `Δ` is used:
 
 ## Δ is a hand-tuned, smaller initial pseudo-time step for this stiff 3-unknown system; shrink it further if the default diverges.
-result = pdesolve(m, stategrid, yend; is_algebraic = (; pA = false, pB = false, p = true), Δ = 1e-2)
+result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true), Δ = 1e-2)
 
 # ## The solution
 #

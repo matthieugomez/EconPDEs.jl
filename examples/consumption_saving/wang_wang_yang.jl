@@ -48,7 +48,7 @@ end
 
 m = WangWangYangModel()
 stategrid = (; w = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
-yend = (; p = 1 .+ stategrid[:w])
+guess = (; p = 1 .+ stategrid[:w])
 
 # ## The equation
 #
@@ -96,7 +96,7 @@ end
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system, imposing
 # the boundary condition ``p'(w) = 1`` — which pins the marginal value of wealth — at both ends:
 
-result = pdesolve(m, stategrid, yend, bc = (; pw = (1.0, 1.0)))
+result = pdesolve(m, stategrid, guess, bc = (; pw = (1.0, 1.0)))
 
 # ## The solution
 #

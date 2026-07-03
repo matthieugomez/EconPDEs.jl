@@ -43,7 +43,7 @@ end
 
 m = BoltonChenWangModel()
 stategrid = (; w = range(0.0, 0.3, length = 100))
-yend = (; v = stategrid[:w])
+guess = (; v = stategrid[:w])
 
 # ## The equation
 #
@@ -75,7 +75,7 @@ end
 
 # We first solve the HJB with guessed slopes for the marginal value of cash at the two boundaries.
 
-result = pdesolve(m, stategrid, yend; bc = (; vw = (1.5, 1.0)))
+result = pdesolve(m, stategrid, guess; bc = (; vw = (1.5, 1.0)))
 
 # The guessed slopes are only a starting point. We then use `NLsolve` to find the boundary slopes
 # that satisfy the value-matching and optimality conditions of Bolton–Chen–Wang (2009) — one at
@@ -94,8 +94,8 @@ function f(m, x, stategrid, y)
   return out
 end
 
-newsol = nlsolve(x -> f(m, x, stategrid, yend), [1.0,  1.0])
-result = pdesolve(m, stategrid, yend; bc = (; vw = (newsol.zero[1], newsol.zero[2])))
+newsol = nlsolve(x -> f(m, x, stategrid, guess), [1.0,  1.0])
+result = pdesolve(m, stategrid, guess; bc = (; vw = (newsol.zero[1], newsol.zero[2])))
 
 # ## The solution
 #

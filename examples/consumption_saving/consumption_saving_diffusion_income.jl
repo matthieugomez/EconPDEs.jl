@@ -50,7 +50,7 @@ distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
 stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10),
                         a =  range(m.amin, m.amax, length = 1000)
                         )
-yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
+guess = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
 # ## The equation
 #
@@ -66,7 +66,7 @@ yend = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 -
 function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, u::NamedTuple)
     (; κy, σy, ybar, r, ρ, γ, amin, amax) = m
     (; y, a) = state
-    (; v, vy_up, vy_down, va_up, va_down, vyy, vya, vaa) = u
+    (; v, vy_up, vy_down, va_up, va_down, vyy, vaa) = u
     μy = κy * (ybar - y)
     ## Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
     cmax = 100.0 * (y + r * max(a, 0.0))
@@ -102,7 +102,7 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, yend)
+result = pdesolve(m, stategrid, guess)
 
 # ## The solution
 #

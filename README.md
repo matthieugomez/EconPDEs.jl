@@ -38,14 +38,14 @@ Here is a small linear equation on one state, with a mean-reverting drift:
 ```
 
 `pdesolve` finds the stationary solution by embedding the equation in a time-dependent
-problem and driving `v_t` to zero. For this example, the stationary residual is
-
+problem, solved backward in time from an initial guess until the time derivative is zero.
 ```math
-x + \mu(x) v_x(x) - \rho v(x),
+\rho v(x, t) = x + \mu(x) v_x(x, t) + v_t(x, t),
 ```
 
-so the PDE function returns its negative:
+Equivalently, the function returns `v_t = \rho v - x - \mu(x) v_x`, which is zero at the stationary solution.
 
+Here is how to solve this equation using this package:
 ```julia
 using EconPDEs
 

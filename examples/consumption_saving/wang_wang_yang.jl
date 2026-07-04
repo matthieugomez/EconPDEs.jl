@@ -42,12 +42,12 @@ end
 # per grid point. These names are what reappear inside the equation below — e.g. `pw_up` will be
 # the forward finite difference of `p` in `w`.
 #
-# The state ``w`` runs from the borrowing limit to a large upper bound on a grid that is denser
-# near the constraint. The initial guess ``p = 1 + w`` reflects total wealth as financial plus
-# one unit of human wealth.
+# The state ``w`` runs from the borrowing limit to a large upper bound on a simple linear grid.
+# The initial guess ``p = 1 + w`` reflects total wealth as financial plus one unit of human
+# wealth.
 
 m = WangWangYangModel()
-stategrid = (; w = range(m.wmin^(1/2), m.wmax^(1/2), length = 100).^2)
+stategrid = (; w = range(m.wmin, m.wmax, length = 1001))
 guess = (; p = 1 .+ stategrid[:w])
 
 # ## The equation
@@ -63,21 +63,26 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
     (; μ, σ, r, ρ, γ, ψ, wmin, wmax) = m
     (; w) = state
     (; p, pw_up, pw_down, pww) = u
+    mstar = r + ψ * (ρ - r)
+    p_for_trial = max(p, eps())
     ## Newton can try negative marginal values, so cap implied consumption instead of flooring derivatives.
     cmax = 100.0 * (1 + max((r - μ + σ^2) * w, 0.0))
 
     ## Upwind on the physical wealth drift of the controlled state process.
-    c_up = pw_up > 0 ? min((r + ψ * (ρ - r)) * p * pw_up^(-ψ), cmax) : cmax
+    c_up = pw_up > 0 ? min(mstar * p * pw_up^(-ψ), cmax) : cmax
     μw_up = (r - μ + σ^2) * w + 1 - c_up
     if μw_up >= 0
-        pw = pw_up
+        ## Keep the branch condition about upwinding. If a Newton trial made the selected
+        ## marginal value nonpositive, use the marginal value implied by capped consumption
+        ## only to keep the residual's fractional power well-defined.
+        pw = pw_up > 0 ? pw_up : (c_up / (mstar * p_for_trial))^(-1 / ψ)
         c = c_up
         μw = μw_up
     else
-        c_down = pw_down > 0 ? min((r + ψ * (ρ - r)) * p * pw_down^(-ψ), cmax) : cmax
+        c_down = pw_down > 0 ? min(mstar * p * pw_down^(-ψ), cmax) : cmax
         μw_down = (r - μ + σ^2) * w + 1 - c_down
         if (μw_down <= 0) && (w > wmin)
-            pw = pw_down
+            pw = pw_down > 0 ? pw_down : (c_down / (mstar * p_for_trial))^(-1 / ψ)
             c = c_down
             μw = μw_down
         else
@@ -85,7 +90,7 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
             ## we impose drift μw = 0.
             μw = 0.0
             c = 1 + (r - μ + σ^2) * w
-            pw = (c / ((r + ψ * (ρ - r)) * p))^(-1 / ψ)
+            pw = (c / (mstar * p_for_trial))^(-1 / ψ)
         end
     end
     ## At the top, we use the solution of the unconstrained problem, i.e. pw = 1 (a reflecting boundary would also work but is less elegant).
@@ -106,9 +111,8 @@ result = pdesolve(m, stategrid, guess, bc = (; pw = (1.0, 1.0)))
 # The paper reports the baseline solution on ``w \in [0,20]``. On the full grid
 # ``w \in [0,1000]``, the level of ``p(w)`` is visually close to the linear complete-markets
 # benchmark, so the economically relevant curvature is easier to see on the paper's scale.
-# We compute finite-difference slopes for ``p'(w)`` and ``c'(w)`` and compare the solution
-# with the complete-markets benchmarks ``p^*(w) = w + h`` and
-# ``c^*(w) = m^* (w + h)``.
+# We compute finite-difference slopes for ``p'(w)`` and compare the solution with the
+# complete-markets benchmarks ``p^*(w) = w + h`` and ``c^*(w) = m^* (w + h)``.
 
 ws = stategrid[:w]
 p = result.zero[:p]
@@ -117,7 +121,6 @@ h = 1 / (m.r - m.μ)
 mstar = m.r + m.ψ * (m.ρ - m.r)
 wmid = (ws[1:(end - 1)] .+ ws[2:end]) ./ 2
 pprime = diff(p) ./ diff(ws)
-mpc = diff(c) ./ diff(ws)
 
 p0 = p[1]
 pprime0 = pprime[1]
@@ -137,10 +140,8 @@ hline!(p2, [1.0]; label = "complete markets", linestyle = :dash)
 p3 = plot(ws[idx], c[idx]; xlabel = "wealth-income ratio w", ylabel = "c(w)",
           label = "model", xlims = (0, 20), ylims = (0.5, 2.5))
 plot!(p3, ws[idx], mstar .* (ws[idx] .+ h); label = "complete markets", linestyle = :dash)
-p4 = plot(wmid[didx], mpc[didx]; xlabel = "wealth-income ratio w", ylabel = "c'(w)",
-          label = "model", xlims = (0, 20), ylims = (0.04, 0.07))
-hline!(p4, [mstar]; label = "complete markets", linestyle = :dash)
-plot(p1, p2, p3, p4; layout = (2, 2), size = (800, 500))
+plot(p1, p2, p3; layout = (1, 3), size = (900, 420),
+     left_margin = 5Plots.mm, bottom_margin = 8Plots.mm)
 
 # The level ``p(0)`` is the certainty-equivalent value, in units of current income, of an
 # agent who has no liquid wealth but still receives stochastic labor income. The gap between

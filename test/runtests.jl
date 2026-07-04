@@ -95,6 +95,7 @@ end
     @test length(result.zero) == length(τs)
     @test result.zero[end][:v] == collect(guess.v)   # terminal condition
     @test maximum(result.residual_norm[2:end]) <= 1e-6
+    @test result.converged
     @test size(result.saved[1][:c]) == size(grid.k)
     @test result.optional === result.saved
 
@@ -111,6 +112,33 @@ end
 
     # an unconverged implicit step warns instead of being silently accepted
     @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess, [0.0, 1.0]; iterations = 0, verbose = false)
+end
+
+@testset "Failure reporting and verbosity" begin
+    grid = growth_grid(50)
+    guess = growth_guess(grid)
+
+    # verbose = false is completely silent on success, so pdesolve can run inside
+    # estimation loops without flooding the log
+    result = mktemp() do path, io
+        r = redirect_stdout(io) do
+            pdesolve(growth_hjb, grid, guess; verbose = false)
+        end
+        flush(io)
+        @test isempty(read(path, String))
+        r
+    end
+    @test result.converged
+    @test :converged in propertynames(result)
+    @test occursin("converged:     true", sprint(show, result))
+
+    # ...but a failed solve warns even with verbose = false
+    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess; iterations = 1, verbose = false)
+    result_bad = with_logger(NullLogger()) do
+        pdesolve(growth_hjb, grid, guess; iterations = 1, verbose = false)
+    end
+    @test !result_bad.converged
+    @test occursin("converged:     false", sprint(show, result_bad))
 end
 
 @testset "Input validation" begin
@@ -206,7 +234,9 @@ end
         return (; Vt)
     end
 
-    @test_logs (:warn, r"negative diagonal at every grid point") pdesolve(flipped_sign, grid, y0; Δ = 0.5, iterations = 1, verbose = false)
+    # match_mode=:any because the truncated solve (iterations = 1) now also warns about
+    # non-convergence, even with verbose = false
+    @test_logs (:warn, r"negative diagonal at every grid point") match_mode=:any pdesolve(flipped_sign, grid, y0; Δ = 0.5, iterations = 1, verbose = false)
 
     # the correct convention triggers no warning under the default (finite Δ) solve
     function correct_sign(state, y)

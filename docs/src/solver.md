@@ -56,19 +56,45 @@ This adaptive scheme is *pseudo-transient continuation*, imported from computati
 dynamics; formal convergence conditions are given in
 [Kelley and Keyes (1998)](https://doi.org/10.1137/S0036142996304796).
 
-With `verbose = true` (the default), each outer iteration prints
+With `verbose = true` (the default), `pdesolve` prints what it is solving, one line per
+outer iteration, and a convergence summary (this is the habit-formation model of the
+example gallery):
 
 ```
-Iter   TimeStep   Residual
----- ---------- ----------
-   1 1.0000e+00 4.4708e-03
-   2 1.4390e+01 6.4159e-05
+Solving for 1 unknown (p) on a 998-point grid
+Iter TimeStep Residual
+---- -------- --------
+   1 1.00e+00 2.51e-02
+   2 1.12e+01 1.21e-02
+   3 2.33e+03 8.01e-05
+   4 3.50e+08 3.45e-12
+Converged after 4 iterations (4ms): residual 3.45e-12 ≤ tolerance 1.49e-08
 ```
 
-`TimeStep` is the current `Δ` and `Residual` the norm of the stationary residual. A `NaN`
-residual line means the inner solve failed at that `Δ` and the step is being
-retried with `Δ/10`. Healthy solves show `Δ` growing geometrically and the residual
-collapsing in the last few iterations.
+`TimeStep` is the current `Δ` and `Residual` the norm of the stationary residual. A
+`rejected` line, e.g.
+
+```
+   2 1.04e+01 rejected (inner solve did not converge) → Δ/10
+```
+
+means the inner solve failed at that `Δ` and the step is being retried with `Δ/10`; the
+reason distinguishes an inner solve that ran out of iterations, a model that returned
+`NaN`, and a singular Jacobian. Healthy solves show `Δ` growing geometrically and the
+residual collapsing in the last few iterations.
+
+With `verbose = false` a successful solve prints nothing, and convergence failures are
+still reported with `@warn` (with a hint at the likely cause) — so `pdesolve` can run
+inside a loop, e.g. an estimation, without flooding the log while failures still surface.
+Either way, the returned result records whether the solve converged:
+
+```
+julia> result
+EconPDEResult
+  zero:          p (998)
+  residual_norm: 3.45e-12
+  converged:     true (tolerance 1.49e-08)
+```
 
 ## Why the method works
 
@@ -230,7 +256,7 @@ All of these are keyword arguments of `pdesolve` (forwarded to
 | `innerdist` | `sqrt(eps())` | tolerance of the inner nonlinear solve |
 | `method` | `:newton` | `:newton` or `:trust_region` |
 | `autodiff` | `:forward` | `:forward`/`:finite` (forward differences) or `:central`; with 1-3 states the Jacobian always uses colored sparse finite differences |
-| `verbose` | `true` | print the iteration table |
+| `verbose` | `true` | print the problem summary, the iteration table, and a convergence summary; failures warn even when `false` |
 | `lower_bound`, `upper_bound` | `-Inf`, `Inf` | bounds for variational inequalities (see [Optimal stopping](boundary_conditions.md#Optimal-stopping-(free-boundaries))) |
 | `is_algebraic` | all `false` | mark equations with no time derivative (static/algebraic conditions) |
 
@@ -253,7 +279,7 @@ Roughly in order of likelihood:
    directional cross derivative. Run with `check_monotonicity = true` (below). If the
    scheme is clean, improve the initial guess — a closed-form limit of the model (no risk,
    log utility, unconstrained) is usually enough.
-4. **The inner nonlinear solve keeps failing (many `NaN` lines).** Try `method =
+4. **The inner nonlinear solve keeps failing (many `rejected` lines).** Try `method =
    :trust_region`, a smaller initial `Δ` (e.g. `1e-2` for stiff systems with several
    coupled unknowns), or loosen `inner_iterations`.
 5. **It converges, but to something economically wrong.** Check `residual_norm` is actually

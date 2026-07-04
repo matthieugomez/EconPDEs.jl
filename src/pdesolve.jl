@@ -43,7 +43,10 @@ state grid of one, two, or three state variables.
   (`:forward` and `:finite` both use forward differences; `:central` uses central
   differences); forward-mode AD is used only when no sparsity pattern is available
   (four or more states).
-* `verbose`: print convergence progress. Defaults to `true`.
+* `verbose`: print a one-line problem summary, convergence progress, and a final
+  convergence summary. Defaults to `true`. With `verbose = false` a successful solve
+  prints nothing — convergence failures are always reported with `@warn` — so `pdesolve`
+  can run inside a loop (e.g. an estimation) without flooding the log.
 * Further solver knobs (`scale`, `minΔ`, `maxΔ`, `inner_iterations`, `innerdist`,
   `inner_verbose`, `reformulation`, `autoscale`) are forwarded to
   [`finiteschemesolve`](@ref); see its docstring, especially when a solve stalls.
@@ -56,8 +59,9 @@ state grid of one, two, or three state variables.
 * `monotonicity_max_warnings`: maximum number of monotonicity warnings to print. Defaults to 5.
 
 Returns an `EconPDEResult` with fields `zero` (the solved unknowns), `residual_norm`,
-and `saved` (the saved objects, together with the solved unknowns). `result.optional`
-is kept as a backward-compatible alias for `result.saved`.
+and `saved` (the saved objects, together with the solved unknowns). `result.converged`
+reports whether the residual met the tolerance (across all times, for a time-dependent
+problem). `result.optional` is kept as a backward-compatible alias for `result.saved`.
 """
 function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     # `grid`, `guess`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
@@ -100,7 +104,9 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         # the sparsity pattern is fixed, so build the coloring and Jacobian cache once
         # rather than inside every backward time step
         J0c, fdcache = _sparse_fd_setup(J0, vec(guess_M), get(kwargs, :autodiff, :forward))
+        tstart = time()
         if verbose
+            @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, S) τs[end] τs[1] (length(τs) - 1)
             @printf "    Time Residual\n"
             @printf "-------- --------\n"
         end
@@ -114,19 +120,29 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
             if iτ > 1
                 y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
-                    @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
+                    @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
                 end
                 # an unconverged step would otherwise be silently accepted and propagated
                 # to all earlier times; `!(x <= tol)` also catches a NaN residual
                 if !(residual_norms[iτ] <= maxdist)
-                    @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(residual_norms[iτ])); the solution at this and earlier times may be inaccurate"
+                    @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `iterations`"
                 end
                 y_M = reshape(y_M, size(guess_M)...)
             end
         end
-        return EconPDEResult(ys, residual_norms, as)
+        if verbose
+            nfailed = count(iτ -> !(residual_norms[iτ] <= maxdist), 2:length(τs))
+            if nfailed == 0
+                @printf "Completed %d time steps (%s): max residual %.2e ≤ tolerance %.2e\n" (length(τs) - 1) _elapsed(time() - tstart) maximum(residual_norms) maxdist
+            else
+                @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) _elapsed(time() - tstart) nfailed
+            end
+        end
+        return EconPDEResult(ys, residual_norms, as, maxdist)
     else
         a = get_a(apm, stategrid, solutionnames, ynames, guess_M, bc_M)
+        maxdist = get(kwargs, :maxdist, sqrt(eps()))
+        verbose && println("Solving for ", _problem_description(guess, S))
         y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(guess_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
         y_M = reshape(y_M, size(guess_M)...)
         _setindex!(y, y_M)
@@ -134,8 +150,15 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
             _setindex!(a, apm, stategrid, solutionnames, y_M, bc_M)
             a = merge(y, a)
         end
-        return EconPDEResult(y, residual_norm, a)
+        return EconPDEResult(y, residual_norm, a, maxdist)
     end
+end
+
+# e.g. "2 unknowns (pA, pB) on a 30×40 grid" — shared by the preambles of both solve paths
+function _problem_description(@nospecialize(guess), S)
+    n = length(guess)
+    string(n, n == 1 ? " unknown (" : " unknowns (", join(keys(guess), ", "), ") on a ",
+           length(S) == 1 ? "$(S[1])-point" : join(S, "×"), " grid")
 end
 
 

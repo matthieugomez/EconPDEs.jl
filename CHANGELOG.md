@@ -4,6 +4,20 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+- Better solver output: `pdesolve` prints a one-line problem summary (unknowns, grid size,
+  number of equations, tolerance) before solving and a convergence summary (iterations,
+  elapsed time, residual vs. tolerance) after. A rejected pseudo-transient step prints
+  `rejected (<reason>) → Δ/10` — distinguishing an unconverged inner solve, a model that
+  returned `NaN`, and a singular Jacobian — instead of a `NaN` residual line.
+- Convergence failures are reported with `@warn` even when `verbose = false`, with
+  actionable hints, so solves embedded in silent loops (e.g. estimation) stay quiet on
+  success but surface failures. A solve that converges exactly at the iteration limit is
+  no longer mislabeled as unconverged.
+- `EconPDEResult` records the solver tolerance and gains a computed `converged` property,
+  also shown in its compact display.
+
 ## [1.6.0] — 2026-07-03
 
 - Add a documentation site built with Documenter and Literate, with a getting-started guide,

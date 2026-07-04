@@ -6,6 +6,10 @@
 
 _has_bounds(lower_bound, upper_bound) = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
 
+# elapsed-time formatting for the convergence summaries: milliseconds under a second,
+# so fast solves don't display as "0.00s"
+_elapsed(s) = s < 1 ? @sprintf("%.0fms", 1000 * s) : @sprintf("%.1fs", s)
+
 # Build everything the colored sparse finite-difference Jacobian needs: the normalized
 # sparse pattern (also used as the Jacobian prototype) and the FiniteDiff cache holding the
 # coloring. The pattern is fixed across pseudo-transient iterations and implicit time steps,
@@ -116,14 +120,18 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   problem is solved as a mixed complementarity problem with `NLsolve.mcpsolve`, with
   `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
   through to it. The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
-* `verbose = true`: print outer-iteration progress (`Iter`, `TimeStep`, `Residual`). A `NaN`
-  residual line means the inner nonlinear solve failed and the time step was reduced.
+* `verbose = true`: print one line per outer iteration (`Iter`, `TimeStep`, `Residual`) and
+  a final convergence summary. A `rejected` line means the inner nonlinear solve failed at
+  that `Δ` (the reason is printed) and the time step was divided by 10. With
+  `verbose = false` a successful solve prints nothing; convergence failures are always
+  reported with `@warn`.
 """
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :finiteschemesolve); lower_bound = y̲)
     ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :finiteschemesolve); upper_bound = ȳ)
+    tstart = time()
     ypost = y0
     ydot = zero(y0)
     # the sparsity pattern is fixed, so build the coloring and Jacobian cache once here
@@ -139,14 +147,21 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     elseif Δ == Inf
         # infinite time step => solve in one step
         ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
+        if residual_norm <= maxdist
+            verbose && @printf "Converged (%s): residual %.2e ≤ tolerance %.2e\n" _elapsed(time() - tstart) residual_norm maxdist
+        else
+            # warn even when verbose = false: solves embedded in silenced loops
+            # (e.g. estimation) must still surface failures
+            @warn "did not converge: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist)). `Δ = Inf` disables pseudo-transient continuation — try a finite initial time step `Δ`, a better initial guess, or more `iterations`."
+        end
         return ypost, residual_norm
     else
         coef = 1.0
         oldresidual_norm = residual_norm
         iter = 0
         if verbose
-            @printf "Iter   TimeStep   Residual\n"
-            @printf "---- ---------- ----------\n"
+            @printf "Iter TimeStep Residual\n"
+            @printf "---- -------- --------\n"
         end
         while (iter < iterations) && (Δ >= minΔ) && (residual_norm > maxdist)
             iter += 1
@@ -163,16 +178,18 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             if nlresidual_norm <= innerdist
                 # if the implicit time step is correctly solved
                 if verbose
-                    @printf "%4d %8.4e %8.4e\n" iter Δ residual_norm
+                    @printf "%4d %8.2e %8.2e\n" iter Δ residual_norm
                 end
                 coef = (residual_norm <= oldresidual_norm) ? scale * coef : 1.0
                 Δ = min(Δ * coef * oldresidual_norm / residual_norm, maxΔ)
                 ypost, y = y, ypost
             else
                 if verbose
-                    @printf "%4d %8.4e %8.4e\n" iter Δ NaN
+                    reason = isnan(nlresidual_norm) ? "model returned NaN" :
+                             isinf(nlresidual_norm) ? "singular Jacobian" :
+                             "inner solve did not converge"
+                    @printf "%4d %8.2e rejected (%s) → Δ/10\n" iter Δ reason
                 end
-                # verbose && @show iter, Δ, NaN
                 # if the implict time step is not solved
                 # revert and diminish the time step
                 coef = 1.0
@@ -180,9 +197,14 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 residual_norm = oldresidual_norm
             end
         end
-        if verbose
-            (iter >= iterations) && @warn "Algorithm did not converge: Iter higher than the limit $(iterations)"
-            (Δ < minΔ) && @warn "Algorithm did not converge: TimeStep lower than the limit $(minΔ)"
+        if residual_norm <= maxdist
+            verbose && @printf "Converged after %d iterations (%s): residual %.2e ≤ tolerance %.2e\n" iter _elapsed(time() - tstart) residual_norm maxdist
+        elseif Δ < minΔ
+            # warn even when verbose = false: solves embedded in silenced loops
+            # (e.g. estimation) must still surface failures
+            @warn "did not converge after $iter iterations: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."
+        else
+            @warn "did not converge after $iter iterations: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist)). If the residual was still falling, increase `iterations`; otherwise try a better initial guess or `check_monotonicity = true`."
         end
         return ypost, residual_norm
     end

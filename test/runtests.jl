@@ -108,6 +108,9 @@ end
     result_t = pdesolve(hjb_t, grid, guess, τs; verbose = false)
     @test maximum(result_t.residual_norm[2:end]) <= 1e-6
     @test length(unique(ts_seen)) > 1
+
+    # an unconverged implicit step warns instead of being silently accepted
+    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess, [0.0, 1.0]; iterations = 0, verbose = false)
 end
 
 @testset "Input validation" begin
@@ -127,6 +130,9 @@ end
     @test_throws ArgumentError pdesolve((s, u) -> (; wrong = 0.0), grid, guess; verbose = false)
     # ... and must return a NamedTuple
     @test_throws ArgumentError pdesolve((s, u) -> (0.0,), grid, guess; verbose = false)
+
+    # each state dimension needs at least two grid points for finite differences
+    @test_throws ArgumentError pdesolve(growth_hjb, (; k = [kbar]), (; v = [0.0]); verbose = false)
 
     # unknown bc entry
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; bc = (; vx = (0.0, 0.0)), verbose = false)
@@ -226,6 +232,11 @@ end
     # deprecated Unicode aliases still solve the bounded problem
     y_dep, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
     @test y_dep[1] ≈ 1.0 atol = 1e-6
+
+    # `reformulation` reaches mcpsolve even in the single-step (Δ = Inf) path
+    y_mm, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :minmax, autoscale = false)
+    @test y_mm[1] ≈ 1.0 atol = 1e-6
+    @test_throws ArgumentError finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :bogus)
 end
 
 @testset "2D multi-function sparsity" begin

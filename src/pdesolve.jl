@@ -26,7 +26,8 @@ state grid of one, two, or three state variables.
 * `bc`: boundary derivatives, a `NamedTuple` (or `OrderedDict`) mapping
   `Symbol(unknown, state)` to a `(lower, upper)` tuple (scalars, or arrays matching the
   boundary slice). Entries may be given for any subset of (unknown, state) pairs; omitted
-  pairs default to reflecting boundaries (zero outward first derivative).
+  pairs default to reflecting boundaries (zero first derivative at the boundary). Both
+  entries are `∂v/∂state` oriented in the increasing-state direction.
 * `is_algebraic`: a `NamedTuple` (or `OrderedDict`) of `Bool`s marking equations that are
   algebraic (no time derivative) rather than PDEs. Defaults to all `false`.
 * `lower_bound`, `upper_bound`: lower/upper bounds on the unknowns for HJB variational
@@ -95,6 +96,10 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         as = (a === nothing) ? nothing : [deepcopy(a) for τ in τs]
         y_M = guess_M
         residual_norms = zeros(length(τs))
+        maxdist = get(kwargs, :maxdist, sqrt(eps()))
+        # the sparsity pattern is fixed, so build the coloring and Jacobian cache once
+        # rather than inside every backward time step
+        J0c, fdcache = _sparse_fd_setup(J0, vec(guess_M), get(kwargs, :autodiff, :forward))
         if verbose
             @printf "    Time Residual\n"
             @printf "-------- --------\n"
@@ -107,9 +112,14 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0, monotonicity_check = monotonicity_check, kwargs...)
+                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
                     @printf "%8g   %8.4e\n" τs[iτ-1] residual_norms[iτ]
+                end
+                # an unconverged step would otherwise be silently accepted and propagated
+                # to all earlier times; `!(x <= tol)` also catches a NaN residual
+                if !(residual_norms[iτ] <= maxdist)
+                    @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(residual_norms[iτ])); the solution at this and earlier times may be inaccurate"
                 end
                 y_M = reshape(y_M, size(guess_M)...)
             end
@@ -196,7 +206,7 @@ function _Array_bc(bc, guess, grid)
         for (d, s) in enumerate(keys_grid)
             key = Symbol(yname, s)
             # entries may be given for any subset of (unknown, state) pairs;
-            # omitted pairs keep the reflecting default (zero outward derivative)
+            # omitted pairs keep the reflecting default (zero boundary derivative)
             haskey(bc, key) || continue
             lo, hi = bc[key]
             selectdim(bck, d, 1) .= lo

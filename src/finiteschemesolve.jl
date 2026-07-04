@@ -6,7 +6,19 @@
 
 _has_bounds(lower_bound, upper_bound) = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
 
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
+# Build everything the colored sparse finite-difference Jacobian needs: the normalized
+# sparse pattern (also used as the Jacobian prototype) and the FiniteDiff cache holding the
+# coloring. The pattern is fixed across pseudo-transient iterations and implicit time steps,
+# so callers compute this once and pass it to every `implicit_timestep` call.
+function _sparse_fd_setup(J0, y, autodiff)
+    J0 === nothing && return nothing, nothing
+    J0c = sparse(J0)
+    fdtype = autodiff == :central ? Val(:central) : Val(:forward)
+    fdcache = JacobianCache(y, fdtype, eltype(y); colorvec = matrix_colors(J0c), sparsity = J0c)
+    return J0c, fdcache
+end
+
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, fdcache = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :implicit_timestep); lower_bound = y̲)
@@ -14,11 +26,12 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
 
     jac = nothing
-    J0c = J0 === nothing ? nothing : sparse(J0)
-    if J0c !== nothing
-        colorvec = matrix_colors(J0c)
-        fdtype = autodiff == :central ? Val(:central) : Val(:forward)
-        fdcache = JacobianCache(ypost, fdtype, eltype(ypost); colorvec = colorvec, sparsity = J0c)
+    if fdcache === nothing
+        J0c, fdcache = _sparse_fd_setup(J0, ypost, autodiff)
+    else
+        J0c = fdcache.sparsity
+    end
+    if fdcache !== nothing
         function jac!(J, y)
             finite_difference_jacobian!(J, G_helper!, y, fdcache)
             _try_run_monotonicity_check!(monotonicity_check, J, y, Δ, is_algebraic)
@@ -112,6 +125,9 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :finiteschemesolve); upper_bound = ȳ)
     ypost = y0
     ydot = zero(y0)
+    # the sparsity pattern is fixed, so build the coloring and Jacobian cache once here
+    # rather than inside every implicit time step
+    J0c, fdcache = _sparse_fd_setup(J0, y0, autodiff)
     # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
@@ -121,7 +137,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         return ypost, residual_norm
     elseif Δ == Inf
         # infinite time step => solve in one step
-        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0, lower_bound = lower_bound, upper_bound = upper_bound, monotonicity_check = monotonicity_check, kwargs...)
+        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
         return ypost, residual_norm
     else
         coef = 1.0
@@ -133,7 +149,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
         while (iter < iterations) && (Δ >= minΔ) && (residual_norm > maxdist)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, monotonicity_check = monotonicity_check, kwargs...)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
             if _has_bounds(lower_bound, upper_bound)
                 # only unconstrained ydot is relevant for residual_norm calculation

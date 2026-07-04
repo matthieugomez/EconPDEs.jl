@@ -20,7 +20,9 @@ boundary condition — on coarse grids this is noticeably more accurate.
 ## The `bc` keyword
 
 To impose a different boundary derivative, pass `bc`, a `NamedTuple` mapping
-`Symbol(unknown, state)` to a `(lower, upper)` tuple of outward first derivatives:
+`Symbol(unknown, state)` to a `(lower, upper)` tuple giving the value of `∂v/∂state` at each
+end of the grid — both entries use the same increasing-state orientation (the lower entry is
+*not* the derivative along the outward normal):
 
 ```julia
 pdesolve(f, grid, guess; bc = (; va = (0.0, 1.0)))

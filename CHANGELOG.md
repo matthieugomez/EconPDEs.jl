@@ -4,6 +4,17 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
+## [1.6.0] — 2026-07-03
+
+- Add a documentation site built with Documenter and Literate, with a getting-started guide,
+  a reorganized example gallery, solver-diagnostics documentation, and cross-links to
+  InfinitesimalGenerators.jl.
+- Rename the saved-outputs result field from `optional` to `saved`; `result.optional` remains
+  as a backward-compatible alias.
+- Add a risky-asset consumption-saving example.
+- Allow state-grid dimensions to mix vector containers (e.g. a `range` and a `Vector`).
+- Harden the monotonicity diagnostics.
+
 ## [1.5.0] — 2026-07-01
 
 - Switch the nonlinear solver backend to `NonlinearSolve.jl` (Newton and trust-region methods).

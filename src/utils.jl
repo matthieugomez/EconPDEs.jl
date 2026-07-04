@@ -13,6 +13,7 @@ function StateGrid(x::NamedTuple{Names, V}) where {Names, V <: Tuple}
     N = length(Names)
     N > 0 || throw(ArgumentError("state grid must contain at least one state variable"))
     all(v -> v isa AbstractVector, values(x)) || throw(ArgumentError("state grid entries must be vectors"))
+    all(v -> length(v) >= 2, values(x)) || throw(ArgumentError("state grid entries must have at least 2 points"))
     T = promote_type(map(eltype, values(x))...)
     StateGrid{T, N, typeof(x)}(x)
 end

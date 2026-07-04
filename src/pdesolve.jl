@@ -36,8 +36,8 @@ state grid of one, two, or three state variables.
 * `method`: `:newton` (default) or `:trust_region`.
 * `maxdist`: convergence tolerance on the residual. Defaults to `sqrt(eps())`.
 * `iterations`: maximum number of pseudo-transient iterations. Defaults to 100.
-* `Δ`: initial pseudo-transient time step. Defaults to `1.0`; pass `Δ = Inf` to solve in a
-  single Newton step (no continuation).
+* `Δ`: initial pseudo-transient time step. Defaults to `1.0`; pass `Δ = Inf` to solve the
+  stationary residual in one nonlinear solve, with no continuation.
 * `autodiff`: `:forward` (default), `:finite`, or `:central`. With one to three state
   variables the Jacobian is always computed by colored sparse finite differences
   (`:forward` and `:finite` both use forward differences; `:central` uses central

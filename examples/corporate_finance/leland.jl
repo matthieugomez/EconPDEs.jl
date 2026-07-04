@@ -1,11 +1,13 @@
 # # Leland (1994): optimal default
 #
-# Leland's model of a levered firm is a classic optimal-stopping problem. Cash flow (EBIT)
-# ``\delta`` follows a geometric Brownian motion ``d\delta = \mu\delta\,dt + \sigma\delta\,dW``.
-# The firm has issued perpetual debt with coupon ``C`` and faces a tax rate ``\tau``; equity
-# holders receive the after-tax flow ``\delta-(1-\tau)C`` but may **default** (walk away)
-# whenever they choose. Equity value ``E(\delta)`` is thus the value of the option to keep the
-# firm alive, and solves the HJB variational inequality
+# Leland's model of a levered firm is a classic optimal-stopping problem. The full paper values
+# risky debt and studies capital structure; this example isolates the equityholders' default
+# decision. Cash flow (EBIT) ``\delta`` follows a geometric Brownian motion
+# ``d\delta = \mu\delta\,dt + \sigma\delta\,dW``. The firm has issued perpetual debt with coupon
+# ``C`` and faces a tax rate ``\tau``; equity holders receive the after-tax flow
+# ``\delta-(1-\tau)C`` but may **default** (walk away) whenever they choose. Equity value
+# ``E(\delta)`` is thus the value of the option to keep the firm alive, and solves the HJB
+# variational inequality
 #
 # ```math
 # \min\Bigl\{\, r E - \bigl(\delta-(1-\tau)C\bigr) - \mu\delta\,E'(\delta) - \tfrac12\sigma^2\delta^2 E''(\delta),\;\; E(\delta)\,\Bigr\} = 0,
@@ -19,7 +21,7 @@
 #
 # The parameters live in a `struct`:
 
-using EconPDEs, Plots
+using EconPDEs, Plots, Printf
 
 Base.@kwdef struct LelandModel
     r::Float64 = 0.02    # risk-free rate
@@ -69,13 +71,49 @@ result = pdesolve(m, stategrid, guess; lower_bound = lower_bound, bc = bc)
 
 # ## The solution
 #
-# Equity is worthless below an endogenous default threshold ``\delta^*`` (red line) and rises
-# smoothly above it. Shareholders keep servicing the debt only while cash flows are high
-# enough to justify the coupon; below ``\delta^*`` they optimally default.
+# Equity is worthless below an endogenous default threshold ``\delta^*`` and rises smoothly
+# above it. This stripped-down case has the familiar closed-form trigger. If ``\beta < 0`` is
+# the negative root of
+#
+# ```math
+# \tfrac12\sigma^2\beta(\beta-1) + \mu\beta - r = 0,
+# ```
+#
+# then
+#
+# ```math
+# \delta^* =
+# \frac{\beta}{\beta-1}\,(r-\mu)\,\frac{(1-\tau)C}{r}.
+# ```
+#
+# The finite-difference solution recovers the same boundary up to grid resolution. In the plot,
+# the red dotted line is the closed-form trigger and the gray dashed line is the first grid
+# point where the variational-inequality solution lifts off from zero.
 
 δs = stategrid[:δ]
 E = result.zero[:E]
 ## Default boundary δ*: the first grid point where equity lifts off the E = 0 lower bound of the variational inequality.
-δstar = δs[findfirst(>(1e-8), E)]
-plot(δs, E; xlabel = "cash flow δ", ylabel = "equity value E(δ)", legend = false)
-vline!([δstar]; color = :red, linestyle = :dot)
+δstar_grid = δs[findfirst(>(1e-8), E)]
+root_a = 0.5 * m.σ^2
+root_b = m.μ - 0.5 * m.σ^2
+root_c = -m.r
+β = min((-root_b + sqrt(root_b^2 - 4 * root_a * root_c)) / (2 * root_a),
+        (-root_b - sqrt(root_b^2 - 4 * root_a * root_c)) / (2 * root_a))
+δstar = β / (β - 1) * (m.r - m.μ) * (1 - m.τ) * m.C / m.r
+claim_slope = 1 / (m.r - m.μ)
+coupon_value = (1 - m.τ) * m.C / m.r
+option_loading = -claim_slope * δstar^(1 - β) / β
+continuation = δs .>= δstar_grid
+E_closed = zeros(length(δs))
+E_closed[continuation] .= claim_slope .* δs[continuation] .- coupon_value .+
+                          option_loading .* δs[continuation].^β
+@printf("closed-form default threshold δ* = %.4f; grid lift-off = %.4f\n",
+        δstar, δstar_grid)
+@printf("maximum equity-value error on the continuation grid = %.2e\n",
+        maximum(abs.(E[continuation] .- E_closed[continuation])))
+plot(δs, E; xlabel = "cash flow δ", ylabel = "equity value E(δ)",
+     label = "finite difference", legend = :topleft)
+plot!(δs[continuation], E_closed[continuation]; color = :black, linestyle = :dash,
+      label = "closed form")
+vline!([δstar]; color = :red, linestyle = :dot, label = "closed-form δ*")
+vline!([δstar_grid]; color = :gray, linestyle = :dash, label = "grid lift-off")

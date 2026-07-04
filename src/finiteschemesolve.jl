@@ -87,14 +87,15 @@ end
     finiteschemesolve(F!, y0; kwargs...)
 
 Lower-level nonlinear solver behind `pdesolve`. Finds `y` such that `F!(ydot, y)` writes the
-residual into `ydot` and returns zero, using Newton's method with pseudo-transient
-continuation from the initial guess `y0`.
+residual into `ydot` and returns zero, using a nonlinear solver (Newton by default) with
+pseudo-transient continuation from the initial guess `y0`.
 
 `pdesolve` assembles `F!` (the finite-difference residual of the PDE) and calls this function,
 so most users should call `pdesolve` instead. It returns the tuple `(y, residual_norm)`.
 
 ### Keyword arguments
-* `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves in a single Newton step.
+* `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves the stationary residual
+  in one nonlinear solve, with no continuation.
 * `scale = 10.0`: growth factor for the time step. After a successful step that reduces the
   residual, `Δ` is multiplied by `scale * (old residual / new residual)`; after a failed
   inner solve, `Δ` is divided by 10.
@@ -102,8 +103,8 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   (typically a sign that the scheme is non-monotone or the initial guess is poor).
 * `iterations = 100`: maximum number of pseudo-transient (outer) iterations.
 * `maxdist = sqrt(eps())`: convergence tolerance on the residual norm.
-* `inner_iterations = 10`, `innerdist = sqrt(eps())`, `inner_verbose = false`: Newton
-  iteration limit, tolerance, and verbosity for each implicit time step (the inner solve).
+* `inner_iterations = 10`, `innerdist = sqrt(eps())`, `inner_verbose = false`: iteration
+  limit, tolerance, and verbosity for each implicit time step (the inner solve).
 * `method`: `:newton` (default) or `:trust_region`.
 * `autodiff`: `:forward` (default), `:finite`, or `:central`. When a sparsity pattern `J0`
   is available, the Jacobian is computed by colored sparse finite differences
@@ -116,7 +117,7 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
   through to it. The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
 * `verbose = true`: print outer-iteration progress (`Iter`, `TimeStep`, `Residual`). A `NaN`
-  residual line means the inner Newton solve failed and the time step was reduced.
+  residual line means the inner nonlinear solve failed and the time step was reduced.
 """
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))

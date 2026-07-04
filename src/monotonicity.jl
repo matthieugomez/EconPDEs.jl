@@ -49,8 +49,8 @@ end
 # (ρ plus the outflow rates of the discretized generator). If the user returns `RHS - ρv`
 # instead, every diagonal entry flips negative and the false transient is unstable — the most
 # common reason a solve diverges from iteration 1. Checked once, on the first assembled
-# Jacobian. Skipped when Δ = Inf: a single Newton solve is sign-agnostic, so either sign is
-# then legitimate.
+# Jacobian. Skipped when Δ = Inf: a stationary nonlinear solve is sign-agnostic, so either
+# sign is then legitimate.
 function _check_sign_convention!(checker::MonotonicityChecker, J, Δ, is_algebraic)
     checker.sign_checked && return nothing
     isfinite(Δ) || return nothing

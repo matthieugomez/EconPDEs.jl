@@ -21,7 +21,7 @@
 #
 # The parameters live in a `struct`:
 
-using EconPDEs, Plots
+using EconPDEs, Plots, Printf
 
 Base.@kwdef struct WangWangYangModel
     μ::Float64 = 0.015       # expected growth rate of labor income
@@ -93,23 +93,59 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
     return (; pt), (; c, μw)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system, imposing
-# the boundary condition ``p'(w) = 1`` — which pins the marginal value of wealth — at both ends:
+# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system. The
+# `bc` entry supplies one-sided ghost derivatives at the edges of the grid. At the borrowing
+# constraint, the PDE still uses the inward derivative when the drift points into the state
+# space, so the economically relevant ``p'(0)`` is determined by the solution; at the upper
+# edge, the condition pins the asymptotic complete-markets marginal value ``p'(w) \to 1``.
 
 result = pdesolve(m, stategrid, guess, bc = (; pw = (1.0, 1.0)))
 
 # ## The solution
 #
-# The consumption–income ratio and the saving rate, over the low-wealth region:
+# The paper reports the baseline solution on ``w \in [0,20]``. On the full grid
+# ``w \in [0,1000]``, the level of ``p(w)`` is visually close to the linear complete-markets
+# benchmark, so the economically relevant curvature is easier to see on the paper's scale.
+# We compute finite-difference slopes for ``p'(w)`` and ``c'(w)`` and compare the solution
+# with the complete-markets benchmarks ``p^*(w) = w + h`` and
+# ``c^*(w) = m^* (w + h)``.
 
 ws = stategrid[:w]
-idx = 1:div(length(ws), 3)          # left third of the grid, where the curvature is
-p1 = plot(ws[idx], result.saved[:c][idx]; xlabel = "wealth-income ratio w", ylabel = "consumption c", legend = false)
-p2 = plot(ws[idx], result.saved[:μw][idx]; xlabel = "wealth-income ratio w", ylabel = "saving μw", legend = false)
-hline!(p2, [0.0]; color = :gray, linestyle = :dash)
-plot(p1, p2; layout = (1, 2), size = (800, 300))
+p = result.zero[:p]
+c = result.saved[:c]
+h = 1 / (m.r - m.μ)
+mstar = m.r + m.ψ * (m.ρ - m.r)
+wmid = (ws[1:(end - 1)] .+ ws[2:end]) ./ 2
+pprime = diff(p) ./ diff(ws)
+mpc = diff(c) ./ diff(ws)
 
-# Consumption (left) is increasing and concave in the wealth-to-income ratio, steepest near the
-# borrowing constraint where the marginal propensity to consume is highest. The saving rate (right)
-# is largest for constrained, low-wealth households and declines as wealth rises toward its target —
-# the shadow value of the borrowing constraint fading as financial wealth accumulates.
+p0 = p[1]
+pprime0 = pprime[1]
+@printf("p(0) = %.2f, versus complete-markets p*(0) = %.2f; p(0)/p*(0) = %.1f%%\n",
+        p0, h, 100 * p0 / h)
+@printf("p'(0) = %.2f, so one dollar of liquid wealth is worth %.1f%% more than its accounting value at the constraint\n",
+        pprime0, 100 * (pprime0 - 1))
+
+idx = ws .<= 20
+didx = wmid .<= 20
+p1 = plot(ws[idx], p[idx]; xlabel = "wealth-income ratio w", ylabel = "p(w)",
+          label = "model", xlims = (0, 20), ylims = (20, 70))
+plot!(p1, ws[idx], ws[idx] .+ h; label = "complete markets", linestyle = :dash)
+p2 = plot(wmid[didx], pprime[didx]; xlabel = "wealth-income ratio w", ylabel = "p'(w)",
+          label = "model", xlims = (0, 20), ylims = (1.0, 1.5))
+hline!(p2, [1.0]; label = "complete markets", linestyle = :dash)
+p3 = plot(ws[idx], c[idx]; xlabel = "wealth-income ratio w", ylabel = "c(w)",
+          label = "model", xlims = (0, 20), ylims = (0.5, 2.5))
+plot!(p3, ws[idx], mstar .* (ws[idx] .+ h); label = "complete markets", linestyle = :dash)
+p4 = plot(wmid[didx], mpc[didx]; xlabel = "wealth-income ratio w", ylabel = "c'(w)",
+          label = "model", xlims = (0, 20), ylims = (0.04, 0.07))
+hline!(p4, [mstar]; label = "complete markets", linestyle = :dash)
+plot(p1, p2, p3, p4; layout = (2, 2), size = (800, 500))
+
+# The level ``p(0)`` is the certainty-equivalent value, in units of current income, of an
+# agent who has no liquid wealth but still receives stochastic labor income. The gap between
+# ``p(0)`` and ``p^*(0) = h`` is the welfare cost of incomplete markets and the borrowing
+# constraint. The slope ``p'(0)`` is the marginal certainty-equivalent value of one more dollar
+# of liquid wealth at the constraint; values above one are a liquidity premium. As wealth rises,
+# self-insurance becomes more effective, so ``p'(w)`` falls toward the complete-markets value one
+# and ``p(w)`` approaches the linear benchmark ``w + h``.

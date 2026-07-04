@@ -1,8 +1,9 @@
 # # Neoclassical growth model
 #
 # The deterministic neoclassical (Ramsey–Cass–Koopmans) growth model is the gentlest
-# introduction: one state variable, one value function, and a closed-form steady state to
-# check the solution against. A representative household chooses consumption to solve
+# introduction: one state variable, one value function, and a familiar calibration. For
+# validation, the example creates a second parameter instance that satisfies a closed-form
+# restriction. A representative household chooses consumption to solve
 #
 # ```math
 # \max_{c} \int_0^\infty e^{-\rho t}\, \frac{c^{1-\gamma}}{1-\gamma}\, dt
@@ -19,14 +20,14 @@
 #
 # This is the same model solved step by step in [Getting started](../getting_started.md).
 # Here it is packaged the way the rest of the examples are — parameters in a `struct`, the
-# equation as a callable on it — and the solution is plotted against the closed-form
-# steady state.
+# equation as a callable on it — and the numerical solution is plotted against the
+# closed-form benchmark.
 
 # ## The model
 #
 # The parameters live in a `struct`:
 
-using EconPDEs, Plots
+using EconPDEs, Plots, Printf
 
 Base.@kwdef struct NeoclassicalGrowthModel
     A::Float64 = 0.5     # productivity
@@ -44,15 +45,41 @@ end
 # point. These names are what reappear inside the equation below — e.g. `vk_up` will be the
 # forward finite difference of `v` in `k`.
 #
-# We center the grid on the closed-form steady state ``\bar k`` (where
-# ``\alpha A \bar k^{\alpha-1} = \rho + \delta``) and start from the value of consuming gross
-# output forever.
+# The default parameters above match the introductory calibration. To validate the full
+# numerical solution, we solve a new model instance that imposes the restriction with a
+# closed-form solution:
+#
+# ```math
+# \rho = \delta(\alpha \gamma - 1), \qquad \alpha\gamma > 1.
+# ```
+#
+# In that case the optimal policy and value function are
+#
+# ```math
+# c(k) = \phi A k^\alpha, \qquad
+# v(k) = \frac{(\phi A)^{-\gamma} k^{1-\alpha\gamma}}{1-\alpha\gamma},
+# \qquad \phi = 1 - \frac{1}{\gamma}.
+# ```
+#
+# We center the grid on the corresponding steady state ``\bar k`` (where
+# ``\alpha A \bar k^{\alpha-1} = \rho + \delta``) and still start from the generic value of
+# consuming gross output forever. The closed-form instance is used only as a validation
+# benchmark.
 
 m = NeoclassicalGrowthModel()
-(; A, α, δ, ρ, γ) = m
+γ_benchmark = 4.0
+m_benchmark = NeoclassicalGrowthModel(;
+    γ = γ_benchmark,
+    ρ = m.δ * (m.α * γ_benchmark - 1),
+)
+(; A, α, δ, ρ, γ) = m_benchmark
+φ = 1 - 1 / γ
 k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
 stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
 guess = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
+
+closed_form_consumption(k) = φ * A * k^α
+closed_form_value(k) = (φ * A)^(-γ) * k^(1 - α * γ) / (1 - α * γ)
 
 # ## The equation
 #
@@ -97,20 +124,35 @@ end
 
 # With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, guess)
+result = pdesolve(m_benchmark, stategrid, guess)
 
 # ## The solution
 #
-# The value function is increasing and concave in capital:
+# Since this calibration has an analytical solution, the example can check the whole
+# numerical policy and value function, not just the steady state. The errors below are not
+# zero because the PDE is solved on a finite-difference grid, but they should be small and
+# shrink as the grid is refined.
 
 ks = stategrid[:k]
-plot(ks, result.zero[:v]; xlabel = "capital k", ylabel = "value v(k)", legend = false)
+c_closed = closed_form_consumption.(ks)
+v_closed = closed_form_value.(ks)
+
+policy_error = maximum(abs.(result.saved[:c] .- c_closed) ./ c_closed)
+value_error = maximum(abs.(result.zero[:v] .- v_closed) ./ abs.(v_closed))
+@printf("maximum relative policy error: %.2e\n", policy_error)
+@printf("maximum relative value error: %.2e\n", value_error)
+
+plot(ks, result.zero[:v]; xlabel = "capital k", ylabel = "value v(k)",
+     label = "numerical")
+plot!(ks, v_closed; linestyle = :dash, label = "closed form")
 
 # Consumption rises with capital (left). The capital drift ``\mu_k`` (right) is positive
 # below the steady state and negative above it, crossing zero exactly at ``\bar k`` — the
 # saddle-path-stable steady state the economy is drawn toward.
 
-p1 = plot(ks, result.saved[:c]; xlabel = "capital k", ylabel = "consumption c(k)", legend = false)
+p1 = plot(ks, result.saved[:c]; xlabel = "capital k", ylabel = "consumption c(k)",
+          label = "numerical")
+plot!(p1, ks, c_closed; linestyle = :dash, label = "closed form")
 p2 = plot(ks, result.saved[:μk]; xlabel = "capital k", ylabel = "capital drift μk", legend = false)
 hline!(p2, [0.0]; color = :gray, linestyle = :dash)
 vline!(p2, [k̄]; color = :red, linestyle = :dot)

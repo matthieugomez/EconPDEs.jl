@@ -91,33 +91,15 @@ guess = initialize_y(m, stategrid)</code></pre><pre class="documenter-example-ou
   pt = - p * ((1 - i) / p - x / pA - (1 - x) / pB)
   Q = (pA / pB)^(1 / (ψ - 1))
   return (; pAt, pBt, pt), (; σx = σX, Q, r, κ, σp, growth = g, investment = i)
-end</code></pre><p><code>p</code> enters as an algebraic (constraint) variable, and a small time step <code>Δ</code> is used:</p><pre><code class="language-julia hljs"># Δ is a hand-tuned, smaller initial pseudo-time step for this stiff 3-unknown system; shrink it further if the default diverges.
-result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true), Δ = 1e-2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EconPDEResult
+end</code></pre><p><code>p</code> enters as an algebraic (constraint) variable:</p><pre><code class="language-julia hljs">result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">EconPDEResult
   zero:          pA (33×33), pB (33×33), p (33×33)
   saved:         pA, pB, p, σx, Q, r, κ, σp, growth, investment
-  residual_norm: 1.82e-12
+  residual_norm: 1.53e-12
   converged:     true (tolerance 1.49e-08)</code></pre><h2 id="The-solution"><a class="docs-heading-anchor" href="#The-solution">The solution</a><a id="The-solution-1"></a><a class="docs-heading-anchor-permalink" href="#The-solution" title="Permalink"></a></h2><p>We reproduce the three panels in Di Tella&#39;s Figure 1: the capital price <span>$p$</span>, the volatility of experts&#39; wealth share <span>$\sigma_x$</span>, and relative investment opportunities <span>$Q$</span>. Each object is plotted both as a function of uncertainty <span>$\nu$</span> at fixed balance sheets and as a function of experts&#39; wealth share <span>$x$</span> at fixed uncertainty. The key Di Tella mechanism is that an uncertainty shock raises the idiosyncratic risk experts must retain. When experts&#39; balance sheets are weak (low <span>$x$</span>), their risk-bearing capacity is low, so the same increase in <span>$\nu$</span> produces a larger fall in the capital price and a larger balance-sheet response.</p><pre><code class="language-julia hljs">xs = stategrid[:x]
 νs = stategrid[:ν]
 p = result.zero[:p]
 σx = result.saved[:σx]
 Q = result.saved[:Q]
-growth = result.saved[:growth]
-investment = result.saved[:investment]
-mid_x = cld(length(xs), 2)
-low_x = 1
-high_x = length(xs)
-benchmark_x = findfirst(==(0.10), xs)
-benchmark_ν = findfirst(==(0.25), νs)
-@printf(&quot;Technology calibration: A = %.1f, B = %.4f, δ = %.2f\n&quot;, m.A, m.B, m.δ)
-@printf(&quot;At x = %.2f and ν = %.2f, g = %.3f and i = %.3f\n&quot;,
-        xs[benchmark_x], νs[benchmark_ν], growth[benchmark_x, benchmark_ν],
-        investment[benchmark_x, benchmark_ν])
-@printf(&quot;At median x = %.2f, capital price falls from %.2f at low ν to %.2f at high ν\n&quot;,
-        xs[mid_x], p[mid_x, 1], p[mid_x, end])
-@printf(&quot;The low-to-high ν price drop is %.1f%% at x = %.2f and %.1f%% at x = %.2f\n&quot;,
-        100 * (p[low_x, 1] - p[low_x, end]) / p[low_x, 1], xs[low_x],
-        100 * (p[high_x, 1] - p[high_x, end]) / p[high_x, 1], xs[high_x])
-
 line_styles = [:solid, :dot, :dash]
 x_slices = [0.05, 0.10, 0.20]
 ν_slices = [0.10, 0.25, 0.60]
@@ -149,4 +131,4 @@ for (ν_slice, line_style) in zip(ν_slices, line_styles)
   plot!(Qx, xs, Q[:, ν_index]; color = :black, linestyle = line_style)
 end
 plot(pν, σxν, Qν, px, σxx, Qx; layout = (2, 3), size = (940, 560),
-     left_margin = 8Plots.mm, bottom_margin = 8Plots.mm, right_margin = 4Plots.mm)</code></pre><img src="f2defb2a.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../brunnermeier_sannikov/">« Brunnermeier–Sannikov: macro-finance</a><a class="docs-footer-nextpage" href="../gomez/">Gomez: wealth inequality »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 4 July 2026 19:26">Saturday 4 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+     left_margin = 8Plots.mm, bottom_margin = 8Plots.mm, right_margin = 4Plots.mm)</code></pre><img src="0f0be273.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../brunnermeier_sannikov/">« Brunnermeier–Sannikov: macro-finance</a><a class="docs-footer-nextpage" href="../gomez/">Gomez: wealth inequality »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 6 July 2026 15:06">Monday 6 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

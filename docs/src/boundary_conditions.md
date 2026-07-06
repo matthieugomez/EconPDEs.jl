@@ -25,7 +25,7 @@ end of the grid — both entries use the same increasing-state orientation (the 
 *not* the derivative along the outward normal):
 
 ```julia
-pdesolve(f, grid, guess; bc = (; va = (0.0, 1.0)))
+pdesolve(pde, grid, guess; bc = (; va = (0.0, 1.0)))
 ```
 
 Scalars apply uniformly along the boundary; arrays matching the boundary slice are also
@@ -67,7 +67,7 @@ Pass the stopping payoff as a *lower bound* on the unknown with the `lower_bound
 (`upper_bound` for upper bounds in minimization problems):
 
 ```julia
-result = pdesolve(f, grid, guess; lower_bound = vec(payoff_on_grid))
+result = pdesolve(pde, grid, guess; lower_bound = vec(payoff_on_grid))
 ```
 
 (The Unicode keywords `y̲` and `ȳ` from older versions still work, but are deprecated.)

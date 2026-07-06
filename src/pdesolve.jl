@@ -99,7 +99,7 @@ function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), gues
     y = OrderedDict(first(p) => collect(last(p)) for p in pairs(guess))
     saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
     verbose && println("Solving for ", _problem_description(guess, size(stategrid)))
-    G! = _residual_barrier((ydot, yvec) -> hjb!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0)
+    G! = _residual_barrier((ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0)
     y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), J0 = J0, colorvec = colorvec, maxdist = maxdist, autodiff = autodiff, verbose = verbose, monotonicity_check = monotonicity_check, kwargs...)
     y_array = reshape(y_array, size(guess_array)...)
     _copy_solution!(y, y_array)
@@ -140,7 +140,7 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
             saveds[iτ] = merge(ys[iτ], saveds[iτ])
         end
         if iτ > 1
-            G! = _residual_barrier((ydot, yvec) -> hjb!(pde_onestep, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0c)
+            G! = _residual_barrier((ydot, yvec) -> pde!(pde_onestep, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0c)
             y_array, residual_norms[iτ] = implicit_timestep(G!, vec(y_array), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_array), verbose = false, J0 = J0c, fdcache = fdcache, maxdist = maxdist, autodiff = autodiff, monotonicity_check = monotonicity_check, kwargs...)
             if verbose
                 @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
@@ -260,7 +260,7 @@ end
 
 # Discriminate the two allowed return shapes by type: a single-return model gives a
 # NamedTuple of time derivatives, a two-return model gives (residual, optional).
-# (hjb! performs the same discrimination per grid point via `isa(outi[1], Number)`.)
+# (pde! performs the same discrimination per grid point via `isa(outi[1], Number)`.)
 _split_pde_output(result::NamedTuple) = (result, nothing)
 _split_pde_output(result::Tuple{NamedTuple, NamedTuple}) = result
 _split_pde_output(result) = throw(ArgumentError("the PDE function must return a NamedTuple of time derivatives, e.g. `(; vt)`, optionally followed by a second NamedTuple of objects to save on the grid — got a value of type $(typeof(result))"))
@@ -292,14 +292,14 @@ function _fill_saved!(@nospecialize(saved), pde, stategrid::StateGrid, solutionn
     end
 end
 
-# create hjb! that accepts and returns AbstractVector rather than AbstractArrays
-function hjb!(pde, stategrid::StateGrid, solutionnames, ydot::AbstractVector, y::AbstractVector, bc_array::AbstractArray, ysize::NTuple)
+# create pde! that accepts and returns AbstractVector rather than AbstractArrays
+function pde!(pde, stategrid::StateGrid, solutionnames, ydot::AbstractVector, y::AbstractVector, bc_array::AbstractArray, ysize::NTuple)
     y_array = reshape(y, ysize...)
     ydot_array = reshape(ydot, ysize...)
-    vec(hjb!(pde, stategrid, solutionnames, ydot_array, y_array, bc_array))
+    vec(pde!(pde, stategrid, solutionnames, ydot_array, y_array, bc_array))
 end
 
-function hjb!(pde, stategrid::StateGrid, solutionnames, ydot_array::AbstractArray, y_array::AbstractArray, bc_array::AbstractArray)
+function pde!(pde, stategrid::StateGrid, solutionnames, ydot_array::AbstractArray, y_array::AbstractArray, bc_array::AbstractArray)
     for i in eachindex(stategrid)
         solution = differentiate(solutionnames, stategrid, y_array, i, bc_array)
         outi = pde(stategrid[i], solution)

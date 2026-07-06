@@ -114,7 +114,7 @@ pdesolve
 # machinery: grid/guess normalization, the sparsity pattern and its coloring, the
 # FiniteDiff Jacobian cache, and the Newton solve internals. Only code specialized
 # on the user's model — the @generated `differentiate` for its state/unknown names,
-# `hjb!`, and the PDE function itself — still compiles per model, so a broader
+# `pde!`, and the PDE function itself — still compiles per model, so a broader
 # workload would only slow precompilation without helping users.
 @setup_workload begin
     @compile_workload begin

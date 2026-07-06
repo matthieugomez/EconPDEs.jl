@@ -299,7 +299,7 @@ As an opt-in diagnostic, `pdesolve` can check the assembled residual Jacobian fo
 monotonicity violations:
 
 ```julia
-pdesolve(f, grid, guess; check_monotonicity = true)
+pdesolve(pde, grid, guess; check_monotonicity = true)
 ```
 
 This checks the effective neighbor weights in the fully assembled equation, after

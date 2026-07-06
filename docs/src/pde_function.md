@@ -35,10 +35,10 @@ With one, two, or three state variables, the guess is a `Vector`, `Matrix`, or
 The PDE function must have the form
 
 ```julia
-f(state::NamedTuple, u::NamedTuple) -> NamedTuple
+pde(state::NamedTuple, u::NamedTuple) -> NamedTuple
 ```
 
-(or `f(state, u, t)` for a time-dependent equation, see
+(or `pde(state, u, t)` for a time-dependent equation, see
 [Time-dependent problems](time_dependent.md)). `state` gives the current
 grid point, one entry per state variable. `u` is the local finite-difference bundle: the
 value of each unknown and all the derivative stencils the equation may need at that point.

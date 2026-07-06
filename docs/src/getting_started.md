@@ -54,7 +54,7 @@ marginal value. [Upwinding](pde_function.md#Upwinding) explains why the directio
 and gives the patterns that cover most models.
 
 ```julia
-function hjb(state::NamedTuple, u::NamedTuple)
+function pde(state::NamedTuple, u::NamedTuple)
     k = state.k
     cmax = 10 * A * k^α
 
@@ -89,7 +89,7 @@ explains why.
 ### Solving
 
 ```julia
-result = pdesolve(hjb, stategrid, guess)
+result = pdesolve(pde, stategrid, guess)
 result.zero[:v]            # the solved value function, on the grid
 result.residual_norm       # should be ≈ 0
 ```
@@ -105,13 +105,13 @@ optimal policy, a drift, an interest rate — can also be stored on the grid by 
 *second* `NamedTuple`:
 
 ```julia
-function hjb(state::NamedTuple, u::NamedTuple)
+function pde(state::NamedTuple, u::NamedTuple)
     # ... as above ...
     vt = -(c^(1 - γ) / (1 - γ) + μk * vk - ρ * u.v)
     return (; vt), (; c, μk)
 end
 
-result = pdesolve(hjb, stategrid, guess)
+result = pdesolve(pde, stategrid, guess)
 consumption = result.saved[:c]     # same shape as the grid
 ```
 

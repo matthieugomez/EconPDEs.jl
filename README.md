@@ -41,7 +41,7 @@ problem, solved backward in time from an initial guess until the time derivative
 
 The main function `pdesolve` takes three objects:
 
-- a local equation `f(state, u)` encoding the PDE;
+- a function `pde(state, u)` encoding the PDE at a grid point;
 - a `NamedTuple` encoding the state grid, such as `(; k = range(...))`;
 - a `NamedTuple` encoding the initial guess, such as `(; v = [...])`.
 
@@ -55,16 +55,17 @@ const kappa = 0.2
 grid = (; x = range(0.0, 1.0, length = 50))
 guess = (; v = zeros(length(grid.x)))
 
-function equation(state, u)
+function pde(state, u)
+    # The grid names determine the fields of state: state.x.
     mu = -kappa * (state.x - 0.5)
-    # The grid and guess names determine the fields: state.x, u.v, u.vx_up, and u.vx_down.
+    # The guess names determine the fields of u: u.v, u.vx_up, and u.vx_down.
     vx = mu >= 0 ? u.vx_up : u.vx_down
     # Return the time derivative implied by rho*v = x + mu*v_x + v_t.
     vt = -(state.x + mu * vx - rho * u.v)
     return (; vt)
 end
 
-result = pdesolve(equation, grid, guess; verbose = false)
+result = pdesolve(pde, grid, guess; verbose = false)
 
 value = result.zero[:v]
 @assert result.residual_norm <= 1e-4
@@ -80,6 +81,13 @@ vectors, and different dimensions can use different vector containers:
 grid = (; a = range(0.0, 100.0, length = 500),
           y = collect(range(0.5, 1.5, length = 10)))
 guess = (; v = zeros(length(grid.a), length(grid.y)))
+
+function pde(state, u)
+    (; a, y) = state
+    (; v, va_up, va_down, vy_up, vy_down, vaa, vyy, vay_up, vay_down) = u
+    ...
+    return (; vt)
+end
 ```
 
 For two unknowns, return `(; vt, wt)`. Return a second `NamedTuple` to save policies,

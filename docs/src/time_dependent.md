@@ -5,7 +5,7 @@ in parameters — pass an increasing time grid as the fourth positional argument
 
 ```julia
 τs = range(0, 100, length = 50)
-result = pdesolve(f, stategrid, guess, τs)
+result = pdesolve(pde, stategrid, guess, τs)
 ```
 
 `pdesolve` solves *backward* over this grid: `guess` is the terminal value at `τs[end]`,
@@ -21,7 +21,7 @@ If the equation itself depends on time, define the PDE function with a third arg
 example, productivity following a deterministic path:
 
 ```julia
-function hjb(state::NamedTuple, u::NamedTuple, t)
+function pde(state::NamedTuple, u::NamedTuple, t)
     A_t = A * (1 + 0.1 * exp(-0.05 * t))
     # ... same as the stationary function, with A_t in place of A ...
     return (; vt)
@@ -30,7 +30,7 @@ end
 
 If the PDE function has only two arguments, the same equation is used at every time on the
 grid. The third argument must be left untyped or typed loosely (e.g. `t` or `t::Number`) —
-`pdesolve` detects it with `hasmethod(f, Tuple{NamedTuple, NamedTuple, Number})`.
+`pdesolve` detects it with `hasmethod(pde, Tuple{NamedTuple, NamedTuple, Number})`.
 
 ## Typical uses
 

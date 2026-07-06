@@ -6,17 +6,22 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 
 ## [Unreleased]
 
-- Better solver output: `pdesolve` prints a one-line problem summary (unknowns, grid size,
-  number of equations, tolerance) before solving and a convergence summary (iterations,
-  elapsed time, residual vs. tolerance) after. A rejected pseudo-transient step prints
-  `rejected (<reason>) → Δ/10` — distinguishing an unconverged inner solve, a model that
-  returned `NaN`, and a singular Jacobian — instead of a `NaN` residual line.
+- Better solver output: `pdesolve` prints a one-line problem summary (unknowns, grid size)
+  before solving and a convergence summary (time steps, elapsed time) after. A step whose
+  inner solve fails prints ✗ in the residual column (no step is taken; it is retried with
+  `Δ/10`) instead of a `NaN` residual, with unusual causes (a `NaN` from the model, a
+  singular Jacobian) flagged in parentheses.
 - Convergence failures are reported with `@warn` even when `verbose = false`, with
   actionable hints, so solves embedded in silent loops (e.g. estimation) stay quiet on
   success but surface failures. A solve that converges exactly at the iteration limit is
   no longer mislabeled as unconverged.
 - `EconPDEResult` records the solver tolerance and gains a computed `converged` property,
   also shown in its compact display.
+- After a rejected step, `Δ`'s regrowth is capped at half the failed value until the
+  residual falls to half its level at the failure, breaking the grow → reject → shrink
+  cycle on hard problems (each rejection wastes a full round of inner Newton iterations).
+- Simplify the Di Tella example: drop the hand-tuned initial `Δ` (the default now
+  converges) and the printed numeric callouts.
 
 ## [1.6.0] — 2026-07-03
 

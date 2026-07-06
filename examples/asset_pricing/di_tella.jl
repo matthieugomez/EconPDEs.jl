@@ -140,10 +140,9 @@ function (m::DiTellaModel)(state::NamedTuple, u::NamedTuple)
   return (; pAt, pBt, pt), (; σx = σX, Q, r, κ, σp, growth = g, investment = i)
 end
 
-# `p` enters as an algebraic (constraint) variable, and a small time step `Δ` is used:
+# `p` enters as an algebraic (constraint) variable:
 
-## Δ is a hand-tuned, smaller initial pseudo-time step for this stiff 3-unknown system; shrink it further if the default diverges.
-result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true), Δ = 1e-2)
+result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true))
 
 # ## The solution
 #
@@ -160,23 +159,6 @@ xs = stategrid[:x]
 p = result.zero[:p]
 σx = result.saved[:σx]
 Q = result.saved[:Q]
-growth = result.saved[:growth]
-investment = result.saved[:investment]
-mid_x = cld(length(xs), 2)
-low_x = 1
-high_x = length(xs)
-benchmark_x = findfirst(==(0.10), xs)
-benchmark_ν = findfirst(==(0.25), νs)
-@printf("Technology calibration: A = %.1f, B = %.4f, δ = %.2f\n", m.A, m.B, m.δ)
-@printf("At x = %.2f and ν = %.2f, g = %.3f and i = %.3f\n",
-        xs[benchmark_x], νs[benchmark_ν], growth[benchmark_x, benchmark_ν],
-        investment[benchmark_x, benchmark_ν])
-@printf("At median x = %.2f, capital price falls from %.2f at low ν to %.2f at high ν\n",
-        xs[mid_x], p[mid_x, 1], p[mid_x, end])
-@printf("The low-to-high ν price drop is %.1f%% at x = %.2f and %.1f%% at x = %.2f\n",
-        100 * (p[low_x, 1] - p[low_x, end]) / p[low_x, 1], xs[low_x],
-        100 * (p[high_x, 1] - p[high_x, end]) / p[high_x, 1], xs[high_x])
-
 line_styles = [:solid, :dot, :dash]
 x_slices = [0.05, 0.10, 0.20]
 ν_slices = [0.10, 0.25, 0.60]

@@ -133,7 +133,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         if verbose
             nfailed = count(iτ -> !(residual_norms[iτ] <= maxdist), 2:length(τs))
             if nfailed == 0
-                @printf "Completed %d time steps (%s): max residual %.2e ≤ tolerance %.2e\n" (length(τs) - 1) _elapsed(time() - tstart) maximum(residual_norms) maxdist
+                @printf "Completed %d time steps (%s)\n" (length(τs) - 1) _elapsed(time() - tstart)
             else
                 @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) _elapsed(time() - tstart) nfailed
             end

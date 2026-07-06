@@ -101,8 +101,10 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
 * `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves the stationary residual
   in one nonlinear solve, with no continuation.
 * `scale = 10.0`: growth factor for the time step. After a successful step that reduces the
-  residual, `Δ` is multiplied by `scale * (old residual / new residual)`; after a failed
-  inner solve, `Δ` is divided by 10.
+  residual, `Δ` is multiplied by `scale * (old residual / new residual)`, and `scale`
+  compounds across consecutive improving steps. After a failed inner solve, `Δ` is divided
+  by 10 and its regrowth is capped at half the failed `Δ` until the residual falls to half
+  its level at the failure, so a `Δ` that just failed is not immediately retried.
 * `minΔ = 1e-9`, `maxΔ = Inf`: bounds on the time step. The solve stops when `Δ < minΔ`
   (typically a sign that the scheme is non-monotone or the initial guess is poor).
 * `iterations = 100`: maximum number of pseudo-transient (outer) iterations.
@@ -120,11 +122,12 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   problem is solved as a mixed complementarity problem with `NLsolve.mcpsolve`, with
   `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
   through to it. The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
-* `verbose = true`: print one line per outer iteration (`Iter`, `TimeStep`, `Residual`) and
-  a final convergence summary. A `rejected` line means the inner nonlinear solve failed at
-  that `Δ` (the reason is printed) and the time step was divided by 10. With
-  `verbose = false` a successful solve prints nothing; convergence failures are always
-  reported with `@warn`.
+* `verbose = true`: print one line per pseudo-transient time step (`Iter`, `TimeStep`,
+  `Residual`) and a final convergence summary. A ✗ in place of the residual means the
+  inner nonlinear solve failed at that `Δ`: no step is taken (so there is no residual to
+  show) and it is retried with `Δ/10` — the unusual causes, a `NaN` from the model or a
+  singular Jacobian, are flagged in parentheses. With `verbose = false` a successful
+  solve prints nothing; convergence failures are always reported with `@warn`.
 """
 function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
@@ -148,7 +151,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         # infinite time step => solve in one step
         ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
         if residual_norm <= maxdist
-            verbose && @printf "Converged (%s): residual %.2e ≤ tolerance %.2e\n" _elapsed(time() - tstart) residual_norm maxdist
+            verbose && @printf "Converged (%s)\n" _elapsed(time() - tstart)
         else
             # warn even when verbose = false: solves embedded in silenced loops
             # (e.g. estimation) must still surface failures
@@ -159,6 +162,11 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         coef = 1.0
         oldresidual_norm = residual_norm
         iter = 0
+        # after a rejected step, Δ's regrowth is capped below the Δ that failed until the
+        # residual has clearly improved; otherwise Δ regrows straight back to the failed
+        # value and the solve cycles between growth and rejection
+        Δ_cap = maxΔ
+        residual_release = 0.0
         if verbose
             @printf "Iter TimeStep Residual\n"
             @printf "---- -------- --------\n"
@@ -180,31 +188,42 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                 if verbose
                     @printf "%4d %8.2e %8.2e\n" iter Δ residual_norm
                 end
+                if residual_norm <= residual_release
+                    Δ_cap = maxΔ
+                end
                 coef = (residual_norm <= oldresidual_norm) ? scale * coef : 1.0
-                Δ = min(Δ * coef * oldresidual_norm / residual_norm, maxΔ)
+                Δ = Δ * coef * oldresidual_norm / residual_norm
+                if Δ > Δ_cap
+                    # pinned at the cap: stop compounding the acceleration factor
+                    Δ = Δ_cap
+                    coef = 1.0
+                end
                 ypost, y = y, ypost
             else
                 if verbose
-                    reason = isnan(nlresidual_norm) ? "model returned NaN" :
-                             isinf(nlresidual_norm) ? "singular Jacobian" :
-                             "inner solve did not converge"
-                    @printf "%4d %8.2e rejected (%s) → Δ/10\n" iter Δ reason
+                    # ✗ sits in the residual column: the inner solve failed, so there is
+                    # no new point to evaluate; only the unusual causes get a parenthetical
+                    reason = isnan(nlresidual_norm) ? " (model returned NaN)" :
+                             isinf(nlresidual_norm) ? " (singular Jacobian)" : ""
+                    @printf "%4d %8.2e        ✗%s\n" iter Δ reason
                 end
                 # if the implict time step is not solved
                 # revert and diminish the time step
                 coef = 1.0
+                Δ_cap = Δ / 2
+                residual_release = oldresidual_norm / 2
                 Δ = Δ / 10
                 residual_norm = oldresidual_norm
             end
         end
         if residual_norm <= maxdist
-            verbose && @printf "Converged after %d iterations (%s): residual %.2e ≤ tolerance %.2e\n" iter _elapsed(time() - tstart) residual_norm maxdist
+            verbose && @printf "Converged after %d time steps (%s)\n" iter _elapsed(time() - tstart)
         elseif Δ < minΔ
             # warn even when verbose = false: solves embedded in silenced loops
             # (e.g. estimation) must still surface failures
-            @warn "did not converge after $iter iterations: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."
+            @warn "did not converge after $iter time steps: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."
         else
-            @warn "did not converge after $iter iterations: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist)). If the residual was still falling, increase `iterations`; otherwise try a better initial guess or `check_monotonicity = true`."
+            @warn "did not converge after $iter time steps: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist)). If the residual was still falling, increase `iterations`; otherwise try a better initial guess or `check_monotonicity = true`."
         end
         return ypost, residual_norm
     end

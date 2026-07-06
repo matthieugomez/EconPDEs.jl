@@ -49,7 +49,9 @@ of ``F(y) = 0``. The outer continuation loop in step 3 starts cautiously and ada
 
 1. Starting from the guess, solve one implicit step of size `Δ`.
 2. If the inner solve converges, accept the step; grow `Δ` when the residual falls, and shrink it when the residual rises.
-3. If the inner solve fails, reject the step, shrink `Δ` by 10, and retry.
+3. If the inner solve fails, reject the step, shrink `Δ` by 10, and retry. Regrowth is
+   then capped below the failed `Δ` until the residual has clearly improved, so a `Δ`
+   that just failed is not immediately retried.
 4. Stop when the residual norm falls below `maxdist`.
 
 This adaptive scheme is *pseudo-transient continuation*, imported from computational fluid
@@ -68,20 +70,22 @@ Iter TimeStep Residual
    2 1.12e+01 1.21e-02
    3 2.33e+03 8.01e-05
    4 3.50e+08 3.45e-12
-Converged after 4 iterations (4ms): residual 3.45e-12 ≤ tolerance 1.49e-08
+Converged after 4 time steps (4ms)
 ```
 
-`TimeStep` is the current `Δ` and `Residual` the norm of the stationary residual. A
-`rejected` line, e.g.
+`TimeStep` is the current `Δ` and `Residual` the norm of the stationary residual at the
+accepted step. A step is kept even when its residual rises; the next `Δ` then shrinks
+(it grows when the residual falls). A `✗` in place of the residual means the inner
+nonlinear solve **failed** at that `Δ`: no step is taken, so there is no residual to
+show, and the step is retried with `Δ/10` — the unusual causes, the model returned `NaN`
+or a singular Jacobian, are flagged in parentheses:
 
 ```
-   2 1.04e+01 rejected (inner solve did not converge) → Δ/10
+   2 1.04e+01        ✗
 ```
 
-means the inner solve failed at that `Δ` and the step is being retried with `Δ/10`; the
-reason distinguishes an inner solve that ran out of iterations, a model that returned
-`NaN`, and a singular Jacobian. Healthy solves show `Δ` growing geometrically and the
-residual collapsing in the last few iterations.
+Healthy solves show `Δ` growing geometrically and the residual collapsing in the last
+few time steps.
 
 With `verbose = false` a successful solve prints nothing, and convergence failures are
 still reported with `@warn` (with a hint at the likely cause) — so `pdesolve` can run

@@ -113,14 +113,54 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     end
 end
 
-"""
-    finiteschemesolve(F!, y0; kwargs...)
+# Adaptive pseudo-transient time step, as described in the `finiteschemesolve` docstring
+# under `scale`: an accepted step grows Δ by `scale * (old residual / new residual)`, with
+# `scale` compounding across consecutive improving steps (`coef`). A rejected step shrinks
+# Δ by 10 and caps its regrowth at half the failed value (`Δ_cap`) until the residual falls
+# to half its level at the failure (`residual_release`) — otherwise Δ would regrow straight
+# back to the value that just failed and the solve would cycle between growth and rejection.
+mutable struct TimeStepController
+    Δ::Float64
+    scale::Float64             # base growth factor for accepted steps
+    maxΔ::Float64
+    coef::Float64              # compounded growth factor across improving steps
+    Δ_cap::Float64             # temporary regrowth cap set by a rejected step
+    residual_release::Float64  # residual level below which the cap is lifted
+end
+TimeStepController(Δ, scale, maxΔ) = TimeStepController(Δ, scale, maxΔ, 1.0, maxΔ, 0.0)
 
-Lower-level nonlinear solver behind `pdesolve`. Finds `y` such that `F!(ydot, y)` writes the
+# the inner solve at Δ succeeded, moving the residual from `oldresidual_norm` to `residual_norm`
+function accept!(stepper::TimeStepController, oldresidual_norm, residual_norm)
+    if residual_norm <= stepper.residual_release
+        stepper.Δ_cap = stepper.maxΔ
+    end
+    stepper.coef = residual_norm <= oldresidual_norm ? stepper.scale * stepper.coef : 1.0
+    stepper.Δ *= stepper.coef * oldresidual_norm / residual_norm
+    if stepper.Δ > stepper.Δ_cap
+        # pinned at the cap: stop compounding the acceleration factor
+        stepper.Δ = stepper.Δ_cap
+        stepper.coef = 1.0
+    end
+    return stepper.Δ
+end
+
+# the inner solve at Δ failed (the residual stays at `oldresidual_norm`)
+function reject!(stepper::TimeStepController, oldresidual_norm)
+    stepper.coef = 1.0
+    stepper.Δ_cap = stepper.Δ / 2
+    stepper.residual_release = oldresidual_norm / 2
+    stepper.Δ /= 10
+    return stepper.Δ
+end
+
+"""
+    finiteschemesolve(G!, y0; kwargs...)
+
+Lower-level nonlinear solver behind `pdesolve`. Finds `y` such that `G!(ydot, y)` writes the
 residual into `ydot` and returns zero, using a nonlinear solver (Newton by default) with
 pseudo-transient continuation from the initial guess `y0`.
 
-`pdesolve` assembles `F!` (the finite-difference residual of the PDE) and calls this function,
+`pdesolve` assembles `G!` (the finite-difference residual of the PDE) and calls this function,
 so most users should call `pdesolve` instead. It returns the tuple `(y, residual_norm)`.
 
 ### Keyword arguments
@@ -189,45 +229,30 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         end
         return ypost, residual_norm
     else
-        coef = 1.0
-        oldresidual_norm = residual_norm
+        stepper = TimeStepController(Δ, scale, maxΔ)
         iter = 0
-        # after a rejected step, Δ's regrowth is capped below the Δ that failed until the
-        # residual has clearly improved; otherwise Δ regrows straight back to the failed
-        # value and the solve cycles between growth and rejection
-        Δ_cap = maxΔ
-        residual_release = 0.0
         if verbose
             @printf "Iter TimeStep Residual\n"
             @printf "---- -------- --------\n"
         end
-        while (iter < iterations) && (Δ >= minΔ) && (residual_norm > maxdist)
+        while (iter < iterations) && (stepper.Δ >= minΔ) && (residual_norm > maxdist)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(G!, ypost, Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, stepper.Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
             if _has_bounds(lower_bound, upper_bound)
                 # only unconstrained ydot is relevant for residual_norm calculation
-                mask = lower_bound .+ eps() .<= y .<= upper_bound .- eps() 
+                mask = lower_bound .+ eps() .<= y .<= upper_bound .- eps()
                 residual_norm, oldresidual_norm = norm(ydot .* mask) / sum(mask), residual_norm
             else
                 residual_norm, oldresidual_norm = norm(ydot) / length(ydot), residual_norm
             end
             residual_norm = isnan(residual_norm) ? Inf : residual_norm
             if nlresidual_norm <= innerdist
-                # if the implicit time step is correctly solved
+                # the implicit time step is correctly solved: accept the point and grow Δ
                 if verbose
-                    @printf "%4d %8.2e %8.2e\n" iter Δ residual_norm
+                    @printf "%4d %8.2e %8.2e\n" iter stepper.Δ residual_norm
                 end
-                if residual_norm <= residual_release
-                    Δ_cap = maxΔ
-                end
-                coef = (residual_norm <= oldresidual_norm) ? scale * coef : 1.0
-                Δ = Δ * coef * oldresidual_norm / residual_norm
-                if Δ > Δ_cap
-                    # pinned at the cap: stop compounding the acceleration factor
-                    Δ = Δ_cap
-                    coef = 1.0
-                end
+                accept!(stepper, oldresidual_norm, residual_norm)
                 ypost, y = y, ypost
             else
                 if verbose
@@ -235,20 +260,16 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                     # no new point to evaluate; only the unusual causes get a parenthetical
                     reason = isnan(nlresidual_norm) ? " (model returned NaN)" :
                              isinf(nlresidual_norm) ? " (singular Jacobian)" : ""
-                    @printf "%4d %8.2e        ✗%s\n" iter Δ reason
+                    @printf "%4d %8.2e        ✗%s\n" iter stepper.Δ reason
                 end
-                # if the implict time step is not solved
-                # revert and diminish the time step
-                coef = 1.0
-                Δ_cap = Δ / 2
-                residual_release = oldresidual_norm / 2
-                Δ = Δ / 10
+                # the implicit time step is not solved: revert and shrink Δ
+                reject!(stepper, oldresidual_norm)
                 residual_norm = oldresidual_norm
             end
         end
         if residual_norm <= maxdist
             verbose && @printf "Converged after %d time steps (%s)\n" iter _elapsed(time() - tstart)
-        elseif Δ < minΔ
+        elseif stepper.Δ < minΔ
             # warn even when verbose = false: solves embedded in silenced loops
             # (e.g. estimation) must still surface failures
             @warn "did not converge after $iter time steps: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", maxdist))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."

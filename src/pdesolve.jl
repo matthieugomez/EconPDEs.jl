@@ -1,18 +1,18 @@
 """
-    pdesolve(f, grid, guess [, τs]; kwargs...)
+    pdesolve(pde, grid, guess [, τs]; kwargs...)
 
 Solve a system of nonlinear ODEs/PDEs — typically Hamilton–Jacobi–Bellman equations —
 by finite differences. Handles an arbitrary number of coupled unknown functions on a
 state grid of one, two, or three state variables.
 
 ### Positional arguments
-* `f`: the local equation, a function `(state, u) -> out` (or `(state, u, t) -> out` for a
+* `pde`: the local equation, a function `(state, u) -> out` (or `(state, u, t) -> out` for a
   time-dependent equation), where
     - `state` is a `NamedTuple` with the current grid point (one entry per state variable),
     - `u` is a `NamedTuple` with each unknown function and its finite-difference derivatives
       at that point (e.g. `v`, `vk_up`, `vk_down`, `vkk`, …),
     - `out` is a `NamedTuple` with one time derivative per unknown (e.g. `(; vt)`).
-  `f` may also return a second `NamedTuple` of objects to save on the grid; these are
+  `pde` may also return a second `NamedTuple` of objects to save on the grid; these are
   returned in `result.saved`.
 * `grid`: a `NamedTuple` (or `OrderedDict`) mapping each state variable name to an
   `AbstractVector` (its grid), e.g. `(; k = range(...))`.
@@ -63,7 +63,7 @@ and `saved` (the saved objects, together with the solved unknowns). `result.conv
 reports whether the residual met the tolerance (across all times, for a time-dependent
 problem). `result.optional` is kept as a backward-compatible alias for `result.saved`.
 """
-function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
+function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, maxdist = sqrt(eps()), autodiff = :forward, verbose = true, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     # `grid`, `guess`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
     # NamedTuple. Normalize to a NamedTuple so everything below runs on one uniform representation.
     grid = _asnamedtuple(grid)
@@ -75,86 +75,93 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         size(v) == S || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` has size $(size(v)) but the state grid has size $S"))
     end
     is_algebraic = _fill_is_algebraic(is_algebraic, guess, S)
-    if τs isa AbstractVector
-        issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
-        ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(guess)) for t in τs]
-    else
-        y = OrderedDict(first(p) => collect(last(p)) for p in pairs(guess))
-    end
-    # convert to Matrix
-    guess_M = catlast(values(guess))
-    is_algebraic_M = catlast(values(is_algebraic))
-    bc_M = _Array_bc(bc, guess, grid)
-
+    # concatenate the per-unknown arrays into one array with a trailing unknown dimension
+    guess_array = catlast(values(guess))
+    is_algebraic_array = catlast(values(is_algebraic))
+    bc_array = _bc_array(bc, guess, grid)
     # create sparsity pattern and its coloring (closed-form, from the stencil structure)
     J0 = sparse_jacobian(stategrid, guess)
     colorvec = J0 === nothing ? nothing : stencil_colors(S, length(guess))
     # the sign-convention check runs by default; the stencil (monotonicity) warnings are opt-in
     monotonicity_check = MonotonicityChecker(stategrid, guess; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings, check_stencils = check_monotonicity)
+    if τs === nothing
+        return _solve_stationary(pde, stategrid, guess, guess_array, is_algebraic_array, bc_array, J0, colorvec, monotonicity_check; maxdist = maxdist, autodiff = autodiff, verbose = verbose, kwargs...)
+    else
+        issorted(τs) || throw(ArgumentError("The set of times must be increasing."))
+        return _solve_backward(pde, stategrid, guess, τs, guess_array, is_algebraic_array, bc_array, J0, colorvec, monotonicity_check; maxdist = maxdist, autodiff = autodiff, verbose = verbose, kwargs...)
+    end
+end
+
+# Stationary problem: one pseudo-transient continuation solve of the stationary residual.
+function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), guess_array, is_algebraic_array, bc_array, J0, colorvec, monotonicity_check; maxdist, autodiff, verbose, kwargs...)
     ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
-
-    # iterate on time
-    if τs isa AbstractVector
-        apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[end]) : apm
-        a = get_a(apm_onestep, stategrid, solutionnames, ynames, guess_M, bc_M)
-        as = (a === nothing) ? nothing : [deepcopy(a) for τ in τs]
-        y_M = guess_M
-        residual_norms = zeros(length(τs))
-        maxdist = get(kwargs, :maxdist, sqrt(eps()))
-        # the sparsity pattern is fixed, so build the coloring and Jacobian cache once
-        # rather than inside every backward time step
-        J0c, fdcache = _sparse_fd_setup(J0, vec(guess_M), get(kwargs, :autodiff, :forward), colorvec)
-        tstart = time()
-        if verbose
-            @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, S) τs[end] τs[1] (length(τs) - 1)
-            @printf "    Time Residual\n"
-            @printf "-------- --------\n"
-        end
-        for iτ in length(τs):(-1):1
-            _setindex!(ys[iτ], y_M)
-            apm_onestep = hasmethod(apm, Tuple{NamedTuple, NamedTuple, Number}) ? (state, grid) -> apm(state, grid, τs[iτ]) : apm
-            if a !== nothing
-                _setindex!(as[iτ], apm_onestep, stategrid, solutionnames, y_M, bc_M)
-                as[iτ] = merge(ys[iτ], as[iτ])
-            end
-            if iτ > 1
-                G! = _residual_barrier((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), J0c)
-                y_M, residual_norms[iτ] = implicit_timestep(G!, vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
-                if verbose
-                    @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
-                end
-                # an unconverged step would otherwise be silently accepted and propagated
-                # to all earlier times; `!(x <= tol)` also catches a NaN residual
-                if !(residual_norms[iτ] <= maxdist)
-                    @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `iterations`"
-                end
-                y_M = reshape(y_M, size(guess_M)...)
-            end
-        end
-        if verbose
-            nfailed = count(iτ -> !(residual_norms[iτ] <= maxdist), 2:length(τs))
-            if nfailed == 0
-                @printf "Completed %d time steps (%s)\n" (length(τs) - 1) _elapsed(time() - tstart)
-            else
-                @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) _elapsed(time() - tstart) nfailed
-            end
-        end
-        return EconPDEResult(ys, residual_norms, as, maxdist)
-    else
-        a = get_a(apm, stategrid, solutionnames, ynames, guess_M, bc_M)
-        maxdist = get(kwargs, :maxdist, sqrt(eps()))
-        verbose && println("Solving for ", _problem_description(guess, S))
-        G! = _residual_barrier((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), J0)
-        y_M, residual_norm = finiteschemesolve(G!, vec(guess_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, colorvec = colorvec, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
-        y_M = reshape(y_M, size(guess_M)...)
-        _setindex!(y, y_M)
-        if a !== nothing
-            _setindex!(a, apm, stategrid, solutionnames, y_M, bc_M)
-            a = merge(y, a)
-        end
-        return EconPDEResult(y, residual_norm, a, maxdist)
+    y = OrderedDict(first(p) => collect(last(p)) for p in pairs(guess))
+    saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
+    verbose && println("Solving for ", _problem_description(guess, size(stategrid)))
+    G! = _residual_barrier((ydot, yvec) -> hjb!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0)
+    y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), J0 = J0, colorvec = colorvec, maxdist = maxdist, autodiff = autodiff, verbose = verbose, monotonicity_check = monotonicity_check, kwargs...)
+    y_array = reshape(y_array, size(guess_array)...)
+    _copy_solution!(y, y_array)
+    if saved !== nothing
+        _fill_saved!(saved, pde, stategrid, solutionnames, y_array, bc_array)
+        saved = merge(y, saved)
     end
+    return EconPDEResult(y, residual_norm, saved, maxdist)
+end
+
+# Time-dependent problem: starting from the terminal condition at τs[end], take one
+# implicit time step per interval of the time grid, recording the solution at each time.
+function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, guess_array, is_algebraic_array, bc_array, J0, colorvec, monotonicity_check; maxdist, autodiff, verbose, kwargs...)
+    ynames = tuple(keys(guess)...)
+    solutionnames = Val(ynames)
+    ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(guess)) for τ in τs]
+    # the PDE function may or may not take a time argument; check once, not at every time step
+    has_time = hasmethod(pde, Tuple{NamedTuple, NamedTuple, Number})
+    pde_at = τ -> (has_time ? ((state, u) -> pde(state, u, τ)) : pde)
+    saved = _init_saved(pde_at(τs[end]), stategrid, solutionnames, ynames, guess_array, bc_array)
+    saveds = (saved === nothing) ? nothing : [deepcopy(saved) for τ in τs]
+    y_array = guess_array
+    residual_norms = zeros(length(τs))
+    # the sparsity pattern is fixed, so build the coloring and Jacobian cache once
+    # rather than inside every backward time step
+    J0c, fdcache = _sparse_fd_setup(J0, vec(guess_array), autodiff, colorvec)
+    tstart = time()
+    if verbose
+        @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, size(stategrid)) τs[end] τs[1] (length(τs) - 1)
+        @printf "    Time Residual\n"
+        @printf "-------- --------\n"
+    end
+    for iτ in length(τs):(-1):1
+        _copy_solution!(ys[iτ], y_array)
+        pde_onestep = pde_at(τs[iτ])
+        if saved !== nothing
+            _fill_saved!(saveds[iτ], pde_onestep, stategrid, solutionnames, y_array, bc_array)
+            saveds[iτ] = merge(ys[iτ], saveds[iτ])
+        end
+        if iτ > 1
+            G! = _residual_barrier((ydot, yvec) -> hjb!(pde_onestep, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0c)
+            y_array, residual_norms[iτ] = implicit_timestep(G!, vec(y_array), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_array), verbose = false, J0 = J0c, fdcache = fdcache, maxdist = maxdist, autodiff = autodiff, monotonicity_check = monotonicity_check, kwargs...)
+            if verbose
+                @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
+            end
+            # an unconverged step would otherwise be silently accepted and propagated
+            # to all earlier times; `!(x <= tol)` also catches a NaN residual
+            if !(residual_norms[iτ] <= maxdist)
+                @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `iterations`"
+            end
+            y_array = reshape(y_array, size(guess_array)...)
+        end
+    end
+    if verbose
+        nfailed = count(iτ -> !(residual_norms[iτ] <= maxdist), 2:length(τs))
+        if nfailed == 0
+            @printf "Completed %d time steps (%s)\n" (length(τs) - 1) _elapsed(time() - tstart)
+        else
+            @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) _elapsed(time() - tstart) nfailed
+        end
+    end
+    return EconPDEResult(ys, residual_norms, saveds, maxdist)
 end
 
 # e.g. "2 unknowns (pA, pB) on a 30×40 grid" — shared by the preambles of both solve paths
@@ -163,9 +170,6 @@ function _problem_description(@nospecialize(guess), S)
     string(n, n == 1 ? " unknown (" : " unknowns (", join(keys(guess), ", "), ") on a ",
            length(S) == 1 ? "$(S[1])-point" : join(S, "×"), " grid")
 end
-
-
-
 
 catlast(iter) = cat(iter...; dims = ndims(first(iter)) + 1)
 
@@ -218,17 +222,17 @@ function _fill_is_algebraic(is_algebraic, guess, S)
     NamedTuple{keys(guess)}(map(n -> fill(ia[n], S), keys(guess)))
 end
 
-_Array_bc(::Nothing, guess, grid) = zeros(size(first(values(guess)))..., length(guess))
-function _Array_bc(bc, guess, grid)
+_bc_array(::Nothing, guess, grid) = zeros(size(first(values(guess)))..., length(guess))
+function _bc_array(bc, guess, grid)
     bc = _asnamedtuple(bc)
     keys_grid = collect(keys(grid))
     valid = [Symbol(yname, s) for yname in keys(guess) for s in keys_grid]
     for key in keys(bc)
         key in valid || throw(ArgumentError("unknown `bc` entry `$key`: valid entries are $(valid), i.e. Symbol(unknown, state)"))
     end
-    bc_M = _Array_bc(nothing, guess, grid)
+    out = _bc_array(nothing, guess, grid)
     for (k, yname) in enumerate(keys(guess))
-        bck = selectdim(bc_M, ndims(bc_M), k)
+        bck = selectdim(out, ndims(out), k)
         for (d, s) in enumerate(keys_grid)
             key = Symbol(yname, s)
             # entries may be given for any subset of (unknown, state) pairs;
@@ -239,18 +243,19 @@ function _Array_bc(bc, guess, grid)
             selectdim(bck, d, size(bck, d)) .= hi
         end
     end
-    return bc_M
+    return out
 end
 
-
-function get_a(apm, stategrid::StateGrid, solutionnames, ynames, y_M::AbstractArray, bc_M::AbstractArray)
+# Call the PDE function once at the first grid point to learn whether it returns a second
+# NamedTuple of objects to save on the grid; if so, allocate one array per saved object.
+function _init_saved(pde, stategrid::StateGrid, solutionnames, ynames, y_array::AbstractArray, bc_array::AbstractArray)
     i0 = first(eachindex(stategrid))
-    derivatives = differentiate(solutionnames, stategrid, y_M, i0, bc_M)
-    result = apm(stategrid[i0], derivatives)
+    derivatives = differentiate(solutionnames, stategrid, y_array, i0, bc_array)
+    result = pde(stategrid[i0], derivatives)
     residual, optional = _split_pde_output(result)
     _check_residual_names(residual, ynames)
     optional === nothing && return nothing
-    return OrderedDict(a_key => Array{Float64}(undef, size(stategrid)) for a_key in keys(optional))
+    return OrderedDict(key => Array{Float64}(undef, size(stategrid)) for key in keys(optional))
 end
 
 # Discriminate the two allowed return shapes by type: a single-return model gives a
@@ -269,112 +274,49 @@ function _check_residual_names(residual::NamedTuple, ynames)
     return nothing
 end
 
-
-function sparse_jacobian(stategrid::StateGrid, @nospecialize(guess))
-    s = size(stategrid)
-    if 1 <= ndims(stategrid) <= 3
-        return local_stencil_jacobian(s, length(guess))
-    else
-        return nothing
-    end
-end
-
-function local_stencil_jacobian(s::NTuple{N, Int}, F::Int) where {N}
-    l = prod(s)
-    nnz_max = l * F^2 * 3^N
-    rows = Vector{Int}(undef, nnz_max)
-    cols = Vector{Int}(undef, nnz_max)
-    k = 0
-    state_indices = CartesianIndices(s)
-    for fout in 1:F, ci in state_indices
-        row = LinearIndices(s)[ci] + (fout - 1) * l
-        stencil_ranges = ntuple(d -> max(ci[d] - 1, 1):min(ci[d] + 1, s[d]), N)
-        for fin in 1:F, neighbor in CartesianIndices(stencil_ranges)
-            k += 1
-            rows[k] = row
-            cols[k] = LinearIndices(s)[neighbor] + (fin - 1) * l
-        end
-    end
-    return sparse(rows[1:k], cols[1:k], ones(k), l * F, l * F)
-end
-
-# Closed-form distance-2 coloring of the pattern built by `local_stencil_jacobian` —
-# orders of magnitude faster than greedy coloring of the assembled matrix, with the
-# same (provably optimal) number of colors. Keep the two functions in sync: the
-# argument below relies on the stencil being the full ±1 box coupling all unknowns.
-#
-# Two columns (grid point c, unknown f) and (c′, f′) share a nonzero row iff c and c′
-# are within Chebyshev distance 2: every row couples all unknowns on the ±1 box around
-# its grid point, so f plays no role, and a witness point within distance 1 of both c
-# and c′ always exists on the grid (boundary clipping never removes it). Coloring by
-# coordinate mod 3 in each dimension, crossed with the unknown index, is therefore
-# valid: two same-colored columns differ by a nonzero multiple of 3 in some dimension.
-# It is also optimal: any 3×…×3 sub-box crossed with the F unknowns is a clique of
-# exactly F·∏ min(3, s_d) columns. Mixed-radix encoding with radix min(3, s_d) keeps
-# the colors contiguous 1:ncolors, so FiniteDiff wastes no function evaluation on an
-# empty color class when some dimension has fewer than 3 points.
-function stencil_colors(s::NTuple{N, Int}, F::Int) where {N}
-    l = prod(s)
-    radices = map(sd -> min(3, sd), s)
-    colors = Vector{Int}(undef, l * F)
-    for (i, ci) in enumerate(CartesianIndices(s))
-        base = 0
-        stride = 1
-        for d in 1:N
-            base += ((ci[d] - 1) % 3) * stride
-            stride *= radices[d]
-        end
-        colors[i] = base + 1
-    end
-    ncolors_grid = prod(radices)
-    for f in 2:F, j in 1:l
-        colors[(f - 1) * l + j] = colors[j] + (f - 1) * ncolors_grid
-    end
-    return colors
-end
-
-
-function _setindex!(@nospecialize(y), y_M::AbstractArray)
+# copy the concatenated solution array back into the per-unknown arrays of the OrderedDict
+function _copy_solution!(@nospecialize(y), y_array::AbstractArray)
     for (i, v) in enumerate(values(y))
-        v[:] = selectdim(y_M, ndims(y_M), i)
+        v[:] = selectdim(y_array, ndims(y_array), i)
     end
 end
 
-function _setindex!(@nospecialize(a), apm, stategrid::StateGrid, solutionnames, y_M::AbstractArray, bc_M::AbstractArray)
+# evaluate the PDE function on the whole grid and record its saved objects
+function _fill_saved!(@nospecialize(saved), pde, stategrid::StateGrid, solutionnames, y_array::AbstractArray, bc_array::AbstractArray)
     for i in eachindex(stategrid)
-         solution = differentiate(solutionnames, stategrid, y_M, i, bc_M)
-         outi = apm(stategrid[i], solution)[2]
-         for (k, v) in zip(values(a), values(outi))
+        solution = differentiate(solutionnames, stategrid, y_array, i, bc_array)
+        outi = pde(stategrid[i], solution)[2]
+        for (k, v) in zip(values(saved), values(outi))
             k[i] = v
-         end
-     end
- end
-
-
- # create hjb! that accepts and returns AbstractVector rather than AbstractArrays
- function hjb!(apm, stategrid::StateGrid, solutionnames, ydot::AbstractVector, y::AbstractVector, bc_M::AbstractArray, ysize::NTuple)
-     y_M = reshape(y, ysize...)
-     ydot_M = reshape(ydot, ysize...)
-     vec(hjb!(apm, stategrid, solutionnames, ydot_M, y_M, bc_M))
- end
-
- function hjb!(apm, stategrid::StateGrid, solutionnames, ydot_M::AbstractArray, y_M::AbstractArray, bc_M::AbstractArray)
-     for i in eachindex(stategrid)
-         solution = differentiate(solutionnames, stategrid, y_M, i, bc_M)
-         outi = apm(stategrid[i], solution)
-         if isa(outi[1], Number)
-            _setindex!(ydot_M, solutionnames, outi, i)
-        else
-            _setindex!(ydot_M, solutionnames, outi[1], i)
         end
-     end
-     return ydot_M
- end
+    end
+end
 
- @generated function _setindex!(ydot_M::AbstractArray, ::Val{solnames}, outi::NamedTuple, i::CartesianIndex) where {solnames}
-     N = length(solnames)
-     quote
-          $(Expr(:meta, :inline))
-          $(Expr(:block, [Expr(:call, :setindex!, :ydot_M, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(solnames[k], :t))), :i, k) for k in 1:N]...))
-     end
- end
+# create hjb! that accepts and returns AbstractVector rather than AbstractArrays
+function hjb!(pde, stategrid::StateGrid, solutionnames, ydot::AbstractVector, y::AbstractVector, bc_array::AbstractArray, ysize::NTuple)
+    y_array = reshape(y, ysize...)
+    ydot_array = reshape(ydot, ysize...)
+    vec(hjb!(pde, stategrid, solutionnames, ydot_array, y_array, bc_array))
+end
+
+function hjb!(pde, stategrid::StateGrid, solutionnames, ydot_array::AbstractArray, y_array::AbstractArray, bc_array::AbstractArray)
+    for i in eachindex(stategrid)
+        solution = differentiate(solutionnames, stategrid, y_array, i, bc_array)
+        outi = pde(stategrid[i], solution)
+        if isa(outi[1], Number)
+            _write_residual!(ydot_array, solutionnames, outi, i)
+        else
+            _write_residual!(ydot_array, solutionnames, outi[1], i)
+        end
+    end
+    return ydot_array
+end
+
+# write the returned time derivatives (`vt`, …) into slot i of each unknown's slice of ydot
+@generated function _write_residual!(ydot_array::AbstractArray, ::Val{solnames}, outi::NamedTuple, i::CartesianIndex) where {solnames}
+    N = length(solnames)
+    quote
+         $(Expr(:meta, :inline))
+         $(Expr(:block, [Expr(:call, :setindex!, :ydot_array, Expr(:call, :getproperty, :outi, Meta.quot(Symbol(solnames[k], :t))), :i, k) for k in 1:N]...))
+    end
+end

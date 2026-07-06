@@ -14,8 +14,10 @@ using PrecompileTools: @setup_workload, @compile_workload
 ##
 ##############################################################################
 
+include("utils/stategrid.jl")
+include("utils/derivatives.jl")
+include("utils/coloring.jl")
 include("finiteschemesolve.jl")
-include("utils.jl")
 include("monotonicity.jl")
 
 """

@@ -1,36 +1,12 @@
-"""
-StateGrid(x::NamedTuple)
-
-Let x = (k1 = v1, k2 = v2, ...., kN = vN) be a NamedTuple of AbstractVectors for state space, 
-StateGrid(x) returns an AbstractArray M such that 
-M[i1, i2..., iN] = (k1 = v1[i1], k2 = v2[i2], ...., kN = vN[iN]
-"""
-struct StateGrid{T, N, C <: NamedTuple} <: AbstractArray{T, N}
-    x::C
-end
-
-function StateGrid(x::NamedTuple{Names, V}) where {Names, V <: Tuple}
-    N = length(Names)
-    N > 0 || throw(ArgumentError("state grid must contain at least one state variable"))
-    all(v -> v isa AbstractVector, values(x)) || throw(ArgumentError("state grid entries must be vectors"))
-    all(v -> length(v) >= 2, values(x)) || throw(ArgumentError("state grid entries must have at least 2 points"))
-    T = promote_type(map(eltype, values(x))...)
-    StateGrid{T, N, typeof(x)}(x)
-end
-function Base.eltype(stategrid::StateGrid{T, N, <: NamedTuple{Names, V}}) where {T, N, Names, V}
-    NamedTuple{Names, NTuple{N, T}}
-end
-Base.ndims(stategrid::StateGrid{T, N}) where {T, N} = N
-Base.size(stategrid::StateGrid{T, N}) where {T, N} = ntuple(i -> length(stategrid.x[i]), N)
-Base.eachindex(stategrid::StateGrid) = CartesianIndices(size(stategrid))
-function Base.getindex(stategrid::StateGrid, args::CartesianIndex)
-    eltype(stategrid)(ntuple(i -> stategrid.x[i][args[i]], ndims(stategrid)))
-end
-Base.getindex(stategrid::StateGrid, x::Symbol) = stategrid.x[x]
-
 #========================================================================================
 
-Derive
+Finite-difference derivatives of the unknowns at one grid point.
+
+`differentiate` returns a NamedTuple with, for each unknown, its value and all its
+finite-difference derivatives (`v`, `vk_up`, `vk_down`, `vkk`, cross derivatives, …)
+at grid point `icar`. It is @generated so the field names — which depend on the
+unknown and state names — are computed at compile time and the NamedTuple is built
+without any allocation.
 
 ========================================================================================#
 
@@ -188,43 +164,4 @@ end
         $(preamble...)
         @inbounds $(Expr(:tuple, expr...))
     end
-end
-
-#========================================================================================
-
-matrix_colors
-
-========================================================================================#
-
-# Local replacement for the old SparseDiffTools/ArrayInterface `matrix_colors`
-# helper: a greedy column coloring of the sparse Jacobian pattern.
-function matrix_colors(A::SparseMatrixCSC)
-    rows = rowvals(A)
-    row_columns = [Int[] for _ in 1:size(A, 1)]
-    for j in 1:size(A, 2)
-        for ptr in nzrange(A, j)
-            push!(row_columns[rows[ptr]], j)
-        end
-    end
-
-    colors = zeros(Int, size(A, 2))
-    forbidden = zeros(Int, size(A, 2))
-    maxcolor = 0
-    for j in 1:size(A, 2)
-        for ptr in nzrange(A, j)
-            for k in row_columns[rows[ptr]]
-                color = colors[k]
-                if color > 0
-                    forbidden[color] = j
-                end
-            end
-        end
-        color = 1
-        while color <= maxcolor && forbidden[color] == j
-            color += 1
-        end
-        colors[j] = color
-        maxcolor = max(maxcolor, color)
-    end
-    return colors
 end

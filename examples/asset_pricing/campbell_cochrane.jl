@@ -85,8 +85,7 @@ result = pdesolve(m, stategrid, guess)
 #
 # Plotted against the surplus consumption ratio ``S = e^s``, the price–consumption ratio rises
 # steeply in good times: as consumption pulls away from the habit, effective risk aversion
-# falls, discount rates drop, and valuations climb. This state-dependent risk aversion is what
-# lets the model generate a large, countercyclical equity premium.
+# falls, discount rates drop, and valuations climb.
 
 Sbar = m.σ * sqrt(m.γ / (m.κs - m.b / m.γ))
 sbar = log(Sbar)

@@ -6,6 +6,24 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 
 ## [Unreleased]
 
+- The Jacobian coloring used by the sparse finite differences is now computed in closed
+  form from the stencil structure (coordinate mod 3 in each state dimension, crossed with
+  the unknown index) instead of by greedy graph coloring of the assembled pattern. Same
+  provably optimal number of colors, but orders of magnitude faster to build (×300 on a
+  200×200 grid, ×3,000 on a 50×50×50 grid) — noticeable when `pdesolve` is called
+  repeatedly, e.g. in an estimation loop. `finiteschemesolve` gains a `colorvec` keyword
+  for callers who supply their own `J0` and know its coloring; by default a user-supplied
+  `J0` is still greedily colored.
+- Pass the residual to the solver behind a compile-once barrier (`ResidualWrapper`) when a
+  sparsity pattern is available (1–3 states), so the solver stack (`finiteschemesolve`,
+  `implicit_timestep`, FiniteDiff, NLsolve/NonlinearSolve internals) no longer recompiles
+  for every new model function. First solve of a new model in a warm session drops from
+  ~0.7s to ~0.3s; the remainder is the model's own PDE function and derivative accessors.
+- Add a `PrecompileTools` workload that solves a tiny model once at package precompilation,
+  caching the model-independent machinery (sparsity pattern and coloring, Jacobian cache,
+  Newton solve internals). First `pdesolve` call drops from ~5s to ~0.6s; the remainder is
+  code specialized on the user's model (the generated derivative accessors and the PDE
+  function itself), which must compile per model.
 - Better solver output: `pdesolve` prints a one-line problem summary (unknowns, grid size)
   before solving and a convergence summary (time steps, elapsed time) after. A step whose
   inner solve fails prints ✗ in the residual column (no step is taken; it is retried with

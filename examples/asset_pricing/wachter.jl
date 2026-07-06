@@ -102,9 +102,7 @@ result = pdesolve(m, stategrid, guess)
 #
 # The wealth–consumption ratio falls steeply as the disaster intensity ``\lambda`` rises: when a
 # disaster is more likely, the representative agent discounts the consumption claim more heavily
-# and valuations drop. Because ``\lambda`` is persistent and itself volatile, this single channel
-# generates large, time-varying risk premia and stock-market volatility out of an otherwise smooth
-# consumption process — Wachter's central result.
+# and valuations drop.
 
 λs = stategrid[:λ]
 plot(λs, result.zero[:p]; xlabel = "disaster intensity λ", ylabel = "wealth–consumption ratio p", legend = false)

@@ -10,19 +10,45 @@ _has_bounds(lower_bound, upper_bound) = any(x -> x != -Inf, lower_bound) || any(
 # so fast solves don't display as "0.00s"
 _elapsed(s) = s < 1 ? @sprintf("%.0fms", 1000 * s) : @sprintf("%.1fs", s)
 
+# Compile-once barrier between the model-specific residual closure and the solver stack.
+# `finiteschemesolve`, `implicit_timestep`, FiniteDiff, and NLsolve/NonlinearSolve all
+# specialize on the residual's type, so without the barrier that whole chain recompiles
+# for every new model function (several hundred ms per model). Hiding the closure behind
+# an untyped field gives the chain a single fixed type, compiled once and cached in the
+# package image by the precompile workload. The price is one dynamic dispatch per
+# residual sweep over the grid, which is negligible next to the sweep itself.
+struct ResidualWrapper
+    f::Any
+end
+(r::ResidualWrapper)(ydot, y) = (r.f(ydot, y); nothing)
+
+# The barrier applies only when a sparsity pattern is available (1–3 states): the
+# Jacobian is then colored finite differences, so the solver only ever calls the
+# residual on Float64 vectors. Without a pattern (4+ states) NonlinearSolve
+# differentiates through the residual with ForwardDiff, and the closure stays unwrapped
+# so that path specializes on it as before.
+_residual_barrier(G!, J0) = J0 === nothing ? G! : ResidualWrapper(G!)
+
 # Build everything the colored sparse finite-difference Jacobian needs: the normalized
 # sparse pattern (also used as the Jacobian prototype) and the FiniteDiff cache holding the
 # coloring. The pattern is fixed across pseudo-transient iterations and implicit time steps,
 # so callers compute this once and pass it to every `implicit_timestep` call.
-function _sparse_fd_setup(J0, y, autodiff)
+# `pdesolve` passes the closed-form coloring of its stencil pattern (`stencil_colors`);
+# without one, the coloring falls back to a greedy coloring of the pattern.
+function _sparse_fd_setup(J0, y, autodiff, colorvec = nothing)
     J0 === nothing && return nothing, nothing
     J0c = sparse(J0)
+    if colorvec === nothing
+        colorvec = matrix_colors(J0c)
+    else
+        length(colorvec) == size(J0c, 2) || throw(ArgumentError("`colorvec` must assign a color to each column of `J0`: got $(length(colorvec)) colors for $(size(J0c, 2)) columns"))
+    end
     fdtype = autodiff == :central ? Val(:central) : Val(:forward)
-    fdcache = JacobianCache(y, fdtype, eltype(y); colorvec = matrix_colors(J0c), sparsity = J0c)
+    fdcache = JacobianCache(y, fdtype, eltype(y); colorvec = colorvec, sparsity = J0c)
     return J0c, fdcache
 end
 
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, fdcache = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, colorvec = nothing, fdcache = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :implicit_timestep); lower_bound = y̲)
@@ -31,7 +57,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
 
     jac = nothing
     if fdcache === nothing
-        J0c, fdcache = _sparse_fd_setup(J0, ypost, autodiff)
+        J0c, fdcache = _sparse_fd_setup(J0, ypost, autodiff, colorvec)
     else
         J0c = fdcache.sparsity
     end
@@ -118,6 +144,10 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   AD is used only without a sparsity pattern.
 * `is_algebraic`: `Bool` per entry of `y0`, marking algebraic (no time-derivative) equations.
 * `J0 = nothing`: sparsity pattern of the Jacobian.
+* `colorvec = nothing`: column coloring of `J0` for the colored finite differences
+  (no two columns of the same color may share a nonzero row). Defaults to a greedy
+  coloring of `J0`; pass one when it is known in closed form, as `pdesolve` does for
+  its stencil pattern.
 * `lower_bound`, `upper_bound`: lower/upper bounds on `y`. When any bound is finite, the
   problem is solved as a mixed complementarity problem with `NLsolve.mcpsolve`, with
   `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
@@ -129,7 +159,7 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   singular Jacobian, are flagged in parentheses. With `verbose = false` a successful
   solve prints nothing; convergence failures are always reported with `@warn`.
 """
-function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, colorvec = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :finiteschemesolve); lower_bound = y̲)
@@ -139,7 +169,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
     ydot = zero(y0)
     # the sparsity pattern is fixed, so build the coloring and Jacobian cache once here
     # rather than inside every implicit time step
-    J0c, fdcache = _sparse_fd_setup(J0, y0, autodiff)
+    J0c, fdcache = _sparse_fd_setup(J0, y0, autodiff, colorvec)
     # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)

@@ -287,6 +287,27 @@ end
     end
 end
 
+@testset "stencil_colors" begin
+    # dimensions below 3 points exercise the reduced mixed-radix encoding
+    for (s, F) in [((5,), 1), ((2,), 2), ((4, 5), 2), ((2, 5), 1), ((3, 4, 5), 2)]
+        J = EconPDEs.local_stencil_jacobian(s, F)
+        colors = EconPDEs.stencil_colors(s, F)
+        rows, cols, _ = EconPDEs.findnz(J)
+        # valid distance-2 coloring: within any row, nonzero columns have distinct colors
+        for row in unique(rows)
+            rowcols = cols[rows .== row]
+            @test length(unique(colors[rowcols])) == length(rowcols)
+        end
+        # optimal: exactly the size of the largest clique of the column conflict graph
+        @test maximum(colors) == F * prod(min.(3, s))
+        # contiguous: no color class is empty, so no wasted function evaluation
+        @test sort(unique(colors)) == 1:maximum(colors)
+    end
+
+    # a wrong-length colorvec is rejected before it reaches FiniteDiff
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y .- 2.0), [0.5, 0.5]; Δ = Inf, verbose = false, J0 = EconPDEs.sparse([1.0 0.0; 0.0 1.0]), colorvec = [1])
+end
+
 # The worked examples live under examples/ as Literate scripts. They import Plots and are
 # executed (and thus verified) by the documentation build (see docs/make.jl), so they are
 # not run here.

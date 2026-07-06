@@ -1,7 +1,7 @@
 # # Achdou–Han–Lasry–Lions–Moll: consumption–saving with diffusion income
 #
 # This is the diffusive-income version of the Achdou–Han–Lasry–Lions–Moll (2022) consumption–
-# saving problem, the workhorse building block of continuous-time heterogeneous-agent (HACT)
+# saving problem, the standard building block of continuous-time heterogeneous-agent (HACT)
 # models. A household earns stochastic labor income ``y``, saves in a single riskless asset
 # ``a`` at rate ``r``, and cannot borrow past a limit ``a \ge a_{\min}``. Income mean-reverts as
 # a diffusion, and the value function ``v(y, a)`` solves the Hamilton–Jacobi–Bellman equation

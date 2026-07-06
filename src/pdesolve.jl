@@ -86,8 +86,9 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
     is_algebraic_M = catlast(values(is_algebraic))
     bc_M = _Array_bc(bc, guess, grid)
 
-    # create sparsity
+    # create sparsity pattern and its coloring (closed-form, from the stencil structure)
     J0 = sparse_jacobian(stategrid, guess)
+    colorvec = J0 === nothing ? nothing : stencil_colors(S, length(guess))
     # the sign-convention check runs by default; the stencil (monotonicity) warnings are opt-in
     monotonicity_check = MonotonicityChecker(stategrid, guess; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings, check_stencils = check_monotonicity)
     ynames = tuple(keys(guess)...)
@@ -103,7 +104,7 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         maxdist = get(kwargs, :maxdist, sqrt(eps()))
         # the sparsity pattern is fixed, so build the coloring and Jacobian cache once
         # rather than inside every backward time step
-        J0c, fdcache = _sparse_fd_setup(J0, vec(guess_M), get(kwargs, :autodiff, :forward))
+        J0c, fdcache = _sparse_fd_setup(J0, vec(guess_M), get(kwargs, :autodiff, :forward), colorvec)
         tstart = time()
         if verbose
             @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, S) τs[end] τs[1] (length(τs) - 1)
@@ -118,7 +119,8 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
                 as[iτ] = merge(ys[iτ], as[iτ])
             end
             if iτ > 1
-                y_M, residual_norms[iτ] = implicit_timestep((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
+                G! = _residual_barrier((ydot, y) -> hjb!(apm_onestep, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), J0c)
+                y_M, residual_norms[iτ] = implicit_timestep(G!, vec(y_M), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_M), verbose = false, J0 = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
                 if verbose
                     @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
                 end
@@ -143,7 +145,8 @@ function pdesolve(apm, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         a = get_a(apm, stategrid, solutionnames, ynames, guess_M, bc_M)
         maxdist = get(kwargs, :maxdist, sqrt(eps()))
         verbose && println("Solving for ", _problem_description(guess, S))
-        y_M, residual_norm = finiteschemesolve((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), vec(guess_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
+        G! = _residual_barrier((ydot, y) -> hjb!(apm, stategrid, solutionnames, ydot, y, bc_M, size(guess_M)), J0)
+        y_M, residual_norm = finiteschemesolve(G!, vec(guess_M); is_algebraic = vec(is_algebraic_M),  J0 = J0, colorvec = colorvec, verbose = verbose, monotonicity_check = monotonicity_check, kwargs... )
         y_M = reshape(y_M, size(guess_M)...)
         _setindex!(y, y_M)
         if a !== nothing
@@ -293,6 +296,41 @@ function local_stencil_jacobian(s::NTuple{N, Int}, F::Int) where {N}
         end
     end
     return sparse(rows[1:k], cols[1:k], ones(k), l * F, l * F)
+end
+
+# Closed-form distance-2 coloring of the pattern built by `local_stencil_jacobian` —
+# orders of magnitude faster than greedy coloring of the assembled matrix, with the
+# same (provably optimal) number of colors. Keep the two functions in sync: the
+# argument below relies on the stencil being the full ±1 box coupling all unknowns.
+#
+# Two columns (grid point c, unknown f) and (c′, f′) share a nonzero row iff c and c′
+# are within Chebyshev distance 2: every row couples all unknowns on the ±1 box around
+# its grid point, so f plays no role, and a witness point within distance 1 of both c
+# and c′ always exists on the grid (boundary clipping never removes it). Coloring by
+# coordinate mod 3 in each dimension, crossed with the unknown index, is therefore
+# valid: two same-colored columns differ by a nonzero multiple of 3 in some dimension.
+# It is also optimal: any 3×…×3 sub-box crossed with the F unknowns is a clique of
+# exactly F·∏ min(3, s_d) columns. Mixed-radix encoding with radix min(3, s_d) keeps
+# the colors contiguous 1:ncolors, so FiniteDiff wastes no function evaluation on an
+# empty color class when some dimension has fewer than 3 points.
+function stencil_colors(s::NTuple{N, Int}, F::Int) where {N}
+    l = prod(s)
+    radices = map(sd -> min(3, sd), s)
+    colors = Vector{Int}(undef, l * F)
+    for (i, ci) in enumerate(CartesianIndices(s))
+        base = 0
+        stride = 1
+        for d in 1:N
+            base += ((ci[d] - 1) % 3) * stride
+            stride *= radices[d]
+        end
+        colors[i] = base + 1
+    end
+    ncolors_grid = prod(radices)
+    for f in 2:F, j in 1:l
+        colors[(f - 1) * l + j] = colors[j] + (f - 1) * ncolors_grid
+    end
+    return colors
 end
 
 

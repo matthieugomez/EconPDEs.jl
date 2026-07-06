@@ -7,6 +7,7 @@ using NonlinearSolve: AutoFiniteDiff, AutoForwardDiff, NewtonRaphson,
 using OrderedCollections: OrderedDict 
 using FiniteDiff: finite_difference_jacobian!, JacobianCache
 using Printf: @printf, @sprintf
+using PrecompileTools: @setup_workload, @compile_workload
 ##############################################################################
 ##
 ## Load files
@@ -100,4 +101,24 @@ export OrderedDict,
 EconPDEResult,
 finiteschemesolve,
 pdesolve
+
+##############################################################################
+##
+## Precompilation
+##
+##############################################################################
+# Solve one tiny model end-to-end. The residual reaches the solver behind the
+# `ResidualWrapper` barrier, so this one pass caches the entire model-independent
+# machinery: grid/guess normalization, the sparsity pattern and its coloring, the
+# FiniteDiff Jacobian cache, and the Newton solve internals. Only code specialized
+# on the user's model — the @generated `differentiate` for its state/unknown names,
+# `hjb!`, and the PDE function itself — still compiles per model, so a broader
+# workload would only slow precompilation without helping users.
+@setup_workload begin
+    @compile_workload begin
+        f = (state, u) -> (; vt = -(state.x + 0.1 * u.vx_up + 0.01 * u.vxx - u.v))
+        result = pdesolve(f, (; x = range(0.0, 1.0, length = 5)), (; v = zeros(5)); verbose = false)
+        sprint(show, result)
+    end
+end
 end

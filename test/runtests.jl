@@ -61,8 +61,8 @@ end
     @test result.saved.v == v
     @test :saved in propertynames(result)
     @test :tolerance in propertynames(result, true)
-    zero_alias = @test_deprecated result.zero
-    optional_alias = @test_deprecated result.optional
+    zero_alias = @test_deprecated r"result\.zero" getproperty(result, :zero)
+    optional_alias = @test_deprecated r"result\.optional" getproperty(result, :optional)
     @test zero_alias === result.solution
     @test optional_alias === result.saved
 

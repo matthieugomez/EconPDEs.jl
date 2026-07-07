@@ -63,7 +63,7 @@ outer iteration, and a convergence summary (this is the habit-formation model of
 example gallery):
 
 ```
-Solving for 1 unknown (p) on a 998-point grid
+Solving for 1 unknown (p) on grid s = 998
 Iter TimeStep Residual
 ---- -------- --------
    1 1.00e+00 2.51e-02
@@ -215,6 +215,25 @@ envelope theorem does not remove their derivatives from the Jacobian. Freezing t
 semi-implicit fixed-point iteration, not Newton's method. `pdesolve` instead treats the
 whole discretized equilibrium as a sparse nonlinear system and solves that system with
 Newton by default, with a trust-region variant available for harder cases.
+
+For equilibrium asset-pricing models, this gives a useful modeling choice. If the
+equilibrium interest rate, prices of risk, or other aggregate prices have simple closed
+forms, it is often best to substitute those formulas into the HJB and solve the smaller
+reduced system. But when those prices feed back into drifts, volatilities, upwind
+directions, or cross-derivative terms, substitution can make the PDE operator much more
+nonlinear. In that case, keep the prices as unknown functions and add their market-clearing
+conditions as algebraic equations:
+
+```math
+0 = H(V, r, \kappa), \qquad
+0 = r - R(V, \partial V), \qquad
+0 = \kappa - K(V, \partial V).
+```
+
+The system is larger, but optimization equations and market-clearing equations remain
+separate. The nonlinear solver can then move values and prices together. The
+Gârleanu-Panageas long-run-risk example uses this representation for the interest rate and
+three prices of risk; simpler one-state examples usually do not need it.
 
 **The time step controls the regime.** The role of `Δ` is separate from the three cases
 above. For finite `Δ`, each Newton or policy-evaluation step is anchored to the previous

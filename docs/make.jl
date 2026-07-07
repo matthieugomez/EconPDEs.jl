@@ -28,6 +28,7 @@ asset_pricing = [
     "Haddad: endogenous volatility"           => "asset_pricing/haddad.jl",
     "Tuckman–Vila: finite horizon"            => "asset_pricing/tuckman_vila.jl",
     "Gârleanu–Panageas: heterogeneous agents" => "asset_pricing/garleanu_panageas.jl",
+    "Gârleanu–Panageas: long-run risk"        => "asset_pricing/garleanu_panageas_long_run_risk.jl",
     "He–Krishnamurthy: intermediaries"        => "asset_pricing/he_krishnamurthy.jl",
     "Brunnermeier–Sannikov: macro-finance"    => "asset_pricing/brunnermeier_sannikov.jl",
     "Di Tella: balance-sheet risk"            => "asset_pricing/di_tella.jl",

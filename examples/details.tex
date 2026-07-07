@@ -135,6 +135,16 @@
 
 			\paragraph*{Case 3: Equilibrium systems.} In asset-pricing and general-equilibrium models, the residual includes prices, risk premia, volatilities, market-clearing equations, and sometimes algebraic constraints. These objects are not maximized-away controls, so the envelope theorem does not remove their derivatives from the Jacobian. Freezing them gives a semi-implicit fixed-point iteration, not Newton's method. EconPDEs instead treats the whole discretized equilibrium as a sparse nonlinear system and solves that system directly with Newton.
 
+				There are two equivalent economic ways to write such a model, but they can be very different numerically. If the equilibrium prices have simple closed forms, one can eliminate them and substitute, for example,
+		\begin{equation*}
+			r = R(V,\partial V), \qquad \kappa = K(V,\partial V),
+		\end{equation*}
+		directly into the HJB. This is often the cleanest formulation in one-state asset-pricing examples. In richer general-equilibrium models, however, the prices and risk premia can feed back into drift terms, volatility terms, upwind directions, and cross derivatives. Substitution then hides market clearing inside a highly nonlinear reduced-form PDE. An alternative is to carry the equilibrium objects as unknown functions and add their clearing equations as algebraic rows:
+		\begin{equation*}
+			0 = H(V,r,\kappa), \qquad 0 = r - R(V,\partial V), \qquad 0 = \kappa - K(V,\partial V).
+		\end{equation*}
+		The system is larger, but it separates optimization from market clearing and lets the nonlinear solver move values and prices together. This joint PDE/algebraic formulation is not a new economic equilibrium concept; it is a conditioning device. The Gârleanu--Panageas long-run-risk example in the package uses exactly this representation, solving jointly for price--dividend ratios, human-capital claim prices, the interest rate, and three prices of risk.
+
 				Iterating Newton to convergence inside each step has different roles in Cases 2 and 3. In Case 2, it turns a single frozen-policy evaluation into a fully implicit HJB step for the current $\Delta$. In Case 3, it is essential because the equations can remain nonlinear even after policy-like controls are frozen --- recursive utility, equilibrium price--dividend ratios, wealth-share dynamics --- so the semi-implicit update may have no linear system to fall back on.
 
 	\section{Adapting the time step: pseudo-transient continuation}\label{sec:ptc}

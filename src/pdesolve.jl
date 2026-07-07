@@ -119,7 +119,7 @@ function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), gues
     ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
     saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
-    verbose && println("Solving for ", _problem_description(guess, size(stategrid)))
+    verbose && println("Solving for ", _problem_description(guess, stategrid))
     residual! = (ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array))
     G! = jac_prototype === nothing ? residual! : ResidualWrapper(residual!)
     y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), jac_prototype = jac_prototype, colorvec = colorvec, lower_bound = vec(lower_bound_array), upper_bound = vec(upper_bound_array), abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, monotonicity_check = monotonicity_check, kwargs...)
@@ -161,7 +161,7 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     J0c, fdcache = _sparse_fd_setup(jac_prototype, vec(guess_array), colorvec)
     tstart = time()
     if verbose
-        @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, size(stategrid)) τs[end] τs[1] (length(τs) - 1)
+        @printf "Solving for %s, backward from τ = %g to %g (%d steps)\n" _problem_description(guess, stategrid) τs[end] τs[1] (length(τs) - 1)
         @printf "    Time Residual\n"
         @printf "-------- --------\n"
     end
@@ -205,11 +205,11 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     return EconPDEResult(solution, residual_norms, saved, abstol)
 end
 
-# e.g. "2 unknowns (pA, pB) on a 30×40 grid" — shared by the preambles of both solve paths
-function _problem_description(@nospecialize(guess), S)
+# e.g. "2 unknowns (pA, pB) on grid x×z = 30×40" — shared by both solve paths
+function _problem_description(@nospecialize(guess), stategrid::StateGrid)
     n = length(guess)
-    string(n, n == 1 ? " unknown (" : " unknowns (", join(keys(guess), ", "), ") on a ",
-           length(S) == 1 ? "$(S[1])-point" : join(S, "×"), " grid")
+    string(n, n == 1 ? " unknown (" : " unknowns (", join(keys(guess), ", "),
+           ") on grid ", join(string.(keys(stategrid.x)), "×"), " = ", join(size(stategrid), "×"))
 end
 
 function _asnamedtuple(x)

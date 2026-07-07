@@ -18,6 +18,7 @@ example adds beyond the baseline workflow — nothing, for the simplest ones.
 | [Haddad: endogenous volatility](examples/asset_pricing/haddad.md) | 2D |
 | [Tuckman–Vila: finite horizon](examples/asset_pricing/tuckman_vila.md) | time-dependent (finite horizon) |
 | [Gârleanu–Panageas: heterogeneous agents](examples/asset_pricing/garleanu_panageas.md) | four unknown functions |
+| [Gârleanu–Panageas: long-run risk](examples/asset_pricing/garleanu_panageas_long_run_risk.md) | 3D + algebraic price functions (`r`, `κC`, `κM`, `κV`) |
 | [He–Krishnamurthy: intermediaries](examples/asset_pricing/he_krishnamurthy.md) | |
 | [Brunnermeier–Sannikov: macro-finance](examples/asset_pricing/brunnermeier_sannikov.md) | two unknown functions + inner static root-find |
 | [Di Tella: balance-sheet risk](examples/asset_pricing/di_tella.md) | 2D + three unknown functions + algebraic equations (`is_algebraic`) |

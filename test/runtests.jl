@@ -254,6 +254,7 @@ end
         return ydot
     end
 
+    # the default bounded solve uses the minmax MCP reformulation
     y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0])
 
     @test y[1] ≈ 1.0 atol = 1e-6
@@ -263,9 +264,11 @@ end
     y_dep, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
     @test y_dep[1] ≈ 1.0 atol = 1e-6
 
-    # `reformulation` reaches mcpsolve even in the single-step (Δ = Inf) path
-    y_mm, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :minmax, autoscale = false)
-    @test y_mm[1] ≈ 1.0 atol = 1e-6
+    # the removed smooth MCP reformulation warns and falls back to minmax
+    @test_logs (:warn, "`reformulation = :smooth` is no longer supported for bounded solves; using `:minmax` instead.") begin
+        y_smooth, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :smooth)
+        @test y_smooth[1] ≈ 1.0 atol = 1e-6
+    end
     @test_throws ArgumentError finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :bogus)
 end
 

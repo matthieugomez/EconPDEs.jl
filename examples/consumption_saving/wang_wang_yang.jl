@@ -108,9 +108,11 @@ result = pdesolve(m, stategrid, guess, bc = (; pw = (1.0, 1.0)))
 
 # ## The solution
 #
-# The paper reports the baseline solution on ``w \in [0,20]``. On the full grid
-# ``w \in [0,1000]``, the level of ``p(w)`` is visually close to the linear complete-markets
-# benchmark, so the economically relevant curvature is easier to see on the paper's scale.
+# The paper reports the baseline solution on ``w \in [0,20]``. We use a wider
+# ``w \in [0,100]`` window for the level and consumption panels, because it makes the
+# convergence toward the complete-markets benchmark visible while still showing the low-wealth
+# wedge. The derivative panel stays on ``w \in [0,20]``, where the liquidity-premium curvature
+# is concentrated.
 # We compute finite-difference slopes for ``p'(w)`` and compare the solution with the
 # complete-markets benchmarks ``p^*(w) = w + h`` and ``c^*(w) = m^* (w + h)``.
 
@@ -129,17 +131,17 @@ pprime0 = pprime[1]
 @printf("p'(0) = %.2f, so one dollar of liquid wealth is worth %.1f%% more than its accounting value at the constraint\n",
         pprime0, 100 * (pprime0 - 1))
 
-idx = ws .<= 20
+wideidx = ws .<= 100
 didx = wmid .<= 20
-p1 = plot(ws[idx], p[idx]; xlabel = "wealth-income ratio w", ylabel = "p(w)",
-          label = "model", xlims = (0, 20), ylims = (20, 70))
-plot!(p1, ws[idx], ws[idx] .+ h; label = "complete markets", linestyle = :dash)
+p1 = plot(ws[wideidx], p[wideidx]; xlabel = "wealth-income ratio w", ylabel = "p(w)",
+          label = "model", xlims = (0, 100), ylims = (20, 160))
+plot!(p1, ws[wideidx], ws[wideidx] .+ h; label = "complete markets", linestyle = :dash)
 p2 = plot(wmid[didx], pprime[didx]; xlabel = "wealth-income ratio w", ylabel = "p'(w)",
           label = "model", xlims = (0, 20), ylims = (1.0, 1.5))
 hline!(p2, [1.0]; label = "complete markets", linestyle = :dash)
-p3 = plot(ws[idx], c[idx]; xlabel = "wealth-income ratio w", ylabel = "c(w)",
-          label = "model", xlims = (0, 20), ylims = (0.5, 2.5))
-plot!(p3, ws[idx], mstar .* (ws[idx] .+ h); label = "complete markets", linestyle = :dash)
+p3 = plot(ws[wideidx], c[wideidx]; xlabel = "wealth-income ratio w", ylabel = "c(w)",
+          label = "model", xlims = (0, 100), ylims = (0.5, 6.5))
+plot!(p3, ws[wideidx], mstar .* (ws[wideidx] .+ h); label = "complete markets", linestyle = :dash)
 plot(p1, p2, p3; layout = (1, 3), size = (900, 420),
      left_margin = 5Plots.mm, bottom_margin = 8Plots.mm)
 

@@ -74,8 +74,8 @@ result = pdesolve(pde, grid, guess; lower_bound = vec(payoff_on_grid))
 
 The free boundary then comes out of the solution — the region where the bound binds is the
 stopping region, and value matching and smooth pasting hold automatically at its edge.
-Internally these bounded problems are solved as mixed complementarity problems with
-`NLsolve.mcpsolve`.
+Internally these bounded problems are solved with a min-max mixed-complementarity
+reformulation.
 
 See [Leland](examples/corporate_finance/leland.md) for a worked example (optimal default),
 and Ben Moll's [notes on stopping-time problems](https://benjaminmoll.com/codes/) for

@@ -26,15 +26,15 @@ function MonotonicityChecker(stategrid::StateGrid, @nospecialize(guess); tol = 1
     )
 end
 
-_run_monotonicity_check!(::Nothing, J, y, Δ, is_algebraic) = nothing
-function _run_monotonicity_check!(checker::MonotonicityChecker, J, y, Δ, is_algebraic)
+function _run_monotonicity_check!(checker, J, y, Δ, is_algebraic)
+    checker === nothing && return nothing
     _check_sign_convention!(checker, J, Δ, is_algebraic)
     checker.check_stencils && _check_monotonicity!(checker, J)
     return nothing
 end
 
-_try_run_monotonicity_check!(::Nothing, J, y, Δ, is_algebraic) = nothing
-function _try_run_monotonicity_check!(checker::MonotonicityChecker, J, y, Δ, is_algebraic)
+function _try_run_monotonicity_check!(checker, J, y, Δ, is_algebraic)
+    checker === nothing && return nothing
     checker.disabled && return nothing
     try
         _run_monotonicity_check!(checker, J, y, Δ, is_algebraic)
@@ -72,9 +72,6 @@ function _check_sign_convention!(checker::MonotonicityChecker, J, Δ, is_algebra
     return nothing
 end
 
-_sparse_for_check(J::SparseMatrixCSC) = J
-_sparse_for_check(J) = sparse(J)
-
 function _check_monotonicity!(checker::MonotonicityChecker, J)
     checker.max_warnings <= 0 && return nothing
     (checker.suppressed && length(checker.warned) >= checker.max_warnings) && return nothing
@@ -83,7 +80,9 @@ function _check_monotonicity!(checker::MonotonicityChecker, J)
     size(J, 1) == length(cart) || return nothing
     size(J, 2) == length(cart) || return nothing
 
-    rows, cols, vals = findnz(_sparse_for_check(J))
+    # Work with sparse coordinates without copying when the Jacobian is already sparse.
+    J_sparse = J isa SparseMatrixCSC ? J : sparse(J)
+    rows, cols, vals = findnz(J_sparse)
     for k in eachindex(vals)
         val = vals[k]
         val > checker.tol || continue
@@ -138,7 +137,10 @@ function _format_state(checker::MonotonicityChecker, I::CartesianIndex)
     names = keys(checker.stategrid.x)
     parts = Vector{String}(undef, ndims(checker.stategrid))
     for d in 1:ndims(checker.stategrid)
-        parts[d] = string(names[d], "=", _format_number(checker.stategrid.x[d][I[d]]))
+        value = checker.stategrid.x[d][I[d]]
+        # Real-valued states are easier to scan in warnings with compact numeric formatting.
+        formatted = value isa Real ? @sprintf("%.6g", value) : sprint(show, value)
+        parts[d] = string(names[d], "=", formatted)
     end
     return join(parts, ", ")
 end
@@ -181,6 +183,3 @@ function _format_stencil_hint(checker::MonotonicityChecker, rowI::CartesianIndex
         return Symbol(varname, "_neighbor")
     end
 end
-
-_format_number(x::Real) = @sprintf("%.6g", x)
-_format_number(x) = sprint(show, x)

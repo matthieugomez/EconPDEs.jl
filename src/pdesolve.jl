@@ -48,7 +48,7 @@ state grid of one, two, or three state variables.
   prints nothing — convergence failures are always reported with `@warn` — so `pdesolve`
   can run inside a loop (e.g. an estimation) without flooding the log.
 * Further solver knobs (`scale`, `minΔ`, `maxΔ`, `inner_iterations`, `innerdist`,
-  `inner_verbose`, `reformulation`, `autoscale`) are forwarded to
+  `inner_verbose`, `reformulation`) are forwarded to
   [`finiteschemesolve`](@ref); see its docstring, especially when a solve stalls.
 * `check_monotonicity`: if true, warn when the assembled residual Jacobian has same-variable
   spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false. A flipped
@@ -75,9 +75,9 @@ function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         size(v) == S || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` has size $(size(v)) but the state grid has size $S"))
     end
     is_algebraic = _fill_is_algebraic(is_algebraic, guess, S)
-    # concatenate the per-unknown arrays into one array with a trailing unknown dimension
-    guess_array = catlast(values(guess))
-    is_algebraic_array = catlast(values(is_algebraic))
+    # Concatenate the per-unknown arrays into one array with a trailing unknown dimension.
+    guess_array = cat(values(guess)...; dims = ndims(first(values(guess))) + 1)
+    is_algebraic_array = cat(values(is_algebraic)...; dims = ndims(first(values(is_algebraic))) + 1)
     bc_array = _bc_array(bc, guess, grid)
     # create sparsity pattern and its coloring (closed-form, from the stencil structure)
     J0 = sparse_jacobian(stategrid, guess)
@@ -99,7 +99,8 @@ function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), gues
     y = OrderedDict(first(p) => collect(last(p)) for p in pairs(guess))
     saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
     verbose && println("Solving for ", _problem_description(guess, size(stategrid)))
-    G! = _residual_barrier((ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0)
+    residual! = (ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array))
+    G! = J0 === nothing ? residual! : ResidualWrapper(residual!)
     y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), J0 = J0, colorvec = colorvec, maxdist = maxdist, autodiff = autodiff, verbose = verbose, monotonicity_check = monotonicity_check, kwargs...)
     y_array = reshape(y_array, size(guess_array)...)
     _copy_solution!(y, y_array)
@@ -118,8 +119,8 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     ys = [OrderedDict(first(p) => collect(last(p)) for p in pairs(guess)) for τ in τs]
     # the PDE function may or may not take a time argument; check once, not at every time step
     has_time = hasmethod(pde, Tuple{NamedTuple, NamedTuple, Number})
-    pde_at = τ -> (has_time ? ((state, u) -> pde(state, u, τ)) : pde)
-    saved = _init_saved(pde_at(τs[end]), stategrid, solutionnames, ynames, guess_array, bc_array)
+    pde_terminal = has_time ? ((state, u) -> pde(state, u, τs[end])) : pde
+    saved = _init_saved(pde_terminal, stategrid, solutionnames, ynames, guess_array, bc_array)
     saveds = (saved === nothing) ? nothing : [deepcopy(saved) for τ in τs]
     y_array = guess_array
     residual_norms = zeros(length(τs))
@@ -134,13 +135,14 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     end
     for iτ in length(τs):(-1):1
         _copy_solution!(ys[iτ], y_array)
-        pde_onestep = pde_at(τs[iτ])
+        pde_onestep = has_time ? ((state, u) -> pde(state, u, τs[iτ])) : pde
         if saved !== nothing
             _fill_saved!(saveds[iτ], pde_onestep, stategrid, solutionnames, y_array, bc_array)
             saveds[iτ] = merge(ys[iτ], saveds[iτ])
         end
         if iτ > 1
-            G! = _residual_barrier((ydot, yvec) -> pde!(pde_onestep, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array)), J0c)
+            residual! = (ydot, yvec) -> pde!(pde_onestep, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array))
+            G! = J0c === nothing ? residual! : ResidualWrapper(residual!)
             y_array, residual_norms[iτ] = implicit_timestep(G!, vec(y_array), τs[iτ] - τs[iτ-1]; is_algebraic = vec(is_algebraic_array), verbose = false, J0 = J0c, fdcache = fdcache, maxdist = maxdist, autodiff = autodiff, monotonicity_check = monotonicity_check, kwargs...)
             if verbose
                 @printf "%8g %8.2e\n" τs[iτ-1] residual_norms[iτ]
@@ -155,10 +157,13 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     end
     if verbose
         nfailed = count(iτ -> !(residual_norms[iτ] <= maxdist), 2:length(τs))
+        elapsed = time() - tstart
+        # Format fast solves in milliseconds so they do not display as "0.0s".
+        elapsed_text = elapsed < 1 ? @sprintf("%.0fms", 1000 * elapsed) : @sprintf("%.1fs", elapsed)
         if nfailed == 0
-            @printf "Completed %d time steps (%s)\n" (length(τs) - 1) _elapsed(time() - tstart)
+            @printf "Completed %d time steps (%s)\n" (length(τs) - 1) elapsed_text
         else
-            @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) _elapsed(time() - tstart) nfailed
+            @printf "Completed %d time steps (%s): %d steps did not converge\n" (length(τs) - 1) elapsed_text nfailed
         end
     end
     return EconPDEResult(ys, residual_norms, saveds, maxdist)
@@ -171,15 +176,13 @@ function _problem_description(@nospecialize(guess), S)
            length(S) == 1 ? "$(S[1])-point" : join(S, "×"), " grid")
 end
 
-catlast(iter) = cat(iter...; dims = ndims(first(iter)) + 1)
-
-# Accept either an OrderedDict (or any symbol-keyed collection) or a NamedTuple.
-# A plain Dict is rejected: its iteration order is arbitrary, and the order of names
-# determines how the solution arrays are laid out, so accepting one risks a silent
-# transposition of the guess (or of the result) on square grids.
-_asnamedtuple(x::NamedTuple) = x
-_asnamedtuple(x::Dict) = throw(ArgumentError("pass a NamedTuple, e.g. `(; k = ...)`, or an OrderedDict — a Dict has no fixed iteration order, and the order of the names determines how arrays are laid out"))
-_asnamedtuple(x) = NamedTuple(x)
+function _asnamedtuple(x)
+    x isa NamedTuple && return x
+    # A plain Dict is rejected: its iteration order is arbitrary, and the order of names
+    # determines how solution arrays are laid out.
+    x isa Dict && throw(ArgumentError("pass a NamedTuple, e.g. `(; k = ...)`, or an OrderedDict — a Dict has no fixed iteration order, and the order of the names determines how arrays are laid out"))
+    return NamedTuple(x)
+end
 
 # Derivative fields are named by concatenation (unknown * state * suffix), so some
 # combinations of names generate the same field twice — e.g. states `(k, a)` with
@@ -212,25 +215,25 @@ function _check_generated_names(statenames::Vector{Symbol}, ynames::Vector{Symbo
     return nothing
 end
 
-# Expand the `is_algebraic` flags into a NamedTuple of arrays (one Bool per grid point),
-# with the same names and order as `guess`. Defaults to all-false when not provided.
-_fill_is_algebraic(::Nothing, guess, S) = map(_ -> fill(false, S), guess)
 function _fill_is_algebraic(is_algebraic, guess, S)
+    # Defaults to all-false, one Bool per grid point, with the same names/order as `guess`.
+    is_algebraic === nothing && return map(_ -> fill(false, S), guess)
     ia = _asnamedtuple(is_algebraic)
     issetequal(keys(ia), keys(guess)) || throw(ArgumentError("`is_algebraic` must have the same names as the initial guess: got $(collect(keys(ia))), expected $(collect(keys(guess)))"))
     # reorder to match the guess, so the flags line up with the right unknowns
     NamedTuple{keys(guess)}(map(n -> fill(ia[n], S), keys(guess)))
 end
 
-_bc_array(::Nothing, guess, grid) = zeros(size(first(values(guess)))..., length(guess))
 function _bc_array(bc, guess, grid)
+    # Default reflecting boundaries: zero derivative for every (unknown, state) pair.
+    bc === nothing && return zeros(size(first(values(guess)))..., length(guess))
     bc = _asnamedtuple(bc)
     keys_grid = collect(keys(grid))
     valid = [Symbol(yname, s) for yname in keys(guess) for s in keys_grid]
     for key in keys(bc)
         key in valid || throw(ArgumentError("unknown `bc` entry `$key`: valid entries are $(valid), i.e. Symbol(unknown, state)"))
     end
-    out = _bc_array(nothing, guess, grid)
+    out = zeros(size(first(values(guess)))..., length(guess))
     for (k, yname) in enumerate(keys(guess))
         bck = selectdim(out, ndims(out), k)
         for (d, s) in enumerate(keys_grid)
@@ -258,12 +261,12 @@ function _init_saved(pde, stategrid::StateGrid, solutionnames, ynames, y_array::
     return OrderedDict(key => Array{Float64}(undef, size(stategrid)) for key in keys(optional))
 end
 
-# Discriminate the two allowed return shapes by type: a single-return model gives a
-# NamedTuple of time derivatives, a two-return model gives (residual, optional).
-# (pde! performs the same discrimination per grid point via `isa(outi[1], Number)`.)
-_split_pde_output(result::NamedTuple) = (result, nothing)
-_split_pde_output(result::Tuple{NamedTuple, NamedTuple}) = result
-_split_pde_output(result) = throw(ArgumentError("the PDE function must return a NamedTuple of time derivatives, e.g. `(; vt)`, optionally followed by a second NamedTuple of objects to save on the grid — got a value of type $(typeof(result))"))
+function _split_pde_output(result)
+    # Single-return models give residuals; two-return models give residuals plus saved objects.
+    result isa NamedTuple && return result, nothing
+    result isa Tuple{<:NamedTuple, <:NamedTuple} && return result
+    throw(ArgumentError("the PDE function must return a NamedTuple of time derivatives, e.g. `(; vt)`, optionally followed by a second NamedTuple of objects to save on the grid — got a value of type $(typeof(result))"))
+end
 
 function _check_residual_names(residual::NamedTuple, ynames)
     expected = map(n -> Symbol(n, :t), ynames)

@@ -3,10 +3,14 @@
 # Experts and households both hold capital, but experts are more productive and can issue equity
 # only if they retain at least a fraction ``\chi`` of it — a skin-in-the-game constraint. The
 # state ``x`` is the experts' wealth share. The model has a **crisis region** (experts
-# constrained, ``\Psi < 1``) and a **normal region** (``\Psi = 1``); the capital price ``q`` and
-# the experts' capital share ``\Psi`` are recovered with a root-find, sweeping ``x`` from the
-# lower boundary upward so each step reuses the previous ``q`` to build ``q_x`` by finite
-# difference. That order-dependent sweep is why the model struct is mutable and carries `q_old`.
+# constrained, ``\Psi < 1``) and a **normal region** (``\Psi = 1``). Here ``\Psi`` is the
+# share of aggregate capital operated by experts. Experts must retain the fraction ``\chi`` of
+# that operated capital, so ``\chi\Psi`` is their retained capital share and
+# ``\alpha_E = \chi\Psi/x`` is capital held per unit of expert wealth. The return volatility below
+# is ``\sigma + \sigma_q``, where ``\sigma_q`` is the price-revaluation term. The capital price
+# ``q`` and ``\Psi`` are recovered with a bracketed root-find, sweeping ``x`` from the lower boundary
+# upward so each step reuses the previous ``q`` to build ``q_x`` by finite difference. That
+# order-dependent sweep is why the model struct is mutable and carries `q_old`.
 
 # ## The model
 #
@@ -21,7 +25,7 @@ Base.@kwdef mutable struct BrunnermeierSannikov
   γ::Float64 = 2.0        # relative risk aversion
   ψ::Float64 = 0.5        # elasticity of intertemporal substitution
   δ::Float64 = 0.05       # depreciation rate of capital
-  σ::Float64 = 0.1        # exogenous (fundamental) volatility of capital
+  σ::Float64 = 0.1        # calibrated fundamental volatility of capital
   κ::Float64 = 10.0       # investment adjustment-cost parameter
   a::Float64 = 0.11       # experts' productivity (output per unit capital)
   alow::Float64 = 0.03    # households' productivity (output per unit capital)
@@ -50,14 +54,32 @@ stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
 xmin = minimum(stategrid[:x])
 guess = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
 
+function local_bracket(f, x0; lo = 0.0, hi = 1.0, ftol = 1e-12)
+  x0 = clamp(x0, lo, hi)
+  f0 = f(x0)
+  isfinite(f0) || return nothing
+  abs(f0) <= ftol && return (x0, x0)
+  width = (hi - lo) / 64
+  while width <= hi - lo
+    for x1 in (min(hi, x0 + width), max(lo, x0 - width))
+      f1 = f(x1)
+      isfinite(f1) || continue
+      abs(f1) <= ftol && return (x1, x1)
+      signbit(f1) != signbit(f0) && return minmax(x0, x1)
+    end
+    width *= 2
+  end
+  return nothing
+end
+
 # ## The equation
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
 # its finite-difference derivatives there — plus the grid spacing `Δx` and lower bound `xmin`, and
 # returns the time derivative of each unknown (`pEt, pHt`). Inside, a root-find recovers the
-# capital price ``q`` and the experts' capital share ``\Psi``, distinguishing the crisis region
-# (``\Psi < 1``) from the normal region (``\Psi = 1``).
+# capital price ``q`` and the experts' operating capital share ``\Psi``, distinguishing the
+# crisis region (``\Psi < 1``) from the normal region (``\Psi = 1``).
 
 function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   (; ρE, ρH, γ, ψ, δ, σ, κ, a, alow, χlow) = m
@@ -86,29 +108,38 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   end
   if Ψ_old < 1.0
     ## crisis region.
-    ## in this case, we do not have Ψ = 1.0 but we have
-    ## (a - alow) / q = (κE - κH) * (σ + σq)
-    ## note that
-    out = find_zero(Ψ_old) do Ψ
-        local q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
-        local qx = (q - q_old) / Δx
-        local αE = χ * Ψ / x
-        local σx = x * (αE - 1) * σ / (1 - x * (αE - 1) * qx / q)
-        local σpE = pEx / pE * σx
-        local σpH = pHx / pH * σx
-        local σq = qx / q * σx
-        local σE = αE * (σ + σq)
-        local αH = (1 - αE * x) / (1 - x)
-        local σH = αH * (σ + σq)
-        local κE = γ * (σE - (1 / γ - 1) / (ψ - 1) * σpE)
-        local κH = γ * (σH - (1 / γ - 1) / (ψ - 1) * σpH)
-        return (a - alow) / q -  χ * (κE - κH) * (σ + σq)
-      end
-    Ψ = out[1]
-    q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
-    qx = (q - q_old) / Δx
-    if Ψ > 1
+    ## In this case experts operate only the share Ψ of aggregate capital. They retain χΨ of
+    ## aggregate capital, so their capital holding per unit of expert wealth is αE = χΨ / x.
+    function crisis_gap(Ψ)
+      local q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
+      local qx = (q - q_old) / Δx
+      local αE = χ * Ψ / x
+      local σx = x * (αE - 1) * σ / (1 - x * (αE - 1) * qx / q)
+      local σpE = pEx / pE * σx
+      local σpH = pHx / pH * σx
+      local σq = qx / q * σx
+      local σE = αE * (σ + σq)
+      local αH = (1 - αE * x) / (1 - x)
+      local σH = αH * (σ + σq)
+      local κE = γ * (σE - (1 / γ - 1) / (ψ - 1) * σpE)
+      local κH = γ * (σH - (1 / γ - 1) / (ψ - 1) * σpH)
+      return (a - alow) / q - χ * (κE - κH) * (σ + σq)
+    end
+
+    gap_tolerance = 1e-12
+    bracket = local_bracket(crisis_gap, Ψ_old; ftol = gap_tolerance)
+
+    if bracket === nothing
+      ## The unconstrained crisis equation has no root with Ψ ∈ [0, 1], so the economy is in
+      ## the normal region and experts operate all capital.
       Ψ_old = 1.0
+    else
+      Ψ = bracket[1]
+      if bracket[1] != bracket[2]
+        Ψ = find_zero(crisis_gap, bracket, Bisection(); xatol = gap_tolerance)
+      end
+      q = (Ψ * a + (1 - Ψ) * alow + 1 / κ) / (x / pE + (1 - x) / pH + 1 / κ)
+      qx = (q - q_old) / Δx
     end
   end
   if Ψ_old ≥ 1.0

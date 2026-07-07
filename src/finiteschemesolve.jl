@@ -3,15 +3,8 @@
 ## Non Linear solver using Pseudo-Transient Continuation Method
 ##
 ##############################################################################
-
-_has_bounds(lower_bound, upper_bound) = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
-
-# elapsed-time formatting for the convergence summaries: milliseconds under a second,
-# so fast solves don't display as "0.00s"
-_elapsed(s) = s < 1 ? @sprintf("%.0fms", 1000 * s) : @sprintf("%.1fs", s)
-
 # Compile-once barrier between the model-specific residual closure and the solver stack.
-# `finiteschemesolve`, `implicit_timestep`, FiniteDiff, and NLsolve/NonlinearSolve all
+# `finiteschemesolve`, `implicit_timestep`, FiniteDiff, and NonlinearSolve all
 # specialize on the residual's type, so without the barrier that whole chain recompiles
 # for every new model function (several hundred ms per model). Hiding the closure behind
 # an untyped field gives the chain a single fixed type, compiled once and cached in the
@@ -27,7 +20,6 @@ end
 # residual on Float64 vectors. Without a pattern (4+ states) NonlinearSolve
 # differentiates through the residual with ForwardDiff, and the closure stays unwrapped
 # so that path specializes on it as before.
-_residual_barrier(G!, J0) = J0 === nothing ? G! : ResidualWrapper(G!)
 
 # Build everything the colored sparse finite-difference Jacobian needs: the normalized
 # sparse pattern (also used as the Jacobian prototype) and the FiniteDiff cache holding the
@@ -35,9 +27,19 @@ _residual_barrier(G!, J0) = J0 === nothing ? G! : ResidualWrapper(G!)
 # so callers compute this once and pass it to every `implicit_timestep` call.
 # `pdesolve` passes the closed-form coloring of its stencil pattern (`stencil_colors`);
 # without one, the coloring falls back to a greedy coloring of the pattern.
-function _sparse_fd_setup(J0, y, autodiff, colorvec = nothing)
+function _sparse_fd_setup(J0, y, autodiff, colorvec = nothing; force_diagonal = false)
     J0 === nothing && return nothing, nothing
     J0c = sparse(J0)
+    if force_diagonal
+        added_diagonal = false
+        for i in 1:min(size(J0c)...)
+            if iszero(J0c[i, i])
+                J0c[i, i] = one(eltype(J0c))
+                added_diagonal = true
+            end
+        end
+        added_diagonal && (colorvec = nothing)
+    end
     if colorvec === nothing
         colorvec = matrix_colors(J0c)
     else
@@ -48,16 +50,22 @@ function _sparse_fd_setup(J0, y, autodiff, colorvec = nothing)
     return J0c, fdcache
 end
 
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, colorvec = nothing, fdcache = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, autoscale = true, monotonicity_check = nothing, kwargs...)
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), iterations = 100, verbose = true, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), J0 = nothing, colorvec = nothing, fdcache = nothing, lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), y̲ = nothing, ȳ = nothing, reformulation = :minmax, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :implicit_timestep); lower_bound = y̲)
     ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :implicit_timestep); upper_bound = ȳ)
-    G_helper!(ydot, y) = (G!(ydot, y) ; ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ)
+    # Any non-default bound turns the implicit solve into a mixed complementarity problem.
+    has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
+    function G_helper!(ydot, y)
+        G!(ydot, y)
+        ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ
+        return nothing
+    end
 
     jac = nothing
     if fdcache === nothing
-        J0c, fdcache = _sparse_fd_setup(J0, ypost, autodiff, colorvec)
+        J0c, fdcache = _sparse_fd_setup(J0, ypost, autodiff, colorvec; force_diagonal = has_bounds)
     else
         J0c = fdcache.sparsity
     end
@@ -70,46 +78,67 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         jac = jac!
     end
 
-    if _has_bounds(lower_bound, upper_bound)
-        # HJBVI bounds are mixed complementarity conditions, not box-constrained roots.
-        if jac === nothing
-            nlsolve_autodiff = autodiff == :finite ? :finiteforward : autodiff
-            result = mcpsolve(G_helper!, lower_bound, upper_bound, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, autodiff = nlsolve_autodiff, kwargs...)
-        else
-            df = OnceDifferentiable(G_helper!, jac, deepcopy(ypost), deepcopy(ypost), J0c)
-            result = mcpsolve(df, lower_bound, upper_bound, ypost; iterations = iterations, show_trace = verbose, ftol = maxdist, method = method, reformulation = reformulation, autoscale = autoscale, kwargs...)
+    solve_residual! = G_helper!
+    solve_jac = jac
+    if has_bounds
+        if reformulation == :smooth
+            @warn "`reformulation = :smooth` is no longer supported for bounded solves; using `:minmax` instead." maxlog = 1
+        elseif reformulation != :minmax
+            throw(ArgumentError("only `reformulation = :minmax` is supported for bounded solves"))
         end
-        return result.zero, result.residual_norm
+        # HJBVI bounds are mixed complementarity conditions. The minmax residual is zero
+        # exactly when F_i(y) = 0 in the interior, F_i(y) >= 0 at a lower bound, or
+        # F_i(y) <= 0 at an upper bound.
+        function mcp_residual!(ydot, y)
+            G_helper!(ydot, y)
+            @inbounds for i in eachindex(ydot, y, lower_bound, upper_bound)
+                ydot[i] = min(max(ydot[i], y[i] - upper_bound[i]), y[i] - lower_bound[i])
+            end
+            return nothing
+        end
+
+        solve_residual! = mcp_residual!
+        if fdcache !== nothing
+            function mcp_jac!(J, y)
+                if monotonicity_check !== nothing
+                    finite_difference_jacobian!(J, G_helper!, y, fdcache)
+                    _try_run_monotonicity_check!(monotonicity_check, J, y, Δ, is_algebraic)
+                end
+                finite_difference_jacobian!(J, mcp_residual!, y, fdcache)
+                return J
+            end
+            solve_jac = mcp_jac!
+        end
+    end
+
+    G_solve! = (du, u, p) -> solve_residual!(du, u)
+    if solve_jac === nothing
+        f = NonlinearFunction{true}(G_solve!; jac_prototype = J0c)
     else
-        G_solve! = (du, u, p) -> G_helper!(du, u)
-        if jac === nothing
-            f = NonlinearFunction{true}(G_solve!; jac_prototype = J0c)
-        else
-            f = NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> jac(J, u), jac_prototype = J0c)
-        end
-        problem = NonlinearProblem(f, ypost)
-        if autodiff == :forward
-            autodiff = AutoForwardDiff()
-        elseif autodiff == :finite
-            autodiff = AutoFiniteDiff()
-        elseif autodiff == :central
-            autodiff = AutoFiniteDiff(fdjtype = Val(:central))
-        else
-            autodiff = autodiff
-        end
-        if method == :newton
-            algorithm = NewtonRaphson(; autodiff = autodiff, concrete_jac = true)
-        else
-            algorithm = TrustRegion(; autodiff = autodiff, concrete_jac = true)
-        end
-        try
-            result = solve(problem, algorithm; maxiters = iterations, abstol = maxdist, verbose = verbose, kwargs...)
-            return result.u, norm(result.resid) / length(result.resid)
-        catch err
-            # catch SingularException error because can simply mean time step too big
-            err isa SingularException || rethrow()
-            return ypost, Inf
-        end
+        f = NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> solve_jac(J, u), jac_prototype = J0c)
+    end
+    problem = NonlinearProblem(f, ypost)
+    if autodiff == :forward
+        autodiff = AutoForwardDiff()
+    elseif autodiff == :finite
+        autodiff = AutoFiniteDiff()
+    elseif autodiff == :central
+        autodiff = AutoFiniteDiff(fdjtype = Val(:central))
+    else
+        autodiff = autodiff
+    end
+    if method == :newton
+        algorithm = NewtonRaphson(; autodiff = autodiff, concrete_jac = true)
+    else
+        algorithm = TrustRegion(; autodiff = autodiff, concrete_jac = true)
+    end
+    try
+        result = solve(problem, algorithm; maxiters = iterations, abstol = maxdist, verbose = verbose, kwargs...)
+        return result.u, norm(result.resid) / length(result.resid)
+    catch err
+        # catch SingularException error because can simply mean time step too big
+        err isa SingularException || rethrow()
+        return ypost, Inf
     end
 end
 
@@ -189,9 +218,8 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   coloring of `J0`; pass one when it is known in closed form, as `pdesolve` does for
   its stencil pattern.
 * `lower_bound`, `upper_bound`: lower/upper bounds on `y`. When any bound is finite, the
-  problem is solved as a mixed complementarity problem with `NLsolve.mcpsolve`, with
-  `reformulation` (`:smooth`, the default, or `:minmax`) and `autoscale = true` passed
-  through to it. The Unicode keywords `y̲`/`ȳ` are deprecated aliases.
+  problem is solved with the minmax mixed-complementarity reformulation. The Unicode
+  keywords `y̲`/`ȳ` are deprecated aliases.
 * `verbose = true`: print one line per pseudo-transient time step (`Iter`, `TimeStep`,
   `Residual`) and a final convergence summary. A ✗ in place of the residual means the
   inner nonlinear solve failed at that `Δ`: no step is taken (so there is no residual to
@@ -199,17 +227,19 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   singular Jacobian, are flagged in parentheses. With `verbose = false` a successful
   solve prints nothing; convergence failures are always reported with `@warn`.
 """
-function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, colorvec = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :smooth, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)...), iterations = 100, inner_iterations = 10, verbose = true, inner_verbose = false, method = :newton, autodiff = :forward, maxdist = sqrt(eps()), innerdist = sqrt(eps()), scale = 10.0, J0 = nothing, colorvec = nothing, minΔ = 1e-9, lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), y̲ = nothing, ȳ = nothing, reformulation = :minmax, maxΔ = Inf, autoscale = true, monotonicity_check = nothing, kwargs...)
     method in (:newton, :trust_region) || throw(ArgumentError("method must be :newton or :trust_region"))
     # `y̲`/`ȳ` are deprecated aliases of `lower_bound`/`upper_bound`, kept so older scripts keep running
     y̲ === nothing || (Base.depwarn("the keyword `y̲` is deprecated; use `lower_bound` instead", :finiteschemesolve); lower_bound = y̲)
     ȳ === nothing || (Base.depwarn("the keyword `ȳ` is deprecated; use `upper_bound` instead", :finiteschemesolve); upper_bound = ȳ)
+    # Bounds are static across pseudo-transient iterations; compute this once after alias normalization.
+    has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
     tstart = time()
     ypost = y0
     ydot = zero(y0)
     # the sparsity pattern is fixed, so build the coloring and Jacobian cache once here
     # rather than inside every implicit time step
-    J0c, fdcache = _sparse_fd_setup(J0, y0, autodiff, colorvec)
+    J0c, fdcache = _sparse_fd_setup(J0, y0, autodiff, colorvec; force_diagonal = has_bounds)
     # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
@@ -221,7 +251,9 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
         # infinite time step => solve in one step
         ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, verbose = verbose, iterations = iterations,  method = method, autodiff = autodiff, maxdist = maxdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
         if residual_norm <= maxdist
-            verbose && @printf "Converged (%s)\n" _elapsed(time() - tstart)
+            elapsed = time() - tstart
+            # Format fast solves in milliseconds so they do not display as "0.0s".
+            verbose && @printf "Converged (%s)\n" (elapsed < 1 ? @sprintf("%.0fms", 1000 * elapsed) : @sprintf("%.1fs", elapsed))
         else
             # warn even when verbose = false: solves embedded in silenced loops
             # (e.g. estimation) must still surface failures
@@ -239,7 +271,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             iter += 1
             y, nlresidual_norm = implicit_timestep(G!, ypost, stepper.Δ; is_algebraic = is_algebraic, verbose = inner_verbose, iterations = inner_iterations, method = method, autodiff = autodiff, maxdist = innerdist, J0 = J0c, fdcache = fdcache, lower_bound = lower_bound, upper_bound = upper_bound, reformulation = reformulation, autoscale = autoscale, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
-            if _has_bounds(lower_bound, upper_bound)
+            if has_bounds
                 # only unconstrained ydot is relevant for residual_norm calculation
                 mask = lower_bound .+ eps() .<= y .<= upper_bound .- eps()
                 residual_norm, oldresidual_norm = norm(ydot .* mask) / sum(mask), residual_norm
@@ -268,7 +300,9 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
             end
         end
         if residual_norm <= maxdist
-            verbose && @printf "Converged after %d time steps (%s)\n" iter _elapsed(time() - tstart)
+            elapsed = time() - tstart
+            # Format fast solves in milliseconds so they do not display as "0.0s".
+            verbose && @printf "Converged after %d time steps (%s)\n" iter (elapsed < 1 ? @sprintf("%.0fms", 1000 * elapsed) : @sprintf("%.1fs", elapsed))
         elseif stepper.Δ < minΔ
             # warn even when verbose = false: solves embedded in silenced loops
             # (e.g. estimation) must still surface failures

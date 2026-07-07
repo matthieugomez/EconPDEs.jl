@@ -106,11 +106,15 @@ function (m::AchdouHanLasryLionsMollModel_RiskyAsset)(state::NamedTuple, u::Name
         c_candidate = va_candidate > 0.0 ? clamp(va_candidate^(-1 / γ), cmin, cmax) : cmax
         ## First compare the two portfolio constraints, then add the Merton interior point if it
         ## is well-defined. This keeps Newton's off-path trial values finite without hiding the FOC.
-        H(k_trial) = prem * va_candidate * k_trial + 0.5 * vaa * σR^2 * k_trial^2
-        k_candidate = H(kmax) > 0.0 ? kmax : 0.0
+        # Portfolio Hamiltonian at the upper constraint.
+        H_kmax = prem * va_candidate * kmax + 0.5 * vaa * σR^2 * kmax^2
+        k_candidate = H_kmax > 0.0 ? kmax : 0.0
         if va_candidate > 0.0 && vaa < 0.0
             k_merton = clamp(-prem * va_candidate / (σR^2 * vaa), 0.0, kmax)
-            k_candidate = H(k_merton) >= H(k_candidate) ? k_merton : k_candidate
+            # Compare the interior Merton point with the best constraint found above.
+            H_merton = prem * va_candidate * k_merton + 0.5 * vaa * σR^2 * k_merton^2
+            H_candidate = prem * va_candidate * k_candidate + 0.5 * vaa * σR^2 * k_candidate^2
+            k_candidate = H_merton >= H_candidate ? k_merton : k_candidate
         end
         μa_candidate = cash + prem * k_candidate - c_candidate
         return c_candidate, k_candidate, μa_candidate

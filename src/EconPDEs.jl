@@ -1,7 +1,6 @@
 module EconPDEs
 using LinearAlgebra: norm, SingularException
 using SparseArrays: sparse, findnz, SparseMatrixCSC, rowvals, nzrange
-using NLsolve: OnceDifferentiable, mcpsolve
 using NonlinearSolve: AutoFiniteDiff, AutoForwardDiff, NewtonRaphson,
     NonlinearFunction, NonlinearProblem, TrustRegion, solve
 using OrderedCollections: OrderedDict 
@@ -41,34 +40,35 @@ struct EconPDEResult{Z, R, O}
 end
 EconPDEResult(zero, residual_norm, saved) = EconPDEResult(zero, residual_norm, saved, NaN)
 
-_max_residual(x::EconPDEResult) =
-    getfield(x, :residual_norm) isa AbstractVector ? maximum(getfield(x, :residual_norm)) : getfield(x, :residual_norm)
-
 function Base.getproperty(x::EconPDEResult, name::Symbol)
     name === :optional && return getfield(x, :saved)
-    name === :converged && return _max_residual(x) <= getfield(x, :tolerance)
+    if name === :converged
+        residual_norm = getfield(x, :residual_norm)
+        # Time-dependent results store one residual per time; convergence uses the worst one.
+        max_residual = residual_norm isa AbstractVector ? maximum(residual_norm) : residual_norm
+        return max_residual <= getfield(x, :tolerance)
+    end
     return getfield(x, name)
 end
 
 Base.propertynames(x::EconPDEResult, private::Bool = false) =
     private ? (:zero, :residual_norm, :saved, :converged, :tolerance, :optional) : (:zero, :residual_norm, :saved, :converged)
 
-# Compact display: solution arrays can hold hundreds of thousands of entries,
-# so print names and sizes rather than the arrays themselves.
-_summarize_names(d) = join((string(k, " (", join(size(v), "×"), ")") for (k, v) in pairs(d)), ", ")
-
 function Base.show(io::IO, x::EconPDEResult)
     if x.zero isa AbstractVector && eltype(x.zero) <: AbstractDict
         # time-dependent solve: one solution per time
+        zero_summary = join((string(k, " (", join(size(v), "×"), ")") for (k, v) in pairs(first(x.zero))), ", ")
         println(io, "EconPDEResult (time-dependent, ", length(x.zero), " times)")
-        println(io, "  zero:          ", _summarize_names(first(x.zero)), " at each time")
+        println(io, "  zero:          ", zero_summary, " at each time")
         if x.saved !== nothing
             println(io, "  saved:         ", join(keys(first(x.saved)), ", "), " at each time")
         end
         print(io, "  residual_norm: ", @sprintf("%.2e", maximum(x.residual_norm)), " (max over times)")
     else
+        # Compact display: solution arrays can hold hundreds of thousands of entries.
+        zero_summary = join((string(k, " (", join(size(v), "×"), ")") for (k, v) in pairs(x.zero)), ", ")
         println(io, "EconPDEResult")
-        println(io, "  zero:          ", _summarize_names(x.zero))
+        println(io, "  zero:          ", zero_summary)
         if x.saved !== nothing
             println(io, "  saved:         ", join(keys(x.saved), ", "))
         end

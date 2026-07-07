@@ -90,17 +90,17 @@ explains why.
 
 ```julia
 result = pdesolve(pde, stategrid, guess)
-result.zero[:v]            # the solved value function, on the grid
+result.solution.v          # the solved value function, on the grid
 result.residual_norm       # should be ≈ 0
 ```
 
-`pdesolve` returns an [`EconPDEResult`](api.md) with the solved unknowns in `result.zero`,
-indexed by name. Check `result.residual_norm` is small before using the output; the full
-set of fields is described in [The result](pde_function.md#The-result).
+`pdesolve` returns an [`EconPDEResult`](api.md) with the solved unknowns in `result.solution`,
+a `NamedTuple` of arrays. Check `result.residual_norm` is small before using the output; the
+full set of fields is described in [The result](pde_function.md#The-result).
 
 ## Exploring the solution
 
-`result.zero` holds the solved unknowns. Objects computed inside the PDE function — the
+`result.solution` holds the solved unknowns. Objects computed inside the PDE function — the
 optimal policy, a drift, an interest rate — can also be stored on the grid by returning a
 *second* `NamedTuple`:
 

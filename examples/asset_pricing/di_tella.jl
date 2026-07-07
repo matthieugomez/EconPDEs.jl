@@ -156,9 +156,9 @@ result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false,
 
 xs = stategrid[:x]
 νs = stategrid[:ν]
-p = result.zero[:p]
-σx = result.saved[:σx]
-Q = result.saved[:Q]
+p = result.solution.p
+σx = result.saved.σx
+Q = result.saved.Q
 line_styles = [:solid, :dot, :dash]
 x_slices = [0.05, 0.10, 0.20]
 ν_slices = [0.10, 0.25, 0.60]

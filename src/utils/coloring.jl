@@ -12,11 +12,7 @@ one function evaluation per color.
 
 function sparse_jacobian(stategrid::StateGrid, @nospecialize(guess))
     s = size(stategrid)
-    if 1 <= ndims(stategrid) <= 3
-        return local_stencil_jacobian(s, length(guess))
-    else
-        return nothing
-    end
+    return local_stencil_jacobian(s, length(guess))
 end
 
 function local_stencil_jacobian(s::NTuple{N, Int}, F::Int) where {N}

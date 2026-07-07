@@ -52,7 +52,7 @@ of ``F(y) = 0``. The outer continuation loop in step 3 starts cautiously and ada
 3. If the inner solve fails, reject the step, shrink `Δ` by 10, and retry. The next step
    is capped at half the failed `Δ`, so a `Δ` that just failed is not immediately retried;
    the cap relaxes with each subsequent accepted step.
-4. Stop when the residual norm falls below `maxdist`.
+4. Stop when the residual norm falls below `abstol`.
 
 This adaptive scheme is *pseudo-transient continuation*, imported from computational fluid
 dynamics; formal convergence conditions are given in
@@ -236,30 +236,35 @@ The same ideas travel under different names across fields:
 | adaptive `Δ` | pseudo-transient continuation | value iteration morphing into policy iteration or Newton |
 
 In the nonlinear cases, the extra Newton work is cheap enough to be useful because the
-Jacobian is sparse. For one-, two-, and three-state problems, `pdesolve` builds the
-sparsity pattern from the local stencil and computes the Jacobian by colored finite
-differences. Recomputing this Jacobian lets the solver take much larger accepted `Δ` steps,
-so the benefit is speed as well as robustness.
+Jacobian is sparse. `pdesolve` builds the sparsity pattern from the local stencil and
+computes the Jacobian by colored finite differences. Recomputing this Jacobian lets the
+solver take much larger accepted `Δ` steps, so the benefit is speed as well as robustness.
+At the lower-level [`finiteschemesolve`](api.md) interface, `jac`, `jac_prototype`, and
+`colorvec` describe the residual function's Jacobian data, matching the `NonlinearFunction`
+side of the SciML API. Algorithm choices such as linear solvers, line searches, trust
+regions, and AD defaults belong in `alg = NonlinearSolve.NewtonRaphson(...)` or another
+NonlinearSolve algorithm object.
 
 A fuller writeup with references is the method note in the repository:
 [`examples/details.pdf`](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf).
 
 ## Solver options
 
-All of these are keyword arguments of `pdesolve` (forwarded to
-[`finiteschemesolve`](api.md)):
+For stationary problems, these are keyword arguments of `pdesolve` (forwarded to
+[`finiteschemesolve`](api.md)). When a time grid `τs` is supplied, the spacing of `τs`
+is the time step, so the stationary pseudo-transient controls `Δ`, `scale`, `minΔ`,
+and `maxΔ` are rejected.
 
 | Keyword | Default | Meaning |
 |---|---|---|
 | `Δ` | `1.0` | initial pseudo-time step; `Inf` = stationary nonlinear solve, no continuation |
 | `scale` | `10.0` | growth factor of `Δ` after a successful step |
 | `minΔ`, `maxΔ` | `1e-9`, `Inf` | bounds on `Δ`; the solve aborts when `Δ < minΔ` |
-| `iterations` | `100` | maximum outer iterations |
-| `maxdist` | `sqrt(eps())` | convergence tolerance on the residual norm |
-| `inner_iterations` | `10` | nonlinear-solver iterations per implicit time step |
-| `innerdist` | `sqrt(eps())` | tolerance of the inner nonlinear solve |
-| `method` | `:newton` | `:newton` or `:trust_region` |
-| `autodiff` | `:forward` | `:forward`/`:finite` (forward differences) or `:central`; with 1-3 states the Jacobian always uses colored sparse finite differences |
+| `maxiters` | `100` | maximum outer iterations |
+| `abstol` | `sqrt(eps())` | convergence tolerance on the residual norm |
+| `inner_maxiters` | `10` | nonlinear-solver iterations per implicit time step |
+| `inner_abstol` | `sqrt(eps())` | tolerance of the inner nonlinear solve |
+| `alg` | `NonlinearSolve.NewtonRaphson()` | NonlinearSolve algorithm object for each nonlinear solve, e.g. `NonlinearSolve.TrustRegion()` |
 | `verbose` | `true` | print the problem summary, the iteration table, and a convergence summary; failures warn even when `false` |
 | `lower_bound`, `upper_bound` | `-Inf`, `Inf` | bounds for variational inequalities (see [Optimal stopping](boundary_conditions.md#Optimal-stopping-(free-boundaries))) |
 | `is_algebraic` | all `false` | mark equations with no time derivative (static/algebraic conditions) |
@@ -283,9 +288,9 @@ Roughly in order of likelihood:
    directional cross derivative. Run with `check_monotonicity = true` (below). If the
    scheme is clean, improve the initial guess — a closed-form limit of the model (no risk,
    log utility, unconstrained) is usually enough.
-4. **The inner nonlinear solve keeps failing (many `rejected` lines).** Try `method =
-   :trust_region`, a smaller initial `Δ` (e.g. `1e-2` for stiff systems with several
-   coupled unknowns), or loosen `inner_iterations`.
+4. **The inner nonlinear solve keeps failing (many `rejected` lines).** Try
+   `alg = NonlinearSolve.TrustRegion()`, a smaller initial `Δ` (e.g. `1e-2` for stiff systems with several
+   coupled unknowns), or loosen `inner_maxiters`.
 5. **It converges, but to something economically wrong.** Check `residual_norm` is actually
    small; refine the grid (the solution should be stable under refinement); and inspect the
    solved policies at the boundaries — a misplaced boundary condition shows up there first.

@@ -1,7 +1,7 @@
 # Time-dependent problems
 
 For a time-dependent problem — a transition path, a finite horizon, a deterministic change
-in parameters — pass an increasing time grid as the fourth positional argument:
+in parameters — pass a strictly increasing time grid as the fourth positional argument:
 
 ```julia
 τs = range(0, 100, length = 50)
@@ -12,8 +12,12 @@ result = pdesolve(pde, stategrid, guess, τs)
 and each step solves one implicit time step of ``\partial_t v = \text{vt}`` — the same
 equation, and the same sign convention, as the stationary false transient (see
 [Writing the PDE function](pde_function.md#The-return-value:-one-time-derivative-per-unknown)).
-The result is one solution per time point: `result.zero[i][:v]` is the value function at
-time `τs[i]`, and `result.residual_norm[i]` the corresponding residual.
+Each solution array gains a trailing time dimension: `result.solution.v[.., i]` is the
+value function at time `τs[i]`, and `result.residual_norm[i]` the corresponding residual.
+The stationary pseudo-transient controls `Δ`, `scale`, `minΔ`, and `maxΔ` are not
+accepted in this mode; the intervals in `τs` define the implicit time steps. Inner
+nonlinear-solve controls such as `inner_maxiters`, `inner_abstol`, and `inner_verbose`
+still apply.
 
 ## Time-varying equations
 
@@ -29,8 +33,9 @@ end
 ```
 
 If the PDE function has only two arguments, the same equation is used at every time on the
-grid. The third argument must be left untyped or typed loosely (e.g. `t` or `t::Number`) —
-`pdesolve` detects it with `hasmethod(pde, Tuple{NamedTuple, NamedTuple, Number})`.
+grid. `pdesolve` detects the three-argument form from the actual first grid point and
+terminal time, so a concrete time annotation such as `t::Float64` is fine when the supplied
+time grid contains `Float64` values.
 
 ## Typical uses
 

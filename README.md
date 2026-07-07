@@ -67,7 +67,7 @@ end
 
 result = pdesolve(pde, grid, guess; verbose = false)
 
-value = result.zero[:v]
+value = result.solution.v
 @assert result.residual_norm <= 1e-4
 ```
 

@@ -27,8 +27,8 @@ rejected, because its iteration order is arbitrary and the order of names determ
 the solution arrays are laid out (the first state is the first array dimension, and so
 on).
 
-With one, two, or three state variables, the guess is a `Vector`, `Matrix`, or
-3-dimensional `Array`, and so are the solved unknowns.
+With `N` state variables, each guess array has the same `N`-dimensional shape as the
+state grid, and so do the solved unknowns.
 
 ## The function signature
 
@@ -127,14 +127,15 @@ array with the same shape as the grid, available in `result.saved`.
 
 `pdesolve` returns an [`EconPDEResult`](api.md) with three fields:
 
-- `zero`: the solved unknowns, indexed by name (`result.zero[:v]`);
+- `solution`: the solved unknowns, a `NamedTuple` of arrays (`result.solution.v`);
 - `residual_norm`: the norm of the residual at the solution — check it is small before
   using the output;
-- `saved`: the saved objects, together with the solved unknowns for convenience.
+- `saved`: the saved objects, together with the solved unknowns for convenience, or an
+  empty `NamedTuple` if the PDE saves nothing.
 
-For a time-dependent problem, `zero` is instead a vector of solutions, one per time point
-(`result.zero[i][:v]`), and `residual_norm` a vector of residual norms.
-For older code, `result.optional` remains an alias for `result.saved`.
+For a time-dependent problem each array gains a trailing time dimension
+(`result.solution.v[.., i]` is the solution at time `τs[i]`), and `residual_norm` is a
+vector of residual norms.
 
 ## Upwinding
 

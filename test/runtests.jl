@@ -1,6 +1,7 @@
 using Test
 using Logging
 using SparseArrays
+using OrderedCollections: OrderedDict
 using EconPDEs
 
 #========================================================================================
@@ -41,9 +42,11 @@ end
     result = pdesolve(growth_hjb, grid, growth_guess(grid); verbose = false)
     @test result.residual_norm <= 1e-6
 
-    v = result.zero[:v]
-    c = result.saved[:c]
-    μk = result.saved[:μk]
+    v = result.solution.v
+    c = result.saved.c
+    μk = result.saved.μk
+    @test result.solution isa NamedTuple
+    @test result.saved isa NamedTuple
     @test size(v) == size(grid.k)
     @test size(c) == size(grid.k)
     # value increasing and concave, consumption increasing
@@ -55,14 +58,17 @@ end
     @test icross !== nothing
     @test abs(grid.k[icross] - kbar) < 0.05 * kbar
     # saved also contains the solved unknowns
-    @test result.saved[:v] == v
-    @test result.optional === result.saved
+    @test result.saved.v == v
     @test :saved in propertynames(result)
-    @test :optional in propertynames(result, true)
+    @test :tolerance in propertynames(result, true)
+    zero_alias = @test_deprecated result.zero
+    optional_alias = @test_deprecated result.optional
+    @test zero_alias === result.solution
+    @test optional_alias === result.saved
 
-    # legacy tuple destructuring still works
-    y, residual_norm, saved = result
-    @test y === result.zero
+    # tuple destructuring
+    solution, residual_norm, saved = result
+    @test solution === result.solution
     @test residual_norm === result.residual_norm
     @test saved === result.saved
 
@@ -92,12 +98,12 @@ end
 
     # two-argument function: same equation at each time
     result = pdesolve(growth_hjb, grid, guess, τs; verbose = false)
-    @test length(result.zero) == length(τs)
-    @test result.zero[end][:v] == collect(guess.v)   # terminal condition
+    # each solution array gains a trailing time dimension
+    @test size(result.solution.v) == (length(grid.k), length(τs))
+    @test result.solution.v[:, end] == collect(guess.v)   # terminal condition
     @test maximum(result.residual_norm[2:end]) <= 1e-6
     @test result.converged
-    @test size(result.saved[1][:c]) == size(grid.k)
-    @test result.optional === result.saved
+    @test size(result.saved.c) == (length(grid.k), length(τs))
 
     # three-argument function: time-varying equation is detected and used
     ts_seen = Float64[]
@@ -110,8 +116,41 @@ end
     @test maximum(result_t.residual_norm[2:end]) <= 1e-6
     @test length(unique(ts_seen)) > 1
 
+    # typed time arguments are detected from actual applicability, not a broad `Number` method
+    ts_seen_float = Float64[]
+    function hjb_t_float(state, u, t::Float64)
+        push!(ts_seen_float, t)
+        growth_hjb(state, u)
+    end
+    result_t_float = pdesolve(hjb_t_float, grid, guess, τs; verbose = false)
+    @test maximum(result_t_float.residual_norm[2:end]) <= 1e-6
+    @test length(unique(ts_seen_float)) > 1
+
+    # time-dependent solves accept the same inner-solve keywords users use for stationary solves
+    result_inner = pdesolve(growth_hjb, grid, guess, τs; inner_maxiters = 20, inner_abstol = 1e-8, verbose = false)
+    @test maximum(result_inner.residual_norm[2:end]) <= 1e-6
+
+    # pseudo-transient step-size controls are stationary-only; a time grid supplies the step
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess, τs; Δ = 1.0, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess, τs; scale = 2.0, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess, τs; minΔ = 1e-6, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess, τs; maxΔ = 10.0, verbose = false)
+
+    no_saved_grid = (; x = range(0.0, 1.0, length = 5))
+    no_saved_guess = (; v = zeros(5))
+    no_saved_τs = range(0.0, 1.0, length = 3)
+    no_saved_result = pdesolve(no_saved_grid, no_saved_guess, no_saved_τs; verbose = false) do state, u
+        vt = -(u.v - state.x)
+        (; vt)
+    end
+    @test no_saved_result.saved isa NamedTuple
+    @test no_saved_result.saved == NamedTuple()
+
+    # duplicate times would create a zero implicit step
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess, [0.0, 0.0, 1.0]; verbose = false)
+
     # an unconverged implicit step warns instead of being silently accepted
-    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess, [0.0, 1.0]; iterations = 0, verbose = false)
+    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess, [0.0, 1.0]; maxiters = 0, verbose = false)
 end
 
 @testset "Failure reporting and verbosity" begin
@@ -133,9 +172,9 @@ end
     @test occursin("converged:     true", sprint(show, result))
 
     # ...but a failed solve warns even with verbose = false
-    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess; iterations = 1, verbose = false)
+    @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess; maxiters = 1, verbose = false)
     result_bad = with_logger(NullLogger()) do
-        pdesolve(growth_hjb, grid, guess; iterations = 1, verbose = false)
+        pdesolve(growth_hjb, grid, guess; maxiters = 1, verbose = false)
     end
     @test !result_bad.converged
     @test occursin("converged:     false", sprint(show, result_bad))
@@ -165,16 +204,52 @@ end
     # unknown bc entry
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; bc = (; vx = (0.0, 0.0)), verbose = false)
 
-    # invalid method, checked upfront
-    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; method = :linearization, verbose = false)
+    # removed solver keyword, checked upfront
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; method = :trust_region, verbose = false)
 
     # is_algebraic must use the unknowns' names
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; is_algebraic = (; w = true), verbose = false)
+    # ...and accepts either a scalar Bool or a Bool array on the grid
+    @test pdesolve(growth_hjb, grid, guess; is_algebraic = (; v = fill(false, size(guess.v))), verbose = false).converged
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; is_algebraic = (; v = zeros(Int, size(guess.v))), verbose = false)
+
+    # bounds may be keyed by unknown name at the pdesolve layer
+    linear_grid = (; x = range(0.0, 1.0, length = 5))
+    linear_guess = (; v = zeros(5))
+    linear_pde = (s, u) -> (; vt = u.v - 2.0)
+    bounded = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, lower_bound = (; v = fill(3.0, 5)), verbose = false)
+    @test bounded.solution.v ≈ fill(3.0, 5)
+    @test_throws ArgumentError pdesolve(linear_pde, linear_grid, linear_guess; lower_bound = (; w = zeros(5)), verbose = false)
+    trust_region_result = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = NonlinearSolve.TrustRegion(), verbose = false)
+    @test trust_region_result.solution.v ≈ fill(2.0, 5)
 
     # ambiguous generated names: states (k, a) with unknowns (v, vk) collide on vka_up
     @test_throws ArgumentError pdesolve((s, u) -> (; vt = 0.0, vkt = 0.0),
                                         (; k = 0:0.1:1, a = 0:0.1:1),
                                         (; v = ones(11, 11), vk = ones(11, 11)); verbose = false)
+
+    # removed 1.x keywords are rejected before reaching NonlinearSolve
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; maxdist = 1e-6, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; innerdist = 1e-6, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; autodiff = :finite, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; algorithm = NonlinearSolve.TrustRegion(), verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; iterations = 1, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; inner_iterations = 1, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; jac = (J, y) -> J, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; jac_prototype = spzeros(length(guess.v), length(guess.v)), verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; colorvec = ones(Int, length(guess.v)), verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; fdcache = nothing, verbose = false)
+    @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; monotonicity_check = nothing, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; method = :newton, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; autodiff = :finite, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; algorithm = NonlinearSolve.TrustRegion(), verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; iterations = 1, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; inner_iterations = 1, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; maxdist = 1e-6, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; y̲ = [0.0], verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; J0 = nothing, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; reformulation = :smooth, verbose = false)
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y), [1.0]; autoscale = false, verbose = false)
 end
 
 @testset "Mixed grid vector containers" begin
@@ -189,10 +264,45 @@ end
         (; vt)
     end
     @test result.residual_norm <= 1e-8
-    @test result.zero[:v] ≈ [x + z for x in grid.x, z in grid.z]
+    @test result.solution.v ≈ [x + z for x in grid.x, z in grid.z]
+    @test result.saved isa NamedTuple
+    @test result.saved == NamedTuple()
+    @test !occursin("saved:", sprint(show, result))
+    solution, residual_norm, saved = result
+    @test solution === result.solution
+    @test residual_norm === result.residual_norm
+    @test saved === result.saved
 
     int_float_grid = (; x = 1:4, z = collect(range(0.0, 1.0, length = 5)))
     @test EconPDEs.StateGrid(int_float_grid)[CartesianIndex(1, 1)] == (x = 1.0, z = 0.0)
+end
+
+@testset "ND sparse coloring" begin
+    grid = (; x = range(0.0, 1.0, length = 2),
+              z = range(0.0, 1.0, length = 2),
+              q = range(0.0, 1.0, length = 2),
+              r = range(0.0, 1.0, length = 2))
+    guess = (; v = zeros(2, 2, 2, 2))
+    stategrid = EconPDEs.StateGrid(grid)
+    J = EconPDEs.sparse_jacobian(stategrid, guess)
+    colors = EconPDEs.stencil_colors(size(stategrid), length(guess))
+
+    @test J !== nothing
+    @test size(J) == (16, 16)
+    @test maximum(colors) == 16
+
+    rows, cols, _ = EconPDEs.findnz(J)
+    for row in unique(rows)
+        rowcols = cols[rows .== row]
+        @test length(unique(colors[rowcols])) == length(rowcols)
+    end
+
+    result = pdesolve(grid, guess; Δ = Inf, verbose = false) do state, u
+        vt = -(u.v - state.x - state.z - state.q - state.r)
+        (; vt)
+    end
+    @test result.converged
+    @test result.solution.v ≈ [x + z + q + r for x in grid.x, z in grid.z, q in grid.q, r in grid.r]
 end
 
 @testset "Monotonicity diagnostics" begin
@@ -205,7 +315,7 @@ end
         return (; Vt)
     end
 
-    @test_logs (:warn, r"Non-monotone finite-difference stencil") pdesolve(wrong_upwind, grid, y0; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
+    @test_logs (:warn, r"Non-monotone finite-difference stencil") pdesolve(wrong_upwind, grid, y0; Δ = Inf, maxiters = 1, verbose = false, check_monotonicity = true)
 
     grid_good = OrderedDict(:x => range(0.0, 1.0, length = 3))
     y_good = OrderedDict(:V => collect(range(1.0, 2.0, length = 3)))
@@ -216,7 +326,7 @@ end
         return (; Vt)
     end
 
-    @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, iterations = 1, verbose = false, check_monotonicity = true)
+    @test_logs min_level=Logging.Warn pdesolve(correct_upwind, grid_good, y_good; Δ = Inf, maxiters = 1, verbose = false, check_monotonicity = true)
 
     checker = EconPDEs.MonotonicityChecker(EconPDEs.StateGrid((; x = range(0.0, 1.0, length = 2))), (; V = ones(2)))
     @test EconPDEs._try_run_monotonicity_check!(checker, spzeros(2, 2), zeros(2), 1.0, Bool[]) === nothing
@@ -234,9 +344,9 @@ end
         return (; Vt)
     end
 
-    # match_mode=:any because the truncated solve (iterations = 1) now also warns about
+    # match_mode=:any because the truncated solve (maxiters = 1) now also warns about
     # non-convergence, even with verbose = false
-    @test_logs (:warn, r"negative diagonal at every grid point") match_mode=:any pdesolve(flipped_sign, grid, y0; Δ = 0.5, iterations = 1, verbose = false)
+    @test_logs (:warn, r"negative diagonal at every grid point") match_mode=:any pdesolve(flipped_sign, grid, y0; Δ = 0.5, maxiters = 1, verbose = false)
 
     # the correct convention triggers no warning under the default (finite Δ) solve
     function correct_sign(state, y)
@@ -255,21 +365,48 @@ end
     end
 
     # the default bounded solve uses the minmax MCP reformulation
-    y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0])
+    y, residual_norm = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, jac_prototype = nothing, lower_bound = [0.0], upper_bound = [1.0])
 
     @test y[1] ≈ 1.0 atol = 1e-6
     @test residual_norm <= 1e-6
 
-    # deprecated Unicode aliases still solve the bounded problem
-    y_dep, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, y̲ = [0.0], ȳ = [1.0])
-    @test y_dep[1] ≈ 1.0 atol = 1e-6
+    @test_throws ArgumentError finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, jac_prototype = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :smooth)
+    @test_throws ArgumentError finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, jac_prototype = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :bogus)
+end
 
-    # the removed smooth MCP reformulation warns and falls back to minmax
-    @test_logs (:warn, "`reformulation = :smooth` is no longer supported for bounded solves; using `:minmax` instead.") begin
-        y_smooth, _ = finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :smooth)
-        @test y_smooth[1] ≈ 1.0 atol = 1e-6
+@testset "Analytic Jacobian in finiteschemesolve" begin
+    jac_calls = Ref(0)
+    function residual!(ydot, y)
+        ydot[1] = 2 * y[1] - 4
+        ydot[2] = y[2] - 3
+        return nothing
     end
-    @test_throws ArgumentError finiteschemesolve(bounded_residual!, [0.5]; Δ = Inf, verbose = false, J0 = nothing, lower_bound = [0.0], upper_bound = [1.0], reformulation = :bogus)
+    function residual_jac!(J, y)
+        jac_calls[] += 1
+        fill!(J, 0)
+        J[1, 1] = 2
+        J[2, 2] = 1
+        return J
+    end
+
+    y, residual_norm = finiteschemesolve(residual!, [0.0, 0.0]; Δ = Inf, jac = residual_jac!, verbose = false)
+    @test y ≈ [2.0, 3.0]
+    @test residual_norm <= 1e-8
+    @test jac_calls[] > 0
+
+    y_sparse, sparse_residual_norm = finiteschemesolve(residual!, [0.0, 0.0]; Δ = Inf, jac = residual_jac!, jac_prototype = sparse([1.0 0.0; 0.0 1.0]), colorvec = [1], verbose = false)
+    @test y_sparse ≈ [2.0, 3.0]
+    @test sparse_residual_norm <= 1e-8
+
+    jac_calls[] = 0
+    ystep, step_residual_norm = EconPDEs.implicit_timestep(residual!, [0.0, 0.0], 1.0; is_algebraic = [false, true], jac = residual_jac!, jac_prototype = sparse([1.0 0.0; 0.0 1.0]), maxiters = 3, abstol = 1e-10, verbose = false)
+    @test ystep ≈ [4 / 3, 3.0] atol = 1e-8
+    @test step_residual_norm <= 1e-8
+    @test jac_calls[] > 0
+
+    y_bounded, bounded_residual_norm = finiteschemesolve(residual!, [0.0, 0.0]; Δ = Inf, jac = residual_jac!, jac_prototype = sparse([1.0 0.0; 0.0 1.0]), lower_bound = [0.0, 0.0], upper_bound = [1.0, 10.0], verbose = false)
+    @test y_bounded ≈ [1.0, 3.0]
+    @test bounded_residual_norm <= 1e-8
 end
 
 @testset "2D multi-function sparsity" begin
@@ -308,7 +445,7 @@ end
     end
 
     # a wrong-length colorvec is rejected before it reaches FiniteDiff
-    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y .- 2.0), [0.5, 0.5]; Δ = Inf, verbose = false, J0 = EconPDEs.sparse([1.0 0.0; 0.0 1.0]), colorvec = [1])
+    @test_throws ArgumentError finiteschemesolve((ydot, y) -> (ydot .= y .- 2.0), [0.5, 0.5]; Δ = Inf, verbose = false, jac_prototype = EconPDEs.sparse([1.0 0.0; 0.0 1.0]), colorvec = [1])
 end
 
 # The worked examples live under examples/ as Literate scripts. They import Plots and are

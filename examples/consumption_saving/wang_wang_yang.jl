@@ -117,8 +117,8 @@ result = pdesolve(m, stategrid, guess, bc = (; pw = (1.0, 1.0)))
 # complete-markets benchmarks ``p^*(w) = w + h`` and ``c^*(w) = m^* (w + h)``.
 
 ws = stategrid[:w]
-p = result.zero[:p]
-c = result.saved[:c]
+p = result.solution.p
+c = result.saved.c
 h = 1 / (m.r - m.μ)
 mstar = m.r + m.ψ * (m.ρ - m.r)
 wmid = (ws[1:(end - 1)] .+ ws[2:end]) ./ 2

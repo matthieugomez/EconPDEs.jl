@@ -91,7 +91,7 @@ result = pdesolve(m, stategrid, guess; lower_bound = lower_bound, bc = bc)
 # point where the variational-inequality solution lifts off from zero.
 
 δs = stategrid[:δ]
-E = result.zero[:E]
+E = result.solution.E
 ## Default boundary δ*: the first grid point where equity lifts off the E = 0 lower bound of the variational inequality.
 δstar_grid = δs[findfirst(>(1e-8), E)]
 root_a = 0.5 * m.σ^2

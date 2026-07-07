@@ -113,8 +113,8 @@ as = stategrid[:a]
 ys = stategrid[:y]
 idx = 1:div(length(as), 3)          # left third of the asset grid, where the curvature is
 iys = round.(Int, range(1, length(ys), length = 3))
-μa = result.saved[:μa]
-c = result.saved[:c]
+μa = result.saved.μa
+c = result.saved.c
 
 p1 = plot(xlabel = "assets a", ylabel = "consumption c")
 for iy in iys

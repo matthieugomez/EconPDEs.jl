@@ -106,12 +106,12 @@ function (m::AchdouHanLasryLionsMollModel_RiskyAsset)(state::NamedTuple, u::Name
         c_candidate = va_candidate > 0.0 ? clamp(va_candidate^(-1 / γ), cmin, cmax) : cmax
         ## First compare the two portfolio constraints, then add the Merton interior point if it
         ## is well-defined. This keeps Newton's off-path trial values finite without hiding the FOC.
-        # Portfolio Hamiltonian at the upper constraint.
+        ## Portfolio Hamiltonian at the upper constraint.
         H_kmax = prem * va_candidate * kmax + 0.5 * vaa * σR^2 * kmax^2
         k_candidate = H_kmax > 0.0 ? kmax : 0.0
         if va_candidate > 0.0 && vaa < 0.0
             k_merton = clamp(-prem * va_candidate / (σR^2 * vaa), 0.0, kmax)
-            # Compare the interior Merton point with the best constraint found above.
+            ## Compare the interior Merton point with the best constraint found above.
             H_merton = prem * va_candidate * k_merton + 0.5 * vaa * σR^2 * k_merton^2
             H_candidate = prem * va_candidate * k_candidate + 0.5 * vaa * σR^2 * k_candidate^2
             k_candidate = H_merton >= H_candidate ? k_merton : k_candidate
@@ -192,8 +192,8 @@ end
 
 bc = (; va = ((stategrid.y .+ m.r * m.amin).^(-m.γ),
               fill(cshare^(-m.γ) * m.amax^(-m.γ), length(stategrid.y))))
-result = pdesolve(m, stategrid, guess; bc, Δ = 1e-3, method = :trust_region,
-                  inner_iterations = 50, iterations = 150)
+result = pdesolve(m, stategrid, guess; bc, Δ = 1e-3, alg = NonlinearSolve.TrustRegion(),
+                  inner_maxiters = 50, maxiters = 150)
 
 # ## The solution
 #
@@ -206,11 +206,11 @@ iys = round.(Int, range(1, length(ys), length = 3))
 
 p1 = plot(xlabel = "wealth a", ylabel = "consumption c")
 for iy in iys
-    plot!(p1, as[idx], result.saved[:c][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p1, as[idx], result.saved.c[iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 p2 = plot(xlabel = "wealth a", ylabel = "saving μa")
 for iy in iys
-    plot!(p2, as[idx], result.saved[:μa][iy, idx], label = "y = $(round(ys[iy], digits = 2))")
+    plot!(p2, as[idx], result.saved.μa[iy, idx], label = "y = $(round(ys[iy], digits = 2))")
 end
 hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))

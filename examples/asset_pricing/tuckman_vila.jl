@@ -88,12 +88,13 @@ result = pdesolve(m, stategrid, guess, τs)
 
 # ## The solution
 #
-# For a time-dependent problem `result.zero[i]` is the solution at time `τs[i]` (so
-# `result.zero[end]` is the terminal condition). To make the backward time dimension visible, we
-# fix a representative state near ``z = 0`` and plot its value over calendar time. The value
+# For a time-dependent problem each solution array has a trailing time dimension:
+# `result.solution.F[:, i]` is the solution at time `τs[i]` (so `result.solution.F[:, end]`
+# is the terminal condition). To make the backward time dimension visible, we fix a
+# representative state near ``z = 0`` and plot its value over calendar time. The value
 # falls to the terminal condition ``F = 0`` as ``\tau`` approaches ``T``.
 
 zs = stategrid[:z]
 z0_index = argmin(abs.(zs))
-F_at_z0 = [result.zero[i][:F][z0_index] for i in eachindex(τs)]
+F_at_z0 = result.solution.F[z0_index, :]
 plot(τs, F_at_z0; xlabel = "time τ", ylabel = "value F(z ≈ 0, τ)", legend = false)

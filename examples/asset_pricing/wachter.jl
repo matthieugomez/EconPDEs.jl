@@ -105,4 +105,4 @@ result = pdesolve(m, stategrid, guess)
 # and valuations drop.
 
 λs = stategrid[:λ]
-plot(λs, result.zero[:p]; xlabel = "disaster intensity λ", ylabel = "wealth–consumption ratio p", legend = false)
+plot(λs, result.solution.p; xlabel = "disaster intensity λ", ylabel = "wealth–consumption ratio p", legend = false)

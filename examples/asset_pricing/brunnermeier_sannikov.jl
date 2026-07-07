@@ -195,9 +195,10 @@ end
 
 # The sweep is order-dependent — it marches from the lower boundary `xmin` upward, each step
 # reusing the previous ``q`` carried in the mutable model — so `Δx` and `xmin` are passed into the
-# model and finite-difference autodiff is used:
+# model; `pdesolve` treats the assembled residual as a black box and differentiates it by colored
+# finite differences:
 
-result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, guess; autodiff = :finite)
+result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, guess)
 
 # ## The solution
 #
@@ -206,4 +207,4 @@ result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, guess; autodi
 # constraint slackens.
 
 xs = stategrid[:x]
-plot(xs, result.saved[:q]; xlabel = "experts' wealth share x", ylabel = "capital price q", legend = false)
+plot(xs, result.saved.q; xlabel = "experts' wealth share x", ylabel = "capital price q", legend = false)

@@ -91,4 +91,4 @@ Sbar = m.σ * sqrt(m.γ / (m.κs - m.b / m.γ))
 sbar = log(Sbar)
 ss = stategrid[:s]
 mask = ss .>= (sbar - 4)
-plot(exp.(ss[mask]), result.zero[:p][mask]; xlabel = "surplus consumption ratio S = exp(s)", ylabel = "price–consumption ratio p", legend = false)
+plot(exp.(ss[mask]), result.solution.p[mask]; xlabel = "surplus consumption ratio S = exp(s)", ylabel = "price–consumption ratio p", legend = false)

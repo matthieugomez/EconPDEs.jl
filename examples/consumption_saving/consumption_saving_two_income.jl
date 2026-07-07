@@ -119,7 +119,7 @@ result = pdesolve(m, stategrid, guess)
 
 as = stategrid[:a]
 idx = 1:div(length(as), 3)          # left third of the asset grid, where the curvature is
-p1 = plot(as[idx], [result.saved[:cl][idx] result.saved[:ch][idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "consumption c(a)", legend = :bottomright)
-p2 = plot(as[idx], [result.saved[:μla][idx] result.saved[:μha][idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "saving μa(a)", legend = :topright)
+p1 = plot(as[idx], [result.saved.cl[idx] result.saved.ch[idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "consumption c(a)", legend = :bottomright)
+p2 = plot(as[idx], [result.saved.μla[idx] result.saved.μha[idx]]; label = ["low income" "high income"], xlabel = "assets a", ylabel = "saving μa(a)", legend = :topright)
 hline!(p2, [0.0]; color = :gray, linestyle = :dash, label = "")
 plot(p1, p2; layout = (1, 2), size = (800, 300))

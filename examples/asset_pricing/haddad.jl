@@ -117,7 +117,7 @@ result = pdesolve(m, stategrid, guess)
 # ``\alpha^\star\gamma\sigma`` and making valuations more sensitive to volatility than under full
 # risk sharing.
 
-p = result.zero[:p]
+p = result.solution.p
 iμ = div(length(stategrid[:μ]), 2)
 iv = div(length(stategrid[:v]), 2)
 p1 = plot(stategrid[:μ], p[:, iv]; xlabel = "expected growth μ", ylabel = "price–consumption ratio p", legend = false)

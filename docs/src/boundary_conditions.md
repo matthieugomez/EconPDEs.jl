@@ -70,7 +70,9 @@ Pass the stopping payoff as a *lower bound* on the unknown with the `lower_bound
 result = pdesolve(pde, grid, guess; lower_bound = vec(payoff_on_grid))
 ```
 
-(The Unicode keywords `y̲` and `ȳ` from older versions still work, but are deprecated.)
+For several unknowns, pass a `NamedTuple` keyed like the initial guess, for example
+`lower_bound = (; v = payoff_on_grid, q = -Inf)`. Scalar entries apply to the whole grid;
+array entries must match the state-grid shape.
 
 The free boundary then comes out of the solution — the region where the bound binds is the
 stopping region, and value matching and smooth pasting hold automatically at its edge.

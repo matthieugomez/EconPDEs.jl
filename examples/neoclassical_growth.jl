@@ -137,12 +137,12 @@ ks = stategrid[:k]
 c_closed = closed_form_consumption.(ks)
 v_closed = closed_form_value.(ks)
 
-policy_error = maximum(abs.(result.saved[:c] .- c_closed) ./ c_closed)
-value_error = maximum(abs.(result.zero[:v] .- v_closed) ./ abs.(v_closed))
+policy_error = maximum(abs.(result.saved.c .- c_closed) ./ c_closed)
+value_error = maximum(abs.(result.solution.v .- v_closed) ./ abs.(v_closed))
 @printf("maximum relative policy error: %.2e\n", policy_error)
 @printf("maximum relative value error: %.2e\n", value_error)
 
-plot(ks, result.zero[:v]; xlabel = "capital k", ylabel = "value v(k)",
+plot(ks, result.solution.v; xlabel = "capital k", ylabel = "value v(k)",
      label = "numerical")
 plot!(ks, v_closed; linestyle = :dash, label = "closed form")
 
@@ -150,10 +150,10 @@ plot!(ks, v_closed; linestyle = :dash, label = "closed form")
 # below the steady state and negative above it, crossing zero exactly at ``\bar k`` — the
 # saddle-path-stable steady state the economy is drawn toward.
 
-p1 = plot(ks, result.saved[:c]; xlabel = "capital k", ylabel = "consumption c(k)",
+p1 = plot(ks, result.saved.c; xlabel = "capital k", ylabel = "consumption c(k)",
           label = "numerical")
 plot!(p1, ks, c_closed; linestyle = :dash, label = "closed form")
-p2 = plot(ks, result.saved[:μk]; xlabel = "capital k", ylabel = "capital drift μk", legend = false)
+p2 = plot(ks, result.saved.μk; xlabel = "capital k", ylabel = "capital drift μk", legend = false)
 hline!(p2, [0.0]; color = :gray, linestyle = :dash)
 vline!(p2, [k̄]; color = :red, linestyle = :dot)
 plot(p1, p2; layout = (1, 2), size = (800, 300))

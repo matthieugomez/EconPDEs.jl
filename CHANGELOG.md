@@ -4,43 +4,103 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.0.0] — 2026-07-07
 
-- The Jacobian coloring used by the sparse finite differences is now computed in closed
-  form from the stencil structure (coordinate mod 3 in each state dimension, crossed with
-  the unknown index) instead of by greedy graph coloring of the assembled pattern. Same
-  provably optimal number of colors, but orders of magnitude faster to build (×300 on a
-  200×200 grid, ×3,000 on a 50×50×50 grid) — noticeable when `pdesolve` is called
-  repeatedly, e.g. in an estimation loop. `finiteschemesolve` gains a `colorvec` keyword
-  for callers who supply their own `J0` and know its coloring; by default a user-supplied
-  `J0` is still greedily colored.
-- Pass the residual to the solver behind a compile-once barrier (`ResidualWrapper`) when a
-  sparsity pattern is available (1–3 states), so the solver stack (`finiteschemesolve`,
-  `implicit_timestep`, FiniteDiff, NLsolve/NonlinearSolve internals) no longer recompiles
-  for every new model function. First solve of a new model in a warm session drops from
-  ~0.7s to ~0.3s; the remainder is the model's own PDE function and derivative accessors.
-- Add a `PrecompileTools` workload that solves a tiny model once at package precompilation,
-  caching the model-independent machinery (sparsity pattern and coloring, Jacobian cache,
-  Newton solve internals). First `pdesolve` call drops from ~5s to ~0.6s; the remainder is
-  code specialized on the user's model (the generated derivative accessors and the PDE
-  function itself), which must compile per model.
-- Better solver output: `pdesolve` prints a one-line problem summary (unknowns, grid size)
-  before solving and a convergence summary (time steps, elapsed time) after. A step whose
-  inner solve fails prints ✗ in the residual column (no step is taken; it is retried with
-  `Δ/10`) instead of a `NaN` residual, with unusual causes (a `NaN` from the model, a
-  singular Jacobian) flagged in parentheses.
-- Convergence failures are reported with `@warn` even when `verbose = false`, with
-  actionable hints, so solves embedded in silent loops (e.g. estimation) stay quiet on
-  success but surface failures. A solve that converges exactly at the iteration limit is
-  no longer mislabeled as unconverged.
-- `EconPDEResult` records the solver tolerance and gains a computed `converged` property,
-  also shown in its compact display.
-- After a rejected step, `Δ`'s regrowth is capped at half the failed value, breaking the
-  grow → reject → shrink cycle on hard problems (each rejection wastes a full round of
-  inner Newton iterations). The cap relaxes by `scale` with each accepted step, so the
-  solve is never pinned at a small fixed `Δ` for long.
-- Simplify the Di Tella example: drop the hand-tuned initial `Δ` (the default now
-  converges) and the printed numeric callouts.
+### Breaking Changes
+
+#### Migration Map
+
+| 1.x API | 2.0 API | Applies to |
+|---|---|---|
+| `method = :newton` | `alg = NonlinearSolve.NewtonRaphson()` | `pdesolve`, `finiteschemesolve` |
+| `method = :trust_region` | `alg = NonlinearSolve.TrustRegion()` | `pdesolve`, `finiteschemesolve` |
+| `iterations` | `maxiters` | `pdesolve`, `finiteschemesolve` |
+| `inner_iterations` | `inner_maxiters` | `pdesolve`, `finiteschemesolve` |
+| `maxdist` | `abstol` | `pdesolve`, `finiteschemesolve` |
+| `innerdist` | `inner_abstol` | `pdesolve`, `finiteschemesolve` |
+| `y̲`, `ȳ` | `lower_bound`, `upper_bound` | `pdesolve`, `finiteschemesolve` |
+| `J0` | `jac_prototype` | `finiteschemesolve` |
+| `result.zero` | `result.solution` (`result.zero` remains as a deprecated alias) | `pdesolve` output |
+| `result.optional` | `result.saved` (`result.optional` remains as a deprecated alias) | `pdesolve` output |
+
+Additionally, `result.solution` is now a `NamedTuple` rather than an `OrderedDict`.
+
+#### `pdesolve`
+
+- Keyword change: `method` was removed; use `alg = NonlinearSolve.NewtonRaphson()` or
+  another compatible NonlinearSolve algorithm object such as
+  `NonlinearSolve.TrustRegion()`.
+- Keyword change: `iterations` was renamed to `maxiters`.
+- Keyword change: `inner_iterations` was renamed to `inner_maxiters`.
+- Keyword change: `maxdist` was renamed to `abstol`.
+- Keyword change: `innerdist` was renamed to `inner_abstol` for time-dependent inner
+  solves.
+- Keyword change: `y̲` was renamed to `lower_bound`.
+- Keyword change: `ȳ` was renamed to `upper_bound`.
+- Removed keyword: `autodiff`; `pdesolve` uses its sparse stencil Jacobian and colored
+  finite differences directly.
+- Removed keyword: `reformulation`; bounded solves always use the minmax
+  mixed-complementarity residual.
+- Removed keyword: `autoscale`.
+- Output (`EconPDEResult`): `result.zero` was renamed to `result.solution`.
+- Output (`EconPDEResult`): `result.optional` was renamed to `result.saved`.
+- Output (`EconPDEResult`): `result.zero` and `result.optional` remain as deprecated
+  aliases.
+- Output (`EconPDEResult`): `result.solution` and `result.saved` are `NamedTuple`s of arrays.
+- Output (`EconPDEResult`): when the PDE saves nothing, `result.saved === NamedTuple()`.
+- Output (`EconPDEResult`): time-dependent solutions and saved objects use a trailing time
+  dimension, so `result.solution.v[.., i]` is the solution at `τs[i]`.
+- Output (`EconPDEResult`): `converged` is a computed property using the stored solver
+  tolerance. Tuple destructuring remains `solution, residual_norm, saved = result`.
+- Output (`EconPDEResult`): the legacy three-argument constructor was removed.
+
+#### `finiteschemesolve`
+
+- Keyword change: `method` was removed; use `alg = NonlinearSolve.NewtonRaphson()` or
+  another compatible NonlinearSolve algorithm object such as
+  `NonlinearSolve.TrustRegion()`.
+- Keyword change: `J0` was renamed to `jac_prototype`.
+- Keyword change: `iterations` was renamed to `maxiters`.
+- Keyword change: `inner_iterations` was renamed to `inner_maxiters`.
+- Keyword change: `maxdist` was renamed to `abstol`.
+- Keyword change: `innerdist` was renamed to `inner_abstol`.
+- Keyword change: `y̲` was renamed to `lower_bound`.
+- Keyword change: `ȳ` was renamed to `upper_bound`.
+- New keyword: `jac` can provide an in-place Jacobian for the stationary residual.
+- New keyword: `colorvec` can provide the column coloring of `jac_prototype`; otherwise a
+  coloring is computed from the supplied sparsity pattern.
+- Removed keyword: `autodiff`; choose AD/linear-solver behavior through the
+  NonlinearSolve algorithm object where applicable.
+- Removed keyword: `reformulation`; bounded solves always use the minmax
+  mixed-complementarity residual.
+- Removed keyword: `autoscale`.
+
+#### `EconPDEs`
+
+- `EconPDEs` no longer re-exports `OrderedDict` and no longer depends on
+  OrderedCollections.
+
+### Improvements
+
+- `EconPDEs` now exports the `NonlinearSolve` module, so users can write
+  `using EconPDEs` and then pass `NonlinearSolve.NewtonRaphson()` or any other compatible
+  NonlinearSolve algorithm object.
+- Sparse coloring now works for any number of state dimensions.
+- `pdesolve` time grids must be strictly increasing, time-dependent PDE methods are
+  detected by applicability, stationary-only pseudo-transient step controls are rejected
+  when a time grid is supplied, bounds may be `NamedTuple`s keyed like `guess`, and
+  convergence failures warn even with `verbose = false`.
+- Sparse Jacobian coloring is computed in closed form from the stencil structure
+  (coordinate mod 3 in each state dimension, crossed with the unknown index) instead of by
+  greedy graph coloring of the assembled pattern.
+- Residual evaluation uses a compile-once barrier when a sparsity pattern is available,
+  reducing repeated model-solve latency.
+- A `PrecompileTools` workload now solves a tiny model during package precompilation,
+  caching the model-independent solver machinery.
+- Solver output now includes a one-line problem summary, a final convergence summary, and
+  clearer rejected-step markers. After a rejected step, `Δ` regrowth is capped at half the
+  failed value.
+- The Di Tella example no longer needs a hand-tuned initial `Δ`.
 
 ## [1.6.0] — 2026-07-03
 

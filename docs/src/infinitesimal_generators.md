@@ -239,17 +239,18 @@ v, residual_norm = finiteschemesolve(
     verbose = false,
 )
 
-maximum(abs, v .- [result.zero[:vl] result.zero[:vh]])
+maximum(abs, v .- [result.solution.vl result.solution.vh])
 ```
 
 ```@example infinitesimal_generators
 @assert residual_norm <= 1e-6 # hide
-@assert maximum(abs, v .- [result.zero[:vl] result.zero[:vh]]) <= 1e-6 # hide
+@assert maximum(abs, v .- [result.solution.vl result.solution.vh]) <= 1e-6 # hide
 nothing # hide
 ```
 
 The tradeoff is transparency for bookkeeping: you choose how to construct each derivative
-and write directly into the
-residual array, but you also lose the named derivative bundle, automatic saving of outputs,
-multidimensional stencil assembly, and the sparse Jacobian pattern that `pdesolve`
-constructs for one-, two-, and three-state problems.
+and write directly into the residual array, but you also lose the named derivative bundle,
+automatic saving of outputs, multidimensional stencil assembly, and the sparse Jacobian
+pattern that `pdesolve` constructs from the local stencil. If you call
+`finiteschemesolve` directly, `jac`, `jac_prototype`, and `colorvec` are the lower-level
+hooks for supplying the residual Jacobian data yourself.

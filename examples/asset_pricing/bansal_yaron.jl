@@ -99,5 +99,5 @@ result = pdesolve(m, stategrid, guess)
 # is riskier. Because ``p`` is defined over the ``(\mu, v)`` plane, we show the full state-space
 # pattern as a three-dimensional graph.
 
-p = result.zero[:p]
+p = result.solution.p
 surface(vs, μs, p; xlabel = "variance v", ylabel = "growth μ", zlabel = "p", colorbar = false, size = (720, 460), left_margin = 8Plots.mm, bottom_margin = 8Plots.mm, right_margin = 6Plots.mm)

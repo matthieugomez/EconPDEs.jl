@@ -64,7 +64,7 @@ end
 function initialize_y(m::DiTellaModel, stategrid)
   xn = length(stategrid[:x])
   νn = length(stategrid[:ν])
-  (; pA = 20 * ones(xn, νn), pB = 20 * ones(xn, νn), p = 20 * ones(xn, νn))
+  (; pA = ones(xn, νn), pB = ones(xn, νn), p = ones(xn, νn))
 end
 
 m = DiTellaModel()

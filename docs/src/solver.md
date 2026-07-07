@@ -49,9 +49,9 @@ of ``F(y) = 0``. The outer continuation loop in step 3 starts cautiously and ada
 
 1. Starting from the guess, solve one implicit step of size `Δ`.
 2. If the inner solve converges, accept the step; grow `Δ` when the residual falls, and shrink it when the residual rises.
-3. If the inner solve fails, reject the step, shrink `Δ` by 10, and retry. Regrowth is
-   then capped below the failed `Δ` until the residual has clearly improved, so a `Δ`
-   that just failed is not immediately retried.
+3. If the inner solve fails, reject the step, shrink `Δ` by 10, and retry. The next step
+   is capped at half the failed `Δ`, so a `Δ` that just failed is not immediately retried;
+   the cap relaxes with each subsequent accepted step.
 4. Stop when the residual norm falls below `maxdist`.
 
 This adaptive scheme is *pseudo-transient continuation*, imported from computational fluid

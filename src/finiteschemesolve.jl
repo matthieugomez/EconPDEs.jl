@@ -145,39 +145,39 @@ end
 # Adaptive pseudo-transient time step, as described in the `finiteschemesolve` docstring
 # under `scale`: an accepted step grows Δ by `scale * (old residual / new residual)`, with
 # `scale` compounding across consecutive improving steps (`coef`). A rejected step shrinks
-# Δ by 10 and caps its regrowth at half the failed value (`Δ_cap`) until the residual falls
-# to half its level at the failure (`residual_release`) — otherwise Δ would regrow straight
-# back to the value that just failed and the solve would cycle between growth and rejection.
+# Δ by 10 and caps the next step at half the failed value (`Δ_cap`) — otherwise Δ would
+# regrow straight back to the value that just failed and the solve would cycle between
+# growth and rejection. The cap relaxes by `scale` on every accepted step: whether a larger
+# Δ will succeed depends on how close the iterate is to the solution, not on the residual
+# level, so after a step or two a retry usually succeeds — and if it fails again the cap
+# simply re-tightens. Holding the cap any longer pins the solve at a small fixed Δ, where
+# each step costs a full inner solve but barely reduces the residual.
 mutable struct TimeStepController
     Δ::Float64
-    scale::Float64             # base growth factor for accepted steps
+    scale::Float64  # base growth factor for accepted steps
     maxΔ::Float64
-    coef::Float64              # compounded growth factor across improving steps
-    Δ_cap::Float64             # temporary regrowth cap set by a rejected step
-    residual_release::Float64  # residual level below which the cap is lifted
+    coef::Float64   # compounded growth factor across improving steps
+    Δ_cap::Float64  # regrowth cap set by a rejected step, relaxed by each accepted step
 end
-TimeStepController(Δ, scale, maxΔ) = TimeStepController(Δ, scale, maxΔ, 1.0, maxΔ, 0.0)
+TimeStepController(Δ, scale, maxΔ) = TimeStepController(Δ, scale, maxΔ, 1.0, maxΔ)
 
 # the inner solve at Δ succeeded, moving the residual from `oldresidual_norm` to `residual_norm`
 function accept!(stepper::TimeStepController, oldresidual_norm, residual_norm)
-    if residual_norm <= stepper.residual_release
-        stepper.Δ_cap = stepper.maxΔ
-    end
     stepper.coef = residual_norm <= oldresidual_norm ? stepper.scale * stepper.coef : 1.0
     stepper.Δ *= stepper.coef * oldresidual_norm / residual_norm
-    if stepper.Δ > stepper.Δ_cap
+    if stepper.Δ > min(stepper.Δ_cap, stepper.maxΔ)
         # pinned at the cap: stop compounding the acceleration factor
-        stepper.Δ = stepper.Δ_cap
+        stepper.Δ = min(stepper.Δ_cap, stepper.maxΔ)
         stepper.coef = 1.0
     end
+    stepper.Δ_cap = min(stepper.Δ_cap * stepper.scale, stepper.maxΔ)
     return stepper.Δ
 end
 
-# the inner solve at Δ failed (the residual stays at `oldresidual_norm`)
-function reject!(stepper::TimeStepController, oldresidual_norm)
+# the inner solve at Δ failed (the residual is unchanged)
+function reject!(stepper::TimeStepController)
     stepper.coef = 1.0
     stepper.Δ_cap = stepper.Δ / 2
-    stepper.residual_release = oldresidual_norm / 2
     stepper.Δ /= 10
     return stepper.Δ
 end
@@ -198,8 +198,8 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
 * `scale = 10.0`: growth factor for the time step. After a successful step that reduces the
   residual, `Δ` is multiplied by `scale * (old residual / new residual)`, and `scale`
   compounds across consecutive improving steps. After a failed inner solve, `Δ` is divided
-  by 10 and its regrowth is capped at half the failed `Δ` until the residual falls to half
-  its level at the failure, so a `Δ` that just failed is not immediately retried.
+  by 10 and its regrowth is capped at half the failed `Δ`, so a `Δ` that just failed is not
+  immediately retried; the cap relaxes by `scale` with each subsequent successful step.
 * `minΔ = 1e-9`, `maxΔ = Inf`: bounds on the time step. The solve stops when `Δ < minΔ`
   (typically a sign that the scheme is non-monotone or the initial guess is poor).
 * `iterations = 100`: maximum number of pseudo-transient (outer) iterations.
@@ -295,7 +295,7 @@ function finiteschemesolve(G!, y0; Δ = 1.0, is_algebraic = fill(false, size(y0)
                     @printf "%4d %8.2e        ✗%s\n" iter stepper.Δ reason
                 end
                 # the implicit time step is not solved: revert and shrink Δ
-                reject!(stepper, oldresidual_norm)
+                reject!(stepper)
                 residual_norm = oldresidual_norm
             end
         end

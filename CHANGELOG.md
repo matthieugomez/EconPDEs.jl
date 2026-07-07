@@ -35,9 +35,10 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
   no longer mislabeled as unconverged.
 - `EconPDEResult` records the solver tolerance and gains a computed `converged` property,
   also shown in its compact display.
-- After a rejected step, `Δ`'s regrowth is capped at half the failed value until the
-  residual falls to half its level at the failure, breaking the grow → reject → shrink
-  cycle on hard problems (each rejection wastes a full round of inner Newton iterations).
+- After a rejected step, `Δ`'s regrowth is capped at half the failed value, breaking the
+  grow → reject → shrink cycle on hard problems (each rejection wastes a full round of
+  inner Newton iterations). The cap relaxes by `scale` with each accepted step, so the
+  solve is never pinned at a small fixed `Δ` for long.
 - Simplify the Di Tella example: drop the hand-tuned initial `Δ` (the default now
   converges) and the printed numeric callouts.
 

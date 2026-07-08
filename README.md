@@ -48,31 +48,39 @@ using EconPDEs
 const rho = 0.05
 const kappa = 0.2
 
-# 1. Define a `NamedTuple` representing the state space as a grid
+# 1. Define a `NamedTuple` representing the state space as a grid:
 grid = (; x = range(0.0, 1.0, length = 50))
 
-# 2. Define a `NamedTuple` representing an initial guess for the solution
+# 2. Define a `NamedTuple` representing an initial guess for the solution:
 guess = (; v = zeros(length(grid.x)))
 
-# 3. Define a function encoding the PDE at each grid point
-function pde(state, u)
-    # The grid names determine the fields of state: state.x.
+# 3. Define a function  encoding the PDE at each grid point:
+function pde(state::NamedTuple, u::NamedTuple)
+    # `state` holds the coordinates of the current grid point (here, just `state.x`)
+    # `u` holds the solution and its finite-difference derivatives at that point.
+    #`u.v`, the up/down first derivative, `u.vx_up` and `u.vx_down`, and the second derivative `u.vxx`.
+    # The function must return the time derivative implied by rho*v = x + mu*v_x + v_t.
     mu = -kappa * (state.x - 0.5)
-    # The guess names determine the fields of u: u.v, u.vx_up, and u.vx_down.
-    # Choose first-derivative direction based on the sign of the drift (upwinding)
-    vx = mu >= 0 ? u.vx_up : u.vx_down
-    # Return the time derivative implied by rho*v = x + mu*v_x + v_t.
-    vt = -(state.x + mu * vx - rho * u.v)
-    return (; vt)
+    vt = -(state.x + mu * (mu >= 0 ? u.vx_up : u.vx_down) - rho * u.v)
+    return (; vt)::NamedTuple
 end
 
 # 4. Pass these three objects to `pdesolve`
-result = pdesolve(pde, grid, guess; verbose = false)
+result = pdesolve(pde, grid, guess)
+# Solving for 1 unknown (v) on a 50-point grid
+# Iter TimeStep Residual
+# ---- -------- --------
+#    1 1.00e+00 7.51e-02
+#    2 1.09e+01 4.45e-02
+#    3 1.85e+03 4.67e-04
+#    4 1.76e+08 1.22e-10
+# Converged after 4 time steps (63ms)
 # EconPDEResult
 #   solution:      v (50)
 #   residual_norm: 1.22e-10
 #   converged:     true (tolerance 1.49e-08)
 ```
+Note that, in encoding the pde, we used the forward difference when the drift is positive, the backward one otherwise (upwinding).
 
 The same interface extends to multiple states...
 
@@ -89,7 +97,7 @@ function pde(state, u)
 end
 ```
 
-...as well as multiple value functions (i.e., coupled PDES). 
+... as well as multiple value functions (i.e., coupled PDES). 
 ```julia
 grid = (; x = range(0.0, 1.0, length = 50))
 guess = (; v = zeros(length(grid.x)), w = zeros(length(grid.x)))

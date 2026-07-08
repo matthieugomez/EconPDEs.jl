@@ -1,15 +1,13 @@
 # # Gârleanu–Panageas with long-run risk: alternating values and prices
 #
-# This example solves a heterogeneous-agent Gârleanu–Panageas economy in which the
-# aggregate endowment process follows long-run-risk dynamics. There are three state
+# This example solves a heterogeneous-agent a la Gârleanu–Panageas economy but where the
+# aggregate endowment process has long-run-risk dynamics. There are now three state
 # variables: `x`, the type-A consumption share; `μ`, expected endowment growth; and `v`,
-# the conditional variance of endowment growth. The extra long-run-risk states make
-# equilibrium prices and prices of risk vary over the state grid rather than reduce to
-# constants.
+# the conditional variance of endowment growth. 
 #
-# To my knowledge, this three-state GP long-run-risk economy has not previously been
-# presented as a worked numerical solution. To help with convergence, the example below
-# presents a helpful solution method: formulate the model in EconPDEs by treating the
+# To my knowledge, no one has ever discussed such a model 
+# --- one reason being that that it is hard to solve models on a 3D state grid.
+# The example presents a helpful solution method: formulate the model in EconPDEs by treating the
 # interest rate and prices of risk as state-dependent unknown functions, and alternate
 # between valuation equations and market-clearing price updates.
 #

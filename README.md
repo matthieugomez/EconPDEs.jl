@@ -7,7 +7,7 @@
 
 `EconPDEs.jl` solves nonlinear ODEs and PDEs that arise in economic models, especially Hamilton-Jacobi-Bellman equations.
 
-You write the equation at one grid point. The package builds the finite-difference derivatives, exposes upwind stencils, assembles sparse Jacobians, and solves the system by pseudo-transient Newton iteration.
+You specify three things: (i) the state space, (ii) an initial guess for the solution, and (iii) a function that returns the PDE residual at each grid point. The package handles the rest — it builds the finite-difference derivatives, applies upwind stencils, assembles the sparse Jacobian, and solves the system by pseudo-transient Newton iteration.
 
 Use it for stationary or time-dependent HJBs on one or more state variables, with one or more value functions.
 
@@ -39,11 +39,7 @@ problem, solved backward in time from an initial guess until the time derivative
 \rho v(x, t) = x + \mu(x) v_x(x, t) + v_t(x, t),
 ```
 
-The main function `pdesolve` takes three objects:
 
-- a function `pde(state, u)` encoding the PDE at a grid point;
-- a `NamedTuple` encoding the state grid, such as `(; k = range(...))`;
-- a `NamedTuple` encoding the initial guess, such as `(; v = [...])`.
 
 Here is how to solve this equation using this package:
 ```julia
@@ -52,62 +48,73 @@ using EconPDEs
 const rho = 0.05
 const kappa = 0.2
 
+# 1. Define a `NamedTuple` representing the state space as a grid
 grid = (; x = range(0.0, 1.0, length = 50))
+
+# 2. Define a `NamedTuple` representing an initial guess for the solution
 guess = (; v = zeros(length(grid.x)))
 
+# 3. Define a function encoding the PDE at each grid point
 function pde(state, u)
     # The grid names determine the fields of state: state.x.
     mu = -kappa * (state.x - 0.5)
     # The guess names determine the fields of u: u.v, u.vx_up, and u.vx_down.
+    # Choose first-derivative direction based on the sign of the drift (upwinding)
     vx = mu >= 0 ? u.vx_up : u.vx_down
     # Return the time derivative implied by rho*v = x + mu*v_x + v_t.
     vt = -(state.x + mu * vx - rho * u.v)
     return (; vt)
 end
 
+# 4. Pass these three objects to `pdesolve`
 result = pdesolve(pde, grid, guess; verbose = false)
-
-value = result.solution.v
-@assert result.residual_norm <= 1e-4
+# EconPDEResult
+#   solution:      v (50)
+#   residual_norm: 1.22e-10
+#   converged:     true (tolerance 1.49e-08)
 ```
 
-The drift is positive below `0.5` and negative above `0.5`, so the equation chooses the
-forward or backward derivative at each grid point.
-
-The same interface extends to multiple states or unknowns. Grid entries can be ranges or
-vectors, and different dimensions can use different vector containers:
+The same interface extends to multiple states...
 
 ```julia
-grid = (; a = range(0.0, 100.0, length = 500),
+grid = (; x = range(0.0, 1.0, length = 50),
           y = collect(range(0.5, 1.5, length = 10)))
-guess = (; v = zeros(length(grid.a), length(grid.y)))
+guess = (; v = zeros(length(grid.x), length(grid.y)))
 
 function pde(state, u)
-    (; a, y) = state
-    (; v, va_up, va_down, vy_up, vy_down, vaa, vyy, vay_up, vay_down) = u
+    (; x, y) = state
+    (; v, vx_up, vx_down, vy_up, vy_down, vxx, vyy, vxy_up, vxy_down) = u
     ...
     return (; vt)
 end
 ```
 
-For two unknowns, return `(; vt, wt)`. Return a second `NamedTuple` to save policies,
-drifts, prices, or other objects on the grid; they are available as `result.saved`.
-Full HJB examples, including policy choice and endogenous upwinding, are in the
-documentation.
+...as well as multiple value functions (i.e., coupled PDES). 
+```julia
+grid = (; x = range(0.0, 1.0, length = 50))
+guess = (; v = zeros(length(grid.x)), w = zeros(length(grid.x)))
+
+function pde(state, u)
+    (; x) = state
+    (; v, vx_up, vx_down, vxx, w, wx_up, wx_down, wxx) = u
+    ...
+    return (; vt, wt)
+end
+```
+
 
 ## Documentation
 
-The [documentation](https://www.matthieugomez.com/EconPDEs.jl/dev/) gives further details. It also includes a gallery of runnable examples:
+Read the [documentation](https://www.matthieugomez.com/EconPDEs.jl/dev/) for further details. 
+The documentation also includes a gallery of runnable examples (see [`examples/`](examples) for the original scripts): 
 
 - consumption-saving models, including borrowing constraints, income risk, and risky assets;
 - asset-pricing models, including habit, long-run risk, rare disasters, and intermediary finance;
 - corporate-finance models, including optimal default and investment with financing constraints.
 
-The source scripts live in [`examples/`](examples).
-
 ## Citation
 
-If you use EconPDEs.jl in your work, please cite it. You can use the "Cite this repository" button on the [GitHub page](https://github.com/matthieugomez/EconPDEs.jl), or the following BibTeX entry:
+Please cite EconPDEs.jl if it is useful in your work. You can use the "Cite this repository" button on the [GitHub page](https://github.com/matthieugomez/EconPDEs.jl), or the following BibTeX entry:
 
 ```bibtex
 @software{EconPDEs.jl,

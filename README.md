@@ -56,14 +56,14 @@ guess = (; v = zeros(length(grid.x)))
 
 # 3. Define a function  encoding the PDE at each grid point:
 function pde(state::NamedTuple, u::NamedTuple)
-    # `state` holds the coordinates of the current grid point (here, just `state.x`)
-    x = state.x
+    # `state` holds the coordinates of the current grid point
+    (; x) = state
     # `u` holds the solution and its finite-difference derivatives at that point.
-    v, vx_up, vx_down, vxx = u.v, u.vx_up, u.vx_down, u.vxx
+    (; v, vx_up, vx_down, vxx) = u
     # The function must return the time derivative implied by rho*v = x + mu*v_x + v_t.
     mu = -kappa * (x - 0.5)
     vt = -(x + mu * (mu >= 0 ? vx_up : vx_down) - rho * v)
-    return (; vt = vt)::NamedTuple
+    return (; vt)::NamedTuple
 end
 
 # 4. Pass these three objects to `pdesolve`

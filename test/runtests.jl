@@ -170,6 +170,11 @@ end
     @test result.converged
     @test :converged in propertynames(result)
     @test occursin("converged:     true", sprint(show, result))
+    @test EconPDEs._problem_description((; v = zeros(3)), EconPDEs.StateGrid((; k = 1:3))) ==
+          "1 unknown (v) on grid k = 3"
+    @test EconPDEs._problem_description((; pA = zeros(2, 3, 4), pB = zeros(2, 3, 4)),
+                                        EconPDEs.StateGrid((; x = 1:2, y = 1:3, z = 1:4))) ==
+          "2 unknowns (pA, pB) on grid x×y×z = 2×3×4"
 
     # ...but a failed solve warns even with verbose = false
     @test_logs (:warn, r"did not converge") match_mode=:any pdesolve(growth_hjb, grid, guess; maxiters = 1, verbose = false)

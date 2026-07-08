@@ -44,8 +44,8 @@ corresponding rows skip the time-step term and are solved as static equations.
 
 The size of `Δ` controls how aggressive the step is. Small `Δ` makes the equation close to
 ``y_{n+1} = y_n``, so the step is cautious but progress is slow. Large `Δ` makes the
-time-step term negligible; in nonlinear problems, the step approaches a direct Newton solve
-of ``F(y) = 0``. The outer continuation loop in step 3 starts cautiously and adapts:
+time-step term negligible; in nonlinear problems, the step approaches the stationary
+residual ``F(y) = 0``. The outer continuation loop in step 3 starts cautiously and adapts:
 
 1. Starting from the guess, solve one implicit step of size `Δ`.
 2. If the inner solve converges, accept the step; grow `Δ` when the residual falls, and shrink it when the residual rises.
@@ -63,7 +63,7 @@ outer iteration, and a convergence summary (this is the habit-formation model of
 example gallery):
 
 ```
-Solving for 1 unknown (p) on a 998-point grid
+Solving for 1 unknown (p) on grid s = 998
 Iter TimeStep Residual
 ---- -------- --------
    1 1.00e+00 2.51e-02
@@ -216,12 +216,32 @@ semi-implicit fixed-point iteration, not Newton's method. `pdesolve` instead tre
 whole discretized equilibrium as a sparse nonlinear system and solves that system with
 Newton by default, with a trust-region variant available for harder cases.
 
+For equilibrium asset-pricing models, this gives a useful modeling choice. If the
+equilibrium interest rate, prices of risk, or other aggregate prices have simple closed
+forms, it is often best to substitute those formulas into the HJB and solve the smaller
+reduced system. But when those prices feed back into drifts, volatilities, upwind
+directions, or cross-derivative terms, substitution can make the PDE operator much more
+nonlinear. In that case, keep the prices as unknown functions and add their market-clearing
+conditions as algebraic equations:
+
+```math
+0 = H(V, r, \kappa), \qquad
+0 = r - R(V, \partial V), \qquad
+0 = \kappa - K(V, \partial V).
+```
+
+The system is larger, but optimization equations and market-clearing equations remain
+separate. The computation alternates between the two blocks: holding prices fixed, solve
+the valuation equations; holding the valuation functions fixed, update prices from market
+clearing. The Gârleanu-Panageas long-run-risk example uses this representation for the
+interest rate and three prices of risk; simpler one-state examples usually do not need it.
+
 **The time step controls the regime.** The role of `Δ` is separate from the three cases
 above. For finite `Δ`, each Newton or policy-evaluation step is anchored to the previous
 outer iterate ``V_n``. As ``\Delta \to \infty`` the anchor disappears. In a linear valuation
 problem, this is just the stationary linear system. In a pure stationary HJB, the Newton
 loop becomes Howard policy iteration: improve the policy, evaluate it, repeat. In an
-equilibrium system, the same limit is a direct Newton solve of the full stationary residual.
+equilibrium system, the same limit removes the transient anchor from the stationary residual.
 Growing `Δ` adaptively therefore moves the solver from stabilized iteration toward a fast,
 local stationary solve.
 
@@ -232,7 +252,7 @@ The same ideas travel under different names across fields:
 | upwind differences | monotone scheme | Markov chain approximation |
 | explicit step | forward Euler (CFL-capped) | value function iteration |
 | implicit step | backward Euler (stable for all `Δ`) | valuation to a random horizon of mean `Δ` |
-| `Δ = Inf` | stationary nonlinear solve (Newton by default) | Howard policy iteration for HJBs; direct Newton for equilibrium systems |
+| `Δ = Inf` | stationary nonlinear solve (Newton by default) | Howard policy iteration for HJBs; stationary equilibrium equations |
 | adaptive `Δ` | pseudo-transient continuation | value iteration morphing into policy iteration or Newton |
 
 In the nonlinear cases, the extra Newton work is cheap enough to be useful because the

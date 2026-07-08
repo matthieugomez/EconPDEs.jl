@@ -66,15 +66,6 @@ function GarleanuPanageasLongRunRiskModel(;
         νA, μbar, vbar, κμ, νμ, κv, νv, B1 / scale, δ1, B2 / scale, δ2, ω)
 end
 
-struct GarleanuPanageasLongRunRiskFrozenPriceModel
-    model::GarleanuPanageasLongRunRiskModel
-    stategrid::NamedTuple
-    r::Array{Float64, 3}
-    κC::Array{Float64, 3}
-    κM::Array{Float64, 3}
-    κV::Array{Float64, 3}
-end
-
 function (model::GarleanuPanageasLongRunRiskModel)(state::NamedTuple, u::NamedTuple)
     (; γA, ψA, γB, ψB, ρ, δ, νA, μbar, vbar, κμ, νμ, κv, νv, B1, δ1, B2, δ2, ω) = model
     (; x, μ, v) = state
@@ -239,18 +230,8 @@ function (model::GarleanuPanageasLongRunRiskModel)(state::NamedTuple, u::NamedTu
               μx, σx = sqrt(σx2), σxC, σxM, σxV)
 end
 
-function (model::GarleanuPanageasLongRunRiskFrozenPriceModel)(
-        state::NamedTuple, u::NamedTuple)
-    ix = searchsortedfirst(model.stategrid.x, state.x)
-    iμ = searchsortedfirst(model.stategrid.μ, state.μ)
-    iv = searchsortedfirst(model.stategrid.v, state.v)
-    u_with_prices = merge(u, (; r = model.r[ix, iμ, iv],
-                              κC = model.κC[ix, iμ, iv],
-                              κM = model.κM[ix, iμ, iv],
-                              κV = model.κV[ix, iμ, iv]))
-    out, saved = model.model(state, u_with_prices)
-    return (; pAt = out.pAt, pBt = out.pBt, ϕ1t = out.ϕ1t, ϕ2t = out.ϕ2t), saved
-end
+
+
 
 # Define the calibration and state grid.
 m = GarleanuPanageasLongRunRiskModel()
@@ -292,6 +273,29 @@ guess = (; pA, pB, ϕ1, ϕ2, r, κC, κM, κV)
 # Alternate between prices and value functions. Holding `r`, `κC`, `κM`, and `κV` fixed,
 # solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then update prices toward the values
 # implied by market clearing.
+
+struct GarleanuPanageasLongRunRiskFrozenPriceModel
+    model::GarleanuPanageasLongRunRiskModel
+    stategrid::NamedTuple
+    r::Array{Float64, 3}
+    κC::Array{Float64, 3}
+    κM::Array{Float64, 3}
+    κV::Array{Float64, 3}
+end
+
+function (model::GarleanuPanageasLongRunRiskFrozenPriceModel)(
+        state::NamedTuple, u::NamedTuple)
+    ix = searchsortedfirst(model.stategrid.x, state.x)
+    iμ = searchsortedfirst(model.stategrid.μ, state.μ)
+    iv = searchsortedfirst(model.stategrid.v, state.v)
+    u_with_prices = merge(u, (; r = model.r[ix, iμ, iv],
+                              κC = model.κC[ix, iμ, iv],
+                              κM = model.κM[ix, iμ, iv],
+                              κV = model.κV[ix, iμ, iv]))
+    out, saved = model.model(state, u_with_prices)
+    return (; pAt = out.pAt, pBt = out.pBt, ϕ1t = out.ϕ1t, ϕ2t = out.ϕ2t), saved
+end
+
 damping = 0.5
 warmup_maxiters = 20
 warmup_inner_maxiters = 10

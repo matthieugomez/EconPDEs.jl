@@ -1,4 +1,4 @@
-# # Gârleanu–Panageas with long-run risk: PDE/algebraic solve
+# # Gârleanu–Panageas with long-run risk: alternating values and prices
 #
 # This example illustrates a useful way to write general-equilibrium asset-pricing
 # systems. Rather than first solving the equilibrium pricing equations for the interest
@@ -24,8 +24,8 @@
 # risk premia, or volatilities feed back strongly into the law of motion. It is not needed
 # in every model: when the equilibrium prices have simple closed forms and substituting
 # them leaves a well-conditioned HJB, the shorter reduced-form PDE is preferable.
-# Here `pdesolve` handles the full PDE/algebraic system directly. We use the trust-region
-# nonlinear solver because it is more robust for this tightly coupled equilibrium system.
+# The computation alternates between fixed-price valuation equations and price updates
+# from market clearing.
 
 using EconPDEs
 using Distributions
@@ -254,17 +254,15 @@ end
 
 # Define the calibration and state grid.
 m = GarleanuPanageasLongRunRiskModel()
-xn, μn, vn = 20, 8, 8
+xn, μn, vn = 10, 5, 5
 μsd = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
 μdistribution = Normal(m.μbar, μsd)
 vdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
 xs = collect(range(0.0, 1.0, length = xn).^2)
-μs = sort(unique(vcat(collect(range(quantile(μdistribution, 0.10),
-                                  quantile(μdistribution, 0.90), length = μn)),
-                       [m.μbar])))
-vs = sort(unique(vcat(collect(range(quantile(vdistribution, 0.10),
-                                  quantile(vdistribution, 0.90), length = vn)),
-                       [m.vbar])))
+μs = collect(range(quantile(μdistribution, 0.10),
+                   quantile(μdistribution, 0.90), length = μn))
+vs = collect(range(quantile(vdistribution, 0.10),
+                   quantile(vdistribution, 0.90), length = vn))
 stategrid = (; x = xs, μ = μs, v = vs)
 
 # Define the initial guess for value functions and equilibrium price functions.
@@ -291,10 +289,9 @@ end
 
 guess = (; pA, pB, ϕ1, ϕ2, r, κC, κM, κV)
 
-# Build the initial guess by alternating between prices and value functions. Holding
-# `r`, `κC`, `κM`, and `κV` fixed, solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then
-# update prices toward the values implied by market clearing, and start the full joint
-# solve from the updated guess.
+# Alternate between prices and value functions. Holding `r`, `κC`, `κM`, and `κV` fixed,
+# solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then update prices toward the values
+# implied by market clearing.
 damping = 0.5
 warmup_maxiters = 20
 warmup_inner_maxiters = 10
@@ -414,22 +411,22 @@ end
 #
 # The model has three state variables, so we inspect one-dimensional slices of the
 # equilibrium price schedules. First vary expected growth ``\mu`` while holding variance
-# fixed at ``\bar v``. Then vary variance ``v`` while holding expected growth fixed at
-# ``\bar\mu``. The total price of risk is
+# fixed at the middle grid point. Then vary variance ``v`` while holding expected growth
+# fixed at the middle grid point. The total price of risk is
 # ``\kappa = \sqrt{\kappa_C^2 + \kappa_\mu^2 + \kappa_v^2}``.
 
 xgrid = stategrid.x
-μbar_index = findfirst(==(m.μbar), stategrid.μ)
-vbar_index = findfirst(==(m.vbar), stategrid.v)
-μ_indices = [1, μbar_index, length(stategrid.μ)]
-v_indices = [1, vbar_index, length(stategrid.v)]
+μ_mid_index = cld(length(stategrid.μ), 2)
+v_mid_index = cld(length(stategrid.v), 2)
+μ_indices = unique([1, μ_mid_index, length(stategrid.μ)])
+v_indices = unique([1, v_mid_index, length(stategrid.v)])
 
 r_by_μ = plot(; xlabel = "type-A consumption share x", ylabel = "interest rate r")
 κ_by_μ = plot(; xlabel = "type-A consumption share x", ylabel = "total price of risk κ")
 for iμ in μ_indices
     label = "μ = $(round(stategrid.μ[iμ]; digits = 3))"
-    plot!(r_by_μ, xgrid, result.solution.r[:, iμ, vbar_index]; label)
-    plot!(κ_by_μ, xgrid, result.saved.κ[:, iμ, vbar_index]; label)
+    plot!(r_by_μ, xgrid, result.solution.r[:, iμ, v_mid_index]; label)
+    plot!(κ_by_μ, xgrid, result.saved.κ[:, iμ, v_mid_index]; label)
 end
 plot(r_by_μ, κ_by_μ; layout = (1, 2), size = (820, 300))
 
@@ -437,7 +434,7 @@ r_by_v = plot(; xlabel = "type-A consumption share x", ylabel = "interest rate r
 κ_by_v = plot(; xlabel = "type-A consumption share x", ylabel = "total price of risk κ")
 for iv in v_indices
     label = "v = $(round(stategrid.v[iv]; sigdigits = 3))"
-    plot!(r_by_v, xgrid, result.solution.r[:, μbar_index, iv]; label)
-    plot!(κ_by_v, xgrid, result.saved.κ[:, μbar_index, iv]; label)
+    plot!(r_by_v, xgrid, result.solution.r[:, μ_mid_index, iv]; label)
+    plot!(κ_by_v, xgrid, result.saved.κ[:, μ_mid_index, iv]; label)
 end
 plot(r_by_v, κ_by_v; layout = (1, 2), size = (820, 300))

@@ -97,6 +97,8 @@ Additionally, `result.solution` is now a `NamedTuple` rather than an `OrderedDic
   reducing repeated model-solve latency.
 - A `PrecompileTools` workload now solves a tiny model during package precompilation,
   caching the model-independent solver machinery.
+- Add a three-state Gârleanu–Panageas long-run-risk asset-pricing example with alternating
+  value and price updates.
 - Solver output now includes a one-line problem summary, a final convergence summary, and
   clearer rejected-step markers. After a rejected step, `Δ` regrowth is capped at half the
   failed value.

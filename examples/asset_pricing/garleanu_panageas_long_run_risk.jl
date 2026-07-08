@@ -29,7 +29,9 @@
 
 using EconPDEs
 using Distributions
+using Logging
 using Plots
+using Printf
 
 struct GarleanuPanageasLongRunRiskModel
     γA::Float64
@@ -62,6 +64,15 @@ function GarleanuPanageasLongRunRiskModel(;
     scale = δ / (δ + δ1) * B1 + δ / (δ + δ2) * B2
     return GarleanuPanageasLongRunRiskModel(γA, ψA, γB, ψB, ρ, δ,
         νA, μbar, vbar, κμ, νμ, κv, νv, B1 / scale, δ1, B2 / scale, δ2, ω)
+end
+
+struct GarleanuPanageasLongRunRiskFrozenPriceModel
+    model::GarleanuPanageasLongRunRiskModel
+    stategrid::NamedTuple
+    r::Array{Float64, 3}
+    κC::Array{Float64, 3}
+    κM::Array{Float64, 3}
+    κV::Array{Float64, 3}
 end
 
 function (model::GarleanuPanageasLongRunRiskModel)(state::NamedTuple, u::NamedTuple)
@@ -228,13 +239,26 @@ function (model::GarleanuPanageasLongRunRiskModel)(state::NamedTuple, u::NamedTu
               μx, σx = sqrt(σx2), σxC, σxM, σxV)
 end
 
+function (model::GarleanuPanageasLongRunRiskFrozenPriceModel)(
+        state::NamedTuple, u::NamedTuple)
+    ix = searchsortedfirst(model.stategrid.x, state.x)
+    iμ = searchsortedfirst(model.stategrid.μ, state.μ)
+    iv = searchsortedfirst(model.stategrid.v, state.v)
+    u_with_prices = merge(u, (; r = model.r[ix, iμ, iv],
+                              κC = model.κC[ix, iμ, iv],
+                              κM = model.κM[ix, iμ, iv],
+                              κV = model.κV[ix, iμ, iv]))
+    out, saved = model.model(state, u_with_prices)
+    return (; pAt = out.pAt, pBt = out.pBt, ϕ1t = out.ϕ1t, ϕ2t = out.ϕ2t), saved
+end
+
 # Define the calibration and state grid.
 m = GarleanuPanageasLongRunRiskModel()
-xn, μn, vn = 13, 8, 8
+xn, μn, vn = 20, 8, 8
 μsd = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
 μdistribution = Normal(m.μbar, μsd)
 vdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-xs = collect(range(0.0, 1.0, length = xn))
+xs = collect(range(0.0, 1.0, length = xn).^2)
 μs = sort(unique(vcat(collect(range(quantile(μdistribution, 0.10),
                                   quantile(μdistribution, 0.90), length = μn)),
                        [m.μbar])))
@@ -267,8 +291,124 @@ end
 
 guess = (; pA, pB, ϕ1, ϕ2, r, κC, κM, κV)
 
-# Solve the coupled PDE/algebraic system directly.
-result = pdesolve(m, stategrid, guess; alg = NonlinearSolve.TrustRegion(), Δ = Inf)
+# Build the initial guess by alternating between prices and value functions. Holding
+# `r`, `κC`, `κM`, and `κV` fixed, solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then
+# update prices toward the values implied by market clearing, and start the full joint
+# solve from the updated guess.
+damping = 0.5
+warmup_maxiters = 20
+warmup_inner_maxiters = 10
+warmups_between_global_attempts = 10
+reuse_failed_global_tol = 1e-4
+
+initial_result = with_logger(NullLogger()) do
+    pdesolve(m, stategrid, guess; alg = NonlinearSolve.TrustRegion(), Δ = Inf,
+             verbose = false)
+end
+
+@printf "%4s %-8s %12s %12s %12s %12s %12s %12s\n" "iter" "step" "r_gap" "κC_gap" "κM_gap" "κV_gap" "value_change" "residual"
+@printf "%4d %-8s %12s %12s %12s %12s %12s %12.3e\n" 0 "global" "-" "-" "-" "-" "-" initial_result.residual_norm
+
+if initial_result.converged
+    new_guess = initial_result.solution
+    result = initial_result
+else
+    new_guess, result = let
+    if initial_result.residual_norm <= reuse_failed_global_tol
+        value_guess = (; pA = copy(initial_result.solution.pA),
+                       pB = copy(initial_result.solution.pB),
+                       ϕ1 = copy(initial_result.solution.ϕ1),
+                       ϕ2 = copy(initial_result.solution.ϕ2))
+        r = copy(initial_result.solution.r)
+        κC = copy(initial_result.solution.κC)
+        κM = copy(initial_result.solution.κM)
+        κV = copy(initial_result.solution.κV)
+        candidate_guess = initial_result.solution
+    else
+        value_guess = (; pA = copy(guess.pA), pB = copy(guess.pB),
+                       ϕ1 = copy(guess.ϕ1), ϕ2 = copy(guess.ϕ2))
+        r = copy(guess.r)
+        κC = copy(guess.κC)
+        κM = copy(guess.κM)
+        κV = copy(guess.κV)
+        candidate_guess = guess
+    end
+    price_iteration = 0
+    trial_result = nothing
+    warmups_since_global_attempt = 0
+
+    while trial_result === nothing
+        price_iteration += 1
+
+        frozen_model = GarleanuPanageasLongRunRiskFrozenPriceModel(
+            m, stategrid, r, κC, κM, κV)
+        frozen_result = with_logger(NullLogger()) do
+            pdesolve(frozen_model, stategrid, value_guess;
+                     is_algebraic = (; pA = false, pB = false,
+                                     ϕ1 = false, ϕ2 = false),
+                     alg = NonlinearSolve.TrustRegion(),
+                     maxiters = warmup_maxiters,
+                     inner_maxiters = warmup_inner_maxiters, verbose = false)
+        end
+
+        r_gap = maximum(abs, frozen_result.saved.r_gap)
+        κC_gap = maximum(abs, frozen_result.saved.κC_gap)
+        κM_gap = maximum(abs, frozen_result.saved.κM_gap)
+        κV_gap = maximum(abs, frozen_result.saved.κV_gap)
+        pA_change = maximum(abs, frozen_result.solution.pA .- value_guess.pA) /
+                    max(1.0, maximum(abs, value_guess.pA))
+        pB_change = maximum(abs, frozen_result.solution.pB .- value_guess.pB) /
+                    max(1.0, maximum(abs, value_guess.pB))
+        ϕ1_change = maximum(abs, frozen_result.solution.ϕ1 .- value_guess.ϕ1) /
+                    max(1.0, maximum(abs, value_guess.ϕ1))
+        ϕ2_change = maximum(abs, frozen_result.solution.ϕ2 .- value_guess.ϕ2) /
+                    max(1.0, maximum(abs, value_guess.ϕ2))
+        warmup_change = max(pA_change, pB_change, ϕ1_change, ϕ2_change)
+
+        value_guess = frozen_result.solution
+        r .= (1 - damping) .* r .+ damping .* frozen_result.saved.r_implied
+        κC .= (1 - damping) .* κC .+ damping .* frozen_result.saved.κC_implied
+        κM .= (1 - damping) .* κM .+ damping .* frozen_result.saved.κM_implied
+        κV .= (1 - damping) .* κV .+ damping .* frozen_result.saved.κV_implied
+        warmups_since_global_attempt += 1
+        candidate_guess = (; value_guess.pA, value_guess.pB, value_guess.ϕ1,
+                           value_guess.ϕ2, r, κC, κM, κV)
+        @printf "%4d %-8s %12.3e %12.3e %12.3e %12.3e %12.3e %12s\n" price_iteration "values" r_gap κC_gap κM_gap κV_gap warmup_change "-"
+
+        if warmups_since_global_attempt >= warmups_between_global_attempts
+            trial_result = with_logger(NullLogger()) do
+                pdesolve(m, stategrid, candidate_guess;
+                         alg = NonlinearSolve.TrustRegion(), Δ = Inf,
+                         verbose = false)
+            end
+            @printf "%4d %-8s %12s %12s %12s %12s %12s %12.3e\n" price_iteration "global" "-" "-" "-" "-" "-" trial_result.residual_norm
+            warmups_since_global_attempt = 0
+        end
+
+        if trial_result !== nothing
+            if trial_result.converged
+                candidate_guess = trial_result.solution
+                break
+            end
+            if trial_result.residual_norm <= reuse_failed_global_tol
+                value_guess = (; pA = trial_result.solution.pA,
+                               pB = trial_result.solution.pB,
+                               ϕ1 = trial_result.solution.ϕ1,
+                               ϕ2 = trial_result.solution.ϕ2)
+                r .= (1 - damping) .* r .+ damping .* trial_result.solution.r
+                κC .= (1 - damping) .* κC .+ damping .* trial_result.solution.κC
+                κM .= (1 - damping) .* κM .+ damping .* trial_result.solution.κM
+                κV .= (1 - damping) .* κV .+ damping .* trial_result.solution.κV
+            end
+            trial_result = nothing
+            continue
+        end
+    end
+
+    (; value_guess.pA, value_guess.pB, value_guess.ϕ1, value_guess.ϕ2,
+     r, κC, κM, κV), trial_result
+end
+end
 
 # ## The solution
 #

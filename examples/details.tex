@@ -143,7 +143,9 @@
 		\begin{equation*}
 			0 = H(V,r,\kappa), \qquad 0 = r - R(V,\partial V), \qquad 0 = \kappa - K(V,\partial V).
 		\end{equation*}
-		The system is larger, but it separates optimization from market clearing and lets the nonlinear solver move values and prices together. This joint PDE/algebraic formulation is not a new economic equilibrium concept; it is a conditioning device. The Gârleanu--Panageas long-run-risk example in the package uses exactly this representation, solving jointly for price--dividend ratios, human-capital claim prices, the interest rate, and three prices of risk.
+		The system is larger, but it separates optimization from market clearing and lets the nonlinear solver move values and prices together. This joint PDE/algebraic formulation is not a new economic equilibrium concept; it is a conditioning device. In many examples, this is the whole algorithm: write values and prices as joint unknowns, add market-clearing equations for prices, and solve the resulting PDE/algebraic system directly.
+
+		For more complex problems, especially higher-dimensional systems, the initial guess can be made more robust by alternating between the two blocks. Holding prices fixed, solve the valuation equations for the value and claim-price functions. Holding those valuation functions fixed, update prices from the market-clearing equations. Repeat until the values and prices stabilize, then start the full PDE/algebraic solve from the updated guess. See \texttt{garleanu\_panageas\_long\_run\_risk.jl} for an example.
 
 				Iterating Newton to convergence inside each step has different roles in Cases 2 and 3. In Case 2, it turns a single frozen-policy evaluation into a fully implicit HJB step for the current $\Delta$. In Case 3, it is essential because the equations can remain nonlinear even after policy-like controls are frozen --- recursive utility, equilibrium price--dividend ratios, wealth-share dynamics --- so the semi-implicit update may have no linear system to fall back on.
 

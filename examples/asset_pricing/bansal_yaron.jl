@@ -31,26 +31,32 @@ Base.@kwdef struct BansalYaronModel
     ψ::Float64 = 1.5         # elasticity of intertemporal substitution
 end
 
-# ## The state space
+# We solve the model at its default parameters:
+
+m = BansalYaronModel()
+
+# ## The grid
 #
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. This model has two state variables, so the grid is a `NamedTuple` with two keys (`μ` and
-# `v`); the guess is a `NamedTuple` whose key is the unknown function (`p`, the wealth–consumption
-# ratio), a matrix over the ``(\mu, v)`` grid. These names reappear inside the equation below —
-# e.g. `pμ_up` is the forward finite difference of `p` in `μ`, and `pμμ` is the second derivative. The
+# We define the grid, a `NamedTuple` with two keys (`μ` and `v`), one per state variable. The
 # grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v`` diffusion
 # vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
 
-m = BansalYaronModel()
 μn, vn = 30, 30
 μdistribution = Normal(m.μbar, sqrt(m.νμ^2 * m.vbar / (2 * m.κμ)))
 μs = range(quantile(μdistribution, 0.01), quantile(μdistribution, 0.99), length = μn)
 νdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
 vs = range(quantile(νdistribution, 0.0), quantile(νdistribution, 0.99), length = vn)
 stategrid = (; μ = μs, v = vs)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
+# wealth–consumption ratio), a matrix over the ``(\mu, v)`` grid. These names (and the finite
+# differences of ``p``, such as `pμ_up` and `pμμ`) are what reappear in the equation below.
+
 guess = (; p = ones(μn, vn))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -88,7 +94,9 @@ function (m::BansalYaronModel)(state::NamedTuple, u::NamedTuple)
     return (; pt)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

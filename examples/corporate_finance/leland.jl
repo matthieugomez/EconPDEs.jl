@@ -31,20 +31,26 @@ Base.@kwdef struct LelandModel
     τ::Float64 = 0.2     # tax rate
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the state variable (`δ`, the cash flow); the
-# guess is a `NamedTuple` whose key is the unknown function (`E`, equity value), holding one
-# starting value at each grid point. These names reappear inside the equation below — e.g.
-# `Eδ_up` will be the forward finite difference of `E` in `δ`. We start the guess from the value
-# of the cash-flow claim net of the after-tax coupon, floored at zero.
+# We solve the model at its default parameters:
 
 m = LelandModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state ``δ`` (the cash flow).
+
 stategrid = (; δ = range(0, 0.2, step = 0.005))
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown function ``E`` (equity value) —
+# one value per grid point, the value of the cash-flow claim net of the after-tax coupon, floored
+# at zero. This name (and its finite differences, such as `Eδ_up`) is what reappears in the
+# equation below.
+
 guess = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -61,6 +67,8 @@ function (m::LelandModel)(state::NamedTuple, u::NamedTuple)
     return (; Et)
 end
 
+# ## Solving the model
+#
 # The stopping (default) region is imposed by passing zero as `lower_bound`: equity can never be
 # worth less than zero. We also pin the slope at the top boundary to that of a debt-free claim,
 # ``1/(r-\mu)``. With these in hand, `pdesolve` solves the variational inequality:

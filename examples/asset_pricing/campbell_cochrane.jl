@@ -27,15 +27,15 @@ Base.@kwdef struct CampbellCochraneModel
     b::Float64 = 0.0       # sensitivity of riskless rate to surplus ratio (b=0 ⇒ constant r)
 end
 
-# ## The state space
+# We solve the model at its default parameters:
+
+m = CampbellCochraneModel()
+
+# ## The grid
 #
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the state variable (`s`, the log surplus
-# consumption ratio); the guess is a `NamedTuple` whose key is the unknown function (`p`, the
-# price–consumption ratio). These names reappear inside the equation below — e.g. `ps_up` will
-# be the forward finite difference of `p` in `s`. The grid concentrates points near the
-# reflecting upper bound ``s_{\max}``, where the surplus ratio is highest, and stretches far
-# into the left tail.
+# We define the grid, a `NamedTuple` whose key is the state variable (`s`, the log surplus
+# consumption ratio). The grid concentrates points near the reflecting upper bound ``s_{\max}``,
+# where the surplus ratio is highest, and stretches far into the left tail.
 
 function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
     (; μ, σ, γ, ρ, κs, b) = m
@@ -47,11 +47,17 @@ function initialize_stategrid(m::CampbellCochraneModel; sn = 1000)
     (; s = vcat(slow[1:(end-1)], shigh[2:end]))
 end
 
-m = CampbellCochraneModel()
 stategrid = initialize_stategrid(m)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
+# price–consumption ratio). These names (and the finite differences of ``p``, such as `ps_up`)
+# are what reappear in the equation below.
+
 guess = (; p = ones(length(stategrid[:s])))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -77,7 +83,9 @@ function (m::CampbellCochraneModel)(state::NamedTuple, u::NamedTuple)
     return (; pt)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

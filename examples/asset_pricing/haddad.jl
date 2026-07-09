@@ -41,17 +41,17 @@ Base.@kwdef struct HaddadModel
   ψ::Float64 = 1.5          # elasticity of intertemporal substitution
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. This model has two state variables, so the grid is a `NamedTuple` with two keys (`μ` and
-# `v`); the guess is a `NamedTuple` whose key is the unknown function (`p`, the price–consumption
-# ratio), a matrix over the ``(\mu, v)`` grid. These names reappear inside the equation below —
-# e.g. `pμ_up` is the forward finite difference of `p` in `μ`, and `pμμ` is the second derivative. The
-# grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v`` diffusion
-# vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
+# We solve the model at its default parameters:
 
 m = HaddadModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` with two keys — this model has two state variables, expected
+# growth ``\mu`` and consumption variance ``v``. Each axis spans the ergodic range of its process,
+# taken as quantiles of the stationary distribution (``\mu`` Normal, ``v`` Gamma). The ``\sqrt v``
+# diffusion vanishes at ``v = 0``, a degenerate boundary where no condition is imposed.
+
 σ = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
 μmin = quantile(Normal(m.μbar, σ), 0.001)
 μmax = quantile(Normal(m.μbar, σ), 0.999)
@@ -62,9 +62,17 @@ vmin = quantile(Gamma(α, β), 0.001)
 vmax = quantile(Gamma(α, β), 0.999)
 vs = range(vmin,  vmax, length = 30)
 stategrid = (; μ = μs, v = vs)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the single unknown function (`p`, the
+# price–consumption ratio), a matrix over the ``(\mu, v)`` grid initialized flat at one. This name —
+# and its finite differences, e.g. `pμ_up` (forward difference in ``\mu``) and `pμμ` (second
+# derivative) — is what reappears inside the equation below.
+
 guess =   (; p = ones(length(stategrid[:μ]), length(stategrid[:v])))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -103,7 +111,9 @@ function (m::HaddadModel)(state::NamedTuple, u::NamedTuple)
   return (; pt)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

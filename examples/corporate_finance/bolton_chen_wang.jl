@@ -32,20 +32,25 @@ Base.@kwdef struct BoltonChenWangModel
   ϕ::Float64 = 0.01       # fixed cost of external finance
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose key is the state variable (`w`, the cash–capital ratio); the
-# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
-# each grid point (firm value is initialized to the cash ratio ``w`` itself). These names are what
-# reappear inside the equation below — e.g. `vw_up` will be the forward finite difference of `v`
-# in `w`.
+# We solve the model at its default parameters:
 
 m = BoltonChenWangModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state ``w`` (the cash–capital ratio).
+
 stategrid = (; w = range(0.0, 0.3, length = 100))
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown function ``v`` — one value per
+# grid point, with firm value initialized to the cash ratio ``w`` itself. This name (and its finite
+# differences, such as `vw_up`) is what reappears in the equation below.
+
 guess = (; v = stategrid[:w])
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it takes
 # the current `state` (a grid point) and `u` — the local bundle holding the unknown and its
@@ -73,6 +78,8 @@ function (m::BoltonChenWangModel)(state::NamedTuple, u::NamedTuple)
   return (; vt), (; v, vw, vww, w)
 end
 
+# ## Solving the model
+#
 # We first solve the HJB with guessed slopes for the marginal value of cash at the two boundaries.
 
 result = pdesolve(m, stategrid, guess; bc = (; vw = (1.5, 1.0)))

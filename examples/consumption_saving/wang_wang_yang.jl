@@ -34,23 +34,27 @@ Base.@kwdef struct WangWangYangModel
     wmax::Float64 = 1000.0   # maximum wealth-income ratio (grid upper bound)
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the state variable (`w`, the wealth-to-income
-# ratio); the guess is a `NamedTuple` whose key is the unknown function (`p`), one starting value
-# per grid point. These names are what reappear inside the equation below — e.g. `pw_up` will be
-# the forward finite difference of `p` in `w`.
-#
-# The state ``w`` runs from the borrowing limit to a large upper bound on a simple linear grid.
-# The initial guess ``p = 1 + w`` reflects total wealth as financial plus one unit of human
-# wealth.
+# We solve the model at its default parameters:
 
 m = WangWangYangModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state ``w`` (the wealth-to-income ratio), running
+# from the borrowing limit to a large upper bound on a simple linear grid.
+
 stategrid = (; w = range(m.wmin, m.wmax, length = 1001))
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown function ``p`` — one value per
+# grid point. The guess ``p = 1 + w`` reflects total wealth as financial plus one unit of human
+# wealth. This name (and its finite differences, such as `pw_up`) is what reappears in the equation
+# below.
+
 guess = (; p = 1 .+ stategrid[:w])
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -98,7 +102,9 @@ function (m::WangWangYangModel)(state::NamedTuple, u::NamedTuple)
     return (; pt), (; c, μw)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system. The
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system. The
 # `bc` entry supplies one-sided ghost derivatives at the edges of the grid. At the borrowing
 # constraint, the PDE still uses the inward derivative when the drift points into the state
 # space, so the economically relevant ``p'(0)`` is determined by the solution; at the upper

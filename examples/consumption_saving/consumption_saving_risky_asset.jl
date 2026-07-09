@@ -49,27 +49,31 @@ function _merton_consumption_rate(m::AchdouHanLasryLionsMollModel_RiskyAsset)
     return (m.ρ - m.r) / m.γ + m.r - (1 - m.γ) * prem^2 / (2 * m.γ^2 * m.σR^2)
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose keys are the two state variables (`y` and `a`); the
-# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
-# each grid point. These names are what reappear inside the equation below — e.g. `va_up` will
-# be the forward finite difference of `v` in `a`.
-#
-# Income spans the bulk of its ergodic (Gamma) distribution. Wealth uses a curved grid, because
-# the borrowing constraint and the risky-share tilt both create most of the curvature near zero.
-# The initial guess is the Merton-tail value of consuming out of financial plus human wealth.
+# We solve the model at its default parameters:
 
 m = AchdouHanLasryLionsMollModel_RiskyAsset()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by income ``y`` and wealth ``a``. Income spans the bulk
+# of its ergodic (Gamma) distribution; wealth uses a curved grid, finer near the borrowing
+# constraint, where the constraint and the risky-share tilt create most of the curvature.
+
 distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
 ys = collect(range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 5))
 as = m.amin .+ (m.amax - m.amin) .* collect(range(0.0, 1.0, length = 150)).^2
 stategrid = (; y = ys, a = as)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — here the Merton-tail
+# value of consuming out of financial plus human wealth ``a + y/r``. These names (and the finite
+# differences of ``v``, such as `va_up`) are what reappear in the equation below.
+
 cshare = _merton_consumption_rate(m)
 guess = (; v = [cshare^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -186,14 +190,16 @@ function (m::AchdouHanLasryLionsMollModel_RiskyAsset)(state::NamedTuple, u::Name
     return (; vt), (; v, c, k, va, vaa, vy, y, a, μa)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system. The upper
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system. The upper
 # derivative boundary is the homothetic Merton tail; this matters because the risky asset gives
 # wealth a nonzero diffusion near the top of the grid.
 
 bc = (; va = ((stategrid.y .+ m.r * m.amin).^(-m.γ),
               fill(cshare^(-m.γ) * m.amax^(-m.γ), length(stategrid.y))))
-result = pdesolve(m, stategrid, guess; bc, Δ = 1e-3, alg = NonlinearSolve.TrustRegion(),
-                  inner_maxiters = 50, maxiters = 150)
+
+result = pdesolve(m, stategrid, guess; bc)
 
 # ## The solution
 #

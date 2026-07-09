@@ -36,24 +36,19 @@ Base.@kwdef struct DiTellaModel
   σνbar::Float64 = -0.17  # volatility loading of the ν process
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose keys are the two state variables (`x`, the experts' wealth
-# share, and `ν`, the idiosyncratic risk state); the guess is a `NamedTuple` whose keys are the
-# unknown functions (`pA, pB, p`), holding one starting value at each grid point. The transformed
-# objects `pA` and `pB` are convenient because `1 / pA` and `1 / pB` are the two agents'
-# consumption rates, and Di Tella's relative investment opportunity measure is
-# ``Q = (p_A/p_B)^{1/(\psi-1)}``. These names are what reappear inside the equation below —
-# e.g. `pAx_up` will be the forward finite difference of `pA` in `x`.
-#
-# Two helpers build a grid over ``(x, \nu)`` and a flat guess. The ``\nu`` range matches the
-# horizontal range in Di Tella's Figure 1, and the grid explicitly includes the slices shown
-# there: ``x=0.05,0.10,0.20`` and ``\nu=0.10,0.25,0.60``.
-# The parameter values below use the paper's reported calibration. The investment technology is
-# ``i(g)=A(g+\delta)^2+B(g+\delta)`` with ``\delta=0.05``. The default ``A`` and implied ``B``
+# The parameter values use the paper's reported calibration. The investment technology is
+# ``i(g)=A(g+\delta)^2+B(g+\delta)`` with ``\delta=0.05``; the default ``A`` and implied ``B``
 # make the solved benchmark point near ``x=0.10,\nu=0.25`` reproduce the paper's
-# growth/investment targets, ``g \simeq 0.02`` and ``i \simeq 0.20``.
+# growth/investment targets, ``g \simeq 0.02`` and ``i \simeq 0.20``. We solve at these defaults:
+
+m = DiTellaModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the two state variables ``x`` (the experts' wealth
+# share) and ``\nu`` (the idiosyncratic risk state), built by a helper. The ``\nu`` range matches
+# the horizontal range in Di Tella's Figure 1, and the grid explicitly includes the slices shown
+# there: ``x=0.05,0.10,0.20`` and ``\nu=0.10,0.25,0.60``.
 
 function initialize_stategrid(m::DiTellaModel; xn = 30, νn = 30)
   xs = sort(unique(vcat(collect(range(0.01, 0.99, length = xn)), [0.05, 0.10, 0.20])))
@@ -61,17 +56,26 @@ function initialize_stategrid(m::DiTellaModel; xn = 30, νn = 30)
   (; x = xs, ν = νs)
 end
 
+# ## The initial guess
+#
+# We define the initial guess, a flat `NamedTuple` whose keys are the unknown functions
+# (`pA, pB, p`), one starting value per grid point. The transformed objects `pA` and `pB` are
+# convenient because `1 / pA` and `1 / pB` are the two agents' consumption rates, and Di Tella's
+# relative investment opportunity measure is ``Q = (p_A/p_B)^{1/(\psi-1)}``. These names — and
+# their finite differences, e.g. `pAx_up` — are what reappear inside the equation below.
+
 function initialize_y(m::DiTellaModel, stategrid)
   xn = length(stategrid[:x])
   νn = length(stategrid[:ν])
   (; pA = ones(xn, νn), pB = ones(xn, νn), p = ones(xn, νn))
 end
 
-m = DiTellaModel()
+# We build the grid and the guess at the default calibration:
+
 stategrid = initialize_stategrid(m)
 guess = initialize_y(m, stategrid)
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
@@ -140,7 +144,10 @@ function (m::DiTellaModel)(state::NamedTuple, u::NamedTuple)
   return (; pAt, pBt, pt), (; σx = σX, Q, r, κ, σp, growth = g, investment = i)
 end
 
-# `p` enters as an algebraic (constraint) variable:
+# ## Solving the model
+#
+# `pdesolve` solves the stationary system; `p` enters as an algebraic (constraint) variable rather
+# than through its own time derivative:
 
 result = pdesolve(m, stategrid, guess; is_algebraic = (; pA = false, pB = false, p = true))
 

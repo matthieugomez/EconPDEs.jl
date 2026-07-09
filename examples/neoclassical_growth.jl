@@ -37,17 +37,12 @@ Base.@kwdef struct NeoclassicalGrowthModel
     γ::Float64 = 2.0     # relative risk aversion
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the state variable (`k`); the guess is a
-# `NamedTuple` whose key is the unknown function (`v`), holding one starting value at each grid
-# point. These names are what reappear inside the equation below — e.g. `vk_up` will be the
-# forward finite difference of `v` in `k`.
-#
-# The default parameters above match the introductory calibration. To validate the full
-# numerical solution, we solve a new model instance that imposes the restriction with a
-# closed-form solution:
+# The default parameters match the introductory calibration:
+
+m = NeoclassicalGrowthModel()
+
+# To validate the full numerical solution, we also build a second instance that imposes a
+# restriction with a closed-form solution:
 #
 # ```math
 # \rho = \delta(\alpha \gamma - 1), \qquad \alpha\gamma > 1.
@@ -61,27 +56,40 @@ end
 # \qquad \phi = 1 - \frac{1}{\gamma}.
 # ```
 #
-# We center the grid on the corresponding steady state ``\bar k`` (where
-# ``\alpha A \bar k^{\alpha-1} = \rho + \delta``) and still start from the generic value of
-# consuming gross output forever. The closed-form instance is used only as a validation
-# benchmark.
+# The closed-form instance is used only as a validation benchmark.
 
-m = NeoclassicalGrowthModel()
 γ_benchmark = 4.0
 m_benchmark = NeoclassicalGrowthModel(;
     γ = γ_benchmark,
     ρ = m.δ * (m.α * γ_benchmark - 1),
 )
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by capital ``k``. We center it on the benchmark steady
+# state ``\bar k`` (where ``\alpha A \bar k^{\alpha-1} = \rho + \delta``), spanning ``0.1\bar k`` to
+# ``5\bar k``.
+
 (; A, α, δ, ρ, γ) = m_benchmark
 φ = 1 - 1 / γ
 k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
 stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — one value per grid point,
+# the generic value of consuming gross output forever. These names (and the finite differences of
+# ``v``, such as `vk_up`) are what reappear in the equation below.
+
 guess = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
+
+# We also define the closed-form policy and value functions, used later to validate the numerical
+# solution:
 
 closed_form_consumption(k) = φ * A * k^α
 closed_form_value(k) = (φ * A)^(-γ) * k^(1 - α * γ) / (1 - α * γ)
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
@@ -122,7 +130,9 @@ function (m::NeoclassicalGrowthModel)(state::NamedTuple, u::NamedTuple)
     return (; vt), (; c, μk)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m_benchmark, stategrid, guess)
 

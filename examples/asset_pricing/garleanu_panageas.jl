@@ -39,21 +39,26 @@ Base.@kwdef struct GarleanuPanageasModel
     end
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose key is the state variable (`x`, the consumption share of type
-# A); the guess is a `NamedTuple` whose keys are the unknown functions (`pA, pB, ϕ1, ϕ2`), holding
-# one starting value at each grid point. These names are what reappear inside the equation below —
-# e.g. `pAx_up` will be the forward finite difference of `pA` in `x`.
-#
-# One state ``x \in [0, 1]``, four coupled unknowns, all initialized flat at one.
+# We solve the model at its default parameters:
 
 m = GarleanuPanageasModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state variable ``x``, the consumption share of
+# type A, on ``[0, 1]``.
+
 stategrid = (; x = range(0.0, 1.0, length = 100))
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose keys are the four coupled unknown functions
+# (`pA, pB, ϕ1, ϕ2`), all initialized flat at one. These names — and their finite differences, such
+# as `pAx_up` — are what reappear inside the equation below.
+
 guess = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
@@ -108,7 +113,9 @@ function (m::GarleanuPanageasModel)(state::NamedTuple, u::NamedTuple)
     return (; pAt, pBt, ϕ1t, ϕ2t), (; r, κ)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

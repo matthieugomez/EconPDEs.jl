@@ -37,22 +37,27 @@ Base.@kwdef struct GomezModel
     τ::Float64 = 0.0       # tax rate
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose key is the state variable (`x`, the entrepreneurs' consumption
-# share); the guess is a `NamedTuple` whose key is the unknown function (`pH`), holding one
-# starting value at each grid point. These names are what reappear inside the equation below —
-# e.g. `pHx_up` will be the forward finite difference of `pH` in `x`.
-#
-# One state ``x \in [0, 1]`` on a squared grid of 300 points. The single unknown ``p_H`` is
-# initialized flat at one.
+# We solve the model at its default parameters:
 
 m = GomezModel()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state variable ``x``, the entrepreneurs'
+# consumption share. It spans ``[0, 1]`` but is squared, concentrating points near ``x = 0`` where
+# entrepreneurs are scarce and the wealth-distribution dynamics are sharpest.
+
 stategrid = (; x = range(0, 1, 300) .^ 2)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the single unknown function (`pH`, the
+# households' wealth–consumption ratio), initialized flat at one. This name — and its finite
+# differences, such as `pHx_up` — is what reappears inside the equation below.
+
 guess = (; pH = ones(length(stategrid[:x])))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and
@@ -117,7 +122,9 @@ function (m::GomezModel)(state::NamedTuple, u::NamedTuple)
   return (; pHt), (; x, μx, σx, κ, r, σWH, μWH, σp, p, px, σR, μR, μRλ, σRλ, μErelative, σErelative, μHrelative, σHrelative, μCE, μxW, σxW, pH, μCH, wedge, xW, σWE, σCH, αE = αEeff, pE = 1 / m.ρE, μp = μp)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

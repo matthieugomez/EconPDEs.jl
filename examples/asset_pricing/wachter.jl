@@ -38,30 +38,36 @@ Base.@kwdef struct WachterModel{T<: Distribution}
     ϕ::Float64 = 2.6        # leverage of dividends on consumption
 end
 
-# ## The state space
+# We solve the model at its default parameters:
+
+m = WachterModel()
+
+# ## The grid
 #
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the state variable (`λ`, the disaster
-# intensity); the guess is a `NamedTuple` whose key is the unknown function (`p`, the
-# wealth–consumption ratio). These names reappear inside the equation below — e.g. `pλ_up` will
-# be the forward finite difference of `p` in `λ`. The state ``\lambda`` ranges over intensities
-# from zero up to well above its long-run mean ``\bar\lambda``. The ``\sqrt\lambda`` diffusion
-# vanishes at ``\lambda = 0``, a degenerate boundary where no condition is imposed.
+# We define the grid, a `NamedTuple` whose key is the state variable (`λ`, the disaster
+# intensity). The state ``\lambda`` ranges from zero up to well above its long-run mean
+# ``\bar\lambda``. The ``\sqrt\lambda`` diffusion vanishes at ``\lambda = 0``, a degenerate
+# boundary where no condition is imposed.
 
 function initialize_stategrid(m::WachterModel; λn = 30)
   (; λ = range(0.0, 0.1, length = λn))
 end
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
+# wealth–consumption ratio). These names (and the finite differences of ``p``, such as `pλ_up`)
+# are what reappear in the equation below. We then build the grid and guess from the model:
 
 function initialize_y(m::WachterModel, stategrid)
     λn = length(stategrid[:λ])
     (; p = ones(λn))
 end
 
-m = WachterModel()
 stategrid = initialize_stategrid(m)
 guess = initialize_y(m, stategrid)
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -94,7 +100,9 @@ function (m::WachterModel)(state::NamedTuple, u::NamedTuple)
     return (; pt)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

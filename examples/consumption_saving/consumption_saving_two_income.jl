@@ -31,27 +31,31 @@ Base.@kwdef mutable struct AchdouHanLasryLionsMollModel_TwoStates
     amax::Float64 = 50.0     # top of the asset grid
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose key is the single continuous state (`a`); the guess is a
-# `NamedTuple` whose keys are the two unknown functions (`vl` and `vh`), one starting value per
-# grid point. These names are what reappear inside the equation below — e.g. `vla_up` will be the
-# forward finite difference of `vl` in `a`.
-#
-# The asset grid is finer near the borrowing limit, and we start from an autarky-style guess. The
-# borrowing limit itself is nudged just inside the natural limit ``-y_l/r`` to keep consumption
-# strictly positive there.
+# We solve the model at its default parameters:
 
 m = AchdouHanLasryLionsMollModel_TwoStates()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the single continuous state ``a``. The asset grid is
+# finer near the borrowing limit, where consumption is most curved; the borrowing limit itself is
+# nudged just inside the natural limit ``-y_l/r`` to keep consumption strictly positive there.
+
 m.amin += 0.001
 stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the two unknown value functions ``v_l`` and
+# ``v_h`` — one autarky-style starting value per grid point. These names (and their finite
+# differences, such as `vla_up`) are what reappear in the equation below.
+
 guess = (;
     vl = (m.ρ ./ m.γ .+ (1 .- 1 / m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yl ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
     vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
 )
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -107,7 +111,9 @@ function (m::AchdouHanLasryLionsMollModel_TwoStates)(state::NamedTuple, u::Named
     return (; vlt, vht), (; cl, ch, μla, μha)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

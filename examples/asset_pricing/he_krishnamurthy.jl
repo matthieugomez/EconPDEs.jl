@@ -24,23 +24,29 @@ Base.@kwdef struct HeKrishnamurthy
   l::Float64 = 1.84 # labor income ratio
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose key is the state variable (`x`, the specialists' wealth share);
-# the guess is a `NamedTuple` whose key is the unknown function (`pS`), holding one starting value
-# at each grid point. These names are what reappear inside the equation below — e.g. `pSx_up` will
-# be the forward finite difference of `pS` in `x`.
-#
-# One state ``x \in (0, 1)`` on a grid stretched toward the lower boundary where the constraint
-# bites. The single unknown ``p_S`` is initialized flat at one.
+# We solve the model at its default parameters:
 
 m = HeKrishnamurthy()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state variable ``x``, the specialists' wealth
+# share. It runs over ``(0, 1)`` — the endpoints are dropped — and is raised to the power ``1.5``,
+# which stretches points toward the lower boundary where specialists are poorly capitalized and the
+# intermediation constraint bites.
+
 xn = 100
 stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the single unknown function (`pS`, the
+# specialists' wealth–consumption ratio), initialized flat at one. This name — and its finite
+# differences, such as `pSx_up` — is what reappears inside the equation below.
+
 guess = (; pS = ones(length(stategrid[:x])))
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and
@@ -94,7 +100,9 @@ function (model::HeKrishnamurthy)(state::NamedTuple, u::NamedTuple)
   (; pSt), (; pS, p, r, κ, σp, μR, σR, αI, μx, σx, x, px, pxx, σI)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
 result = pdesolve(m, stategrid, guess)
 

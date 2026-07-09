@@ -33,26 +33,31 @@ Base.@kwdef struct AchdouHanLasryLionsMollModel_Diffusion
     amax::Float64 = 100.0  # top of the asset grid
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere
-# else. The grid is a `NamedTuple` whose keys are the two state variables (`y` and `a`); the
-# guess is a `NamedTuple` whose key is the unknown function (`v`), holding one starting value at
-# each grid point. These names are what reappear inside the equation below — e.g. `va_up` will
-# be the forward finite difference of `v` in `a`.
-#
-# Income lives on a grid spanning the bulk of its ergodic (Gamma) distribution, and assets on a
-# grid from the borrowing limit up to ``a_{\max}``. The initial guess is the value of consuming
-# the annuity value of total wealth ``a + y/r`` forever.
+# We solve the model at its default parameters:
 
 m = AchdouHanLasryLionsMollModel_Diffusion()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` keyed by the state variables ``y`` and ``a``. Income spans
+# the bulk of its ergodic (Gamma) distribution; assets run from the borrowing limit ``a_{\min}``
+# up to ``a_{\max}``.
+
 distribution = Gamma(2 * m.κy * m.ybar / m.σy^2, m.σy^2 / (2 * m.κy))
 stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0.999), length = 10),
                         a =  range(m.amin, m.amax, length = 1000)
                         )
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — one value per grid
+# point, here the value of consuming the annuity value of total wealth ``a + y/r`` forever. These
+# names (and the finite differences of ``v``, such as `va_up`) are what reappear in the equation
+# below.
+
 guess = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -100,9 +105,11 @@ function (m::AchdouHanLasryLionsMollModel_Diffusion)(state::NamedTuple, u::Named
     return (; vt), (; μa, c)
 end
 
-# With the equation, grid, and guess in hand, `pdesolve` solves the stationary system:
+# ## Solving the model
+#
+# With the grid, guess, and equation in hand, `pdesolve` solves the stationary system:
 
-result = pdesolve(m, stategrid, guess)
+result = pdesolve(m, stategrid, guess, Δ = Inf)
 
 # ## The solution
 #

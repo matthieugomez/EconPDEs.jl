@@ -35,24 +35,34 @@ Base.@kwdef mutable struct BrunnermeierSannikov
   Ψ_old::Float64 = 1.0    # previous experts' capital share Ψ (carried across the sweep)
 end
 
-# ## The state space
-#
-# We build the grid and the initial guess first, because they fix the names used everywhere else.
-# The grid is a `NamedTuple` whose key is the state variable (`x`, the experts' wealth share); the
-# guess is a `NamedTuple` whose keys are the unknown functions (`pE, pH`), holding one starting
-# value at each grid point. These names are what reappear inside the equation below — e.g.
-# `pEx_up` will be the forward finite difference of `pE` in `x`.
-#
-# One state ``x \in (0, 1)`` on 200 interior grid points. Because the sweep marches from the lower
-# boundary upward, the grid spacing `Δx` and its minimum `xmin` are computed here and later passed
-# into the model.
+# We solve the model at its default parameters:
 
 m = BrunnermeierSannikov()
+
+# ## The grid
+#
+# We define the grid, a `NamedTuple` whose key is the state variable ``x`` (the experts' wealth
+# share). The single state ``x \in (0, 1)`` sits on 200 interior grid points, with the two
+# boundaries dropped. Because the sweep marches from the lower boundary upward, the grid spacing
+# `Δx` and its minimum `xmin` are computed here and later passed into the model.
+
 xn = 200
 stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
 Δx = step(stategrid[:x])
 xmin = minimum(stategrid[:x])
+
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose keys are the unknown functions (`pE, pH`),
+# holding one starting value at each grid point. These names — and the finite differences of `pE`
+# and `pH`, such as `pEx_up` — are what reappear inside the equation below.
+
 guess = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
+
+# ## The PDE equation
+#
+# A small bracketing helper locates a sign change for the crisis-region root-find below, starting
+# from the previous step's ``\Psi``:
 
 function local_bracket(f, x0; lo = 0.0, hi = 1.0, ftol = 1e-12)
   x0 = clamp(x0, lo, hi)
@@ -72,8 +82,6 @@ function local_bracket(f, x0; lo = 0.0, hi = 1.0, ftol = 1e-12)
   return nothing
 end
 
-# ## The equation
-#
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and
 # its finite-difference derivatives there — plus the grid spacing `Δx` and lower bound `xmin`, and
@@ -193,10 +201,10 @@ function (m::BrunnermeierSannikov)(state::NamedTuple, u::NamedTuple, Δx, xmin)
   (; pEt, pHt), (; x, r, μx, σx, Ψ, κ, κE, κH, σE, σH, σq, q, qx, qxx, μq, μx2, Φ, χ, d, μR)
 end
 
-# The sweep is order-dependent — it marches from the lower boundary `xmin` upward, each step
-# reusing the previous ``q`` carried in the mutable model — so `Δx` and `xmin` are passed into the
-# model; `pdesolve` treats the assembled residual as a black box and differentiates it by colored
-# finite differences:
+# ## Solving the model
+#
+# `pdesolve` solves the stationary system. `Δx` and `xmin` are passed into the model through a
+# closure so each step of the order-dependent sweep can reuse the previous ``q``:
 
 result = pdesolve((state, u) -> m(state, u, Δx, xmin), stategrid, guess)
 

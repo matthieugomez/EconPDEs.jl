@@ -26,32 +26,38 @@ Base.@kwdef struct TuckmanVilaModel
     T::Float64 = 100      # horizon (terminal date)
 end
 
-# ## The state space
+# We solve the model at its default parameters:
+
+m = TuckmanVilaModel()
+
+# ## The grid
 #
-# We build the grid, the initial guess, and the time grid first, because they fix the names used
-# everywhere else. The grid is a `NamedTuple` whose key is the state variable (`z`); the guess is
-# a `NamedTuple` whose key is the unknown function (`F`), which here doubles as the terminal
-# condition at `τs[end]`. These names reappear inside the equation below — e.g. `Fz_up` is the
-# forward finite difference of `F` in `z`. The grid spans the stationary range of ``z`` (a
-# mean-reverting Gaussian). Because the problem is finite-horizon, we also build a time grid `τs`
-# over ``[0, T]``, which `pdesolve` will march backward along.
+# We define the grid, a `NamedTuple` whose key is the state variable (`z`). The grid spans the
+# stationary range of ``z`` (a mean-reverting Gaussian). Because the problem is finite-horizon,
+# we also build a time grid `τs` over ``[0, T]``, which `pdesolve` will march backward along.
 
 function initialize_stategrid(m::TuckmanVilaModel; zn = 200)
     d = Normal(0, sqrt(m.σ^2 / (2 * m.ρ)))
     (; z = range(quantile(d, 0.00001), quantile(d, 0.99999), length = zn))
 end
 
+# ## The initial guess
+#
+# We define the initial guess, a `NamedTuple` whose key is the unknown function (`F`), which here
+# doubles as the terminal condition at `τs[end]`. These names (and the finite differences of
+# ``F``, such as `Fz_up`) are what reappear in the equation below. We then build the grid, guess,
+# and time grid from the model:
+
 function initialize_y(m::TuckmanVilaModel, stategrid)
     zn = length(stategrid[:z])
     (; F = zeros(zn))
 end
 
-m = TuckmanVilaModel()
 stategrid = initialize_stategrid(m)
 guess = initialize_y(m, stategrid)
 τs = range(0, m.T, length = 10)
 
-# ## The equation
+# ## The PDE equation
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its
@@ -81,6 +87,8 @@ function (m::TuckmanVilaModel)(state::NamedTuple, u::NamedTuple, τ::Number)
     return (; Ft)
 end
 
+# ## Solving the model
+#
 # `pdesolve` takes the time grid `τs` as a fourth argument and marches backward from the terminal
 # condition:
 

@@ -13,6 +13,9 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
   alternates between valuation and market-clearing price updates.
 - Solver summaries now report the names and sizes of the state-grid dimensions, such as
   `grid x×y×z = 2×3×4`.
+- Add `warn = true` to `pdesolve` and `finiteschemesolve`, separating convergence-failure
+  warnings from the existing `verbose = true` progress output. Pass `warn = false` when
+  failures are expected and the caller checks convergence explicitly.
 
 ### Documentation
 

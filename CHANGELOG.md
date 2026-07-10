@@ -4,6 +4,33 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
+## [2.1.0] — 2026-07-10
+
+### Improvements
+
+- Add a three-state Gârleanu–Panageas long-run-risk asset-pricing example. The model
+  keeps the interest rate and three prices of risk as algebraic unknown functions and
+  alternates between valuation and market-clearing price updates.
+- Solver summaries now report the names and sizes of the state-grid dimensions, such as
+  `grid x×y×z = 2×3×4`.
+
+### Documentation
+
+- Expand the README tutorial to separate the state grid, initial guess, and pointwise PDE
+  residual, and add multidimensional and coupled-PDE interface examples.
+- Document when to substitute equilibrium prices into an HJB and when to keep them as
+  algebraic unknown functions.
+- Clarify the numerical role of `Δ`: state the conditions under which `Δ = Inf` gives
+  globally convergent Howard policy iteration for a discrete HJB, explain why finite `Δ`
+  can help Newton, and qualify the convergence result for related linearized
+  pseudo-transient methods.
+- Refresh the example explanations and comments throughout the gallery.
+
+### Compatibility
+
+- Fix deprecated result-alias tests on Julia nightly by matching their deprecation
+  messages explicitly.
+
 ## [2.0.0] — 2026-07-07
 
 ### Breaking Changes
@@ -97,8 +124,6 @@ Additionally, `result.solution` is now a `NamedTuple` rather than an `OrderedDic
   reducing repeated model-solve latency.
 - A `PrecompileTools` workload now solves a tiny model during package precompilation,
   caching the model-independent solver machinery.
-- Add a three-state Gârleanu–Panageas long-run-risk asset-pricing example with alternating
-  value and price updates.
 - Solver output now includes a one-line problem summary, a final convergence summary, and
   clearer rejected-step markers. After a rejected step, `Δ` regrowth is capped at half the
   failed value.

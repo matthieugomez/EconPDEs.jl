@@ -40,7 +40,6 @@
 
 using EconPDEs
 using Distributions
-using Logging
 using Plots
 using Printf
 
@@ -244,42 +243,47 @@ end
 
 
 
-# Define the calibration and state grid.
-m = GarleanuPanageasLongRunRiskModel()
-xn, μn, vn = 10, 5, 5
-μsd = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
-μdistribution = Normal(m.μbar, μsd)
-vdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
-xs = collect(range(0.0, 1.0, length = xn).^2)
-μs = collect(range(quantile(μdistribution, 0.10),
-                   quantile(μdistribution, 0.90), length = μn))
-vs = collect(range(quantile(vdistribution, 0.10),
-                   quantile(vdistribution, 0.90), length = vn))
-stategrid = (; x = xs, μ = μs, v = vs)
-
-# Define the initial guess for value functions and equilibrium price functions.
-gridsize = map(length, values(stategrid))
-pA = ones(gridsize...)
-pB = ones(gridsize...)
-ϕ1 = ones(gridsize...)
-ϕ2 = ones(gridsize...)
-r = zeros(gridsize...)
-κC = zeros(gridsize...)
-κM = zeros(gridsize...)
-κV = zeros(gridsize...)
-human_capital = m.ω * (m.B1 + m.B2)
-for (ix, x) in pairs(stategrid.x), (iμ, μ) in pairs(stategrid.μ), (iv, v) in pairs(stategrid.v)
-    σc = sqrt(v)
-    Γ = 1 / (x / m.γA + (1 - x) / m.γB)
-    κC[ix, iμ, iv] = Γ * σc
-    κ2 = κC[ix, iμ, iv]^2
-    mcA = (1 + m.ψA) / (2 * m.γA) * κ2
-    mcB = (1 + m.ψB) / (2 * m.γB) * κ2
-    r[ix, iμ, iv] = m.ρ + (μ - x * mcA - (1 - x) * mcB -
-                      m.δ * (human_capital - 1)) / (m.ψA * x + m.ψB * (1 - x))
+# Define the state grid and the initial guess for value functions and equilibrium price
+# functions.
+function initialize_stategrid(m::GarleanuPanageasLongRunRiskModel;
+        xn = 10, μn = 5, vn = 5)
+    μsd = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
+    μdistribution = Normal(m.μbar, μsd)
+    vdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
+    return (; x = collect(range(0.0, 1.0, length = xn).^2),
+            μ = collect(range(quantile(μdistribution, 0.10),
+                              quantile(μdistribution, 0.90), length = μn)),
+            v = collect(range(quantile(vdistribution, 0.10),
+                              quantile(vdistribution, 0.90), length = vn)))
 end
 
-guess = (; pA, pB, ϕ1, ϕ2, r, κC, κM, κV)
+function initialize_guess(m::GarleanuPanageasLongRunRiskModel, stategrid)
+    gridsize = map(length, values(stategrid))
+    pA = ones(gridsize...)
+    pB = ones(gridsize...)
+    ϕ1 = ones(gridsize...)
+    ϕ2 = ones(gridsize...)
+    r = zeros(gridsize...)
+    κC = zeros(gridsize...)
+    κM = zeros(gridsize...)
+    κV = zeros(gridsize...)
+    human_capital = m.ω * (m.B1 + m.B2)
+    for (ix, x) in pairs(stategrid.x), (iμ, μ) in pairs(stategrid.μ), (iv, v) in pairs(stategrid.v)
+        σc = sqrt(v)
+        Γ = 1 / (x / m.γA + (1 - x) / m.γB)
+        κC[ix, iμ, iv] = Γ * σc
+        κ2 = κC[ix, iμ, iv]^2
+        mcA = (1 + m.ψA) / (2 * m.γA) * κ2
+        mcB = (1 + m.ψB) / (2 * m.γB) * κ2
+        r[ix, iμ, iv] = m.ρ + (μ - x * mcA - (1 - x) * mcB -
+                          m.δ * (human_capital - 1)) / (m.ψA * x + m.ψB * (1 - x))
+    end
+    return (; pA, pB, ϕ1, ϕ2, r, κC, κM, κV)
+end
+
+m = GarleanuPanageasLongRunRiskModel()
+stategrid = initialize_stategrid(m)
+guess = initialize_guess(m, stategrid)
 
 # Alternate between prices and value functions. Holding `r`, `κC`, `κM`, and `κV` fixed,
 # solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then update prices toward the values
@@ -307,120 +311,111 @@ function (model::GarleanuPanageasLongRunRiskFrozenPriceModel)(
     return (; pAt = out.pAt, pBt = out.pBt, ϕ1t = out.ϕ1t, ϕ2t = out.ϕ2t), saved
 end
 
-damping = 0.5
-warmup_maxiters = 20
-warmup_inner_maxiters = 10
-warmups_between_global_attempts = 10
-reuse_failed_global_tol = 1e-4
-
-initial_result = with_logger(NullLogger()) do
-    pdesolve(m, stategrid, guess; alg = NonlinearSolve.TrustRegion(), Δ = Inf,
-             verbose = false)
-end
-
-@printf "%4s %-8s %12s %12s %12s %12s %12s %12s\n" "iter" "step" "r_gap" "κC_gap" "κM_gap" "κV_gap" "value_change" "residual"
-@printf "%4d %-8s %12s %12s %12s %12s %12s %12.3e\n" 0 "global" "-" "-" "-" "-" "-" initial_result.residual_norm
-
-if initial_result.converged
-    new_guess = initial_result.solution
-    result = initial_result
-else
-    new_guess, result = let
-    if initial_result.residual_norm <= reuse_failed_global_tol
-        value_guess = (; pA = copy(initial_result.solution.pA),
-                       pB = copy(initial_result.solution.pB),
-                       ϕ1 = copy(initial_result.solution.ϕ1),
-                       ϕ2 = copy(initial_result.solution.ϕ2))
-        r = copy(initial_result.solution.r)
-        κC = copy(initial_result.solution.κC)
-        κM = copy(initial_result.solution.κM)
-        κV = copy(initial_result.solution.κV)
-        candidate_guess = initial_result.solution
-    else
-        value_guess = (; pA = copy(guess.pA), pB = copy(guess.pB),
-                       ϕ1 = copy(guess.ϕ1), ϕ2 = copy(guess.ϕ2))
-        r = copy(guess.r)
-        κC = copy(guess.κC)
-        κM = copy(guess.κM)
-        κV = copy(guess.κV)
-        candidate_guess = guess
-    end
+# When to attempt the global solve? The damped price iteration converges linearly,
+# whereas the global Newton solve only converges from a guess inside its basin of
+# attraction — but then converges quadratically. A fixed schedule (say, every 10 price
+# iterations) either wastes expensive global attempts on guesses barely better than the
+# last failed one, or wastes price iterations after the guess is already good enough.
+# Instead, monitor the market-clearing gap — since the valuation block is solved to
+# tolerance, the gap is exactly the part of the full-system residual that the price
+# iteration still has to eliminate — and attempt the global solve when either
+#
+# 1. the gap has shrunk by `global_retry_improvement` since the last failed attempt:
+#    the guess is now materially better, so a retry has a real chance; or
+# 2. the gap has been stalling for `stall_patience` consecutive iterations: further
+#    price iterations will not improve the guess, so the global solve is the only
+#    remaining move.
+#
+# One safeguard is needed on top: retrying on a fixed cadence can settle into a cycle in
+# which every attempt fails at the same residual. So whenever a failed attempt is not
+# materially better than the previous failed one, back off — increase the patience so
+# the price iteration explores longer before the next attempt.
+#
+# There is no point attempting the global solve on the initial guess itself: from the
+# analytical guess it essentially never converges, so it would be a pure cost. The first
+# attempt waits until the triggers above fire.
+#
+# Finally, cap each global attempt at `global_maxiters` solver iterations. A candidate
+# inside Newton's basin converges in a handful of iterations, so the cap never hurts a
+# successful attempt; it is the failed attempts that would otherwise burn the full
+# default budget, and bailing early makes them cheap.
+function solve_alternating(m, stategrid, guess;
+        damping = 0.5, global_retry_improvement = 5.0, stall_tolerance = 0.99,
+        stall_patience = 3, max_price_iterations = 100, global_maxiters = 30)
+    @printf "%4s %-8s %12s %12s %12s %12s  %12s\n" "iter" "step" "r_gap" "κC_gap" "κM_gap" "κV_gap" "residual"
+    value_guess = (; pA = copy(guess.pA), pB = copy(guess.pB),
+                   ϕ1 = copy(guess.ϕ1), ϕ2 = copy(guess.ϕ2))
+    r = copy(guess.r)
+    κC = copy(guess.κC)
+    κM = copy(guess.κM)
+    κV = copy(guess.κV)
+    ## No attempt has been made yet: NaN comparisons are false, so the first global
+    ## attempt comes from the stall rule, which then sets these baselines.
+    gap_at_last_global = NaN
+    residual_at_last_global = NaN
+    patience = stall_patience
+    previous_gap = Inf
+    stalled_iterations = 0
     price_iteration = 0
     trial_result = nothing
-    warmups_since_global_attempt = 0
 
     while trial_result === nothing
         price_iteration += 1
+        price_iteration > max_price_iterations &&
+            error("no convergence after $max_price_iterations price iterations")
 
         frozen_model = GarleanuPanageasLongRunRiskFrozenPriceModel(
             m, stategrid, r, κC, κM, κV)
-        frozen_result = with_logger(NullLogger()) do
-            pdesolve(frozen_model, stategrid, value_guess;
-                     is_algebraic = (; pA = false, pB = false,
-                                     ϕ1 = false, ϕ2 = false),
-                     alg = NonlinearSolve.TrustRegion(),
-                     maxiters = warmup_maxiters,
-                     inner_maxiters = warmup_inner_maxiters, verbose = false)
-        end
+        frozen_result = pdesolve(frozen_model, stategrid, value_guess;
+                                 is_algebraic = (; pA = false, pB = false,
+                                                 ϕ1 = false, ϕ2 = false),
+                                 verbose = false)
 
         r_gap = maximum(abs, frozen_result.saved.r_gap)
         κC_gap = maximum(abs, frozen_result.saved.κC_gap)
         κM_gap = maximum(abs, frozen_result.saved.κM_gap)
         κV_gap = maximum(abs, frozen_result.saved.κV_gap)
-        pA_change = maximum(abs, frozen_result.solution.pA .- value_guess.pA) /
-                    max(1.0, maximum(abs, value_guess.pA))
-        pB_change = maximum(abs, frozen_result.solution.pB .- value_guess.pB) /
-                    max(1.0, maximum(abs, value_guess.pB))
-        ϕ1_change = maximum(abs, frozen_result.solution.ϕ1 .- value_guess.ϕ1) /
-                    max(1.0, maximum(abs, value_guess.ϕ1))
-        ϕ2_change = maximum(abs, frozen_result.solution.ϕ2 .- value_guess.ϕ2) /
-                    max(1.0, maximum(abs, value_guess.ϕ2))
-        warmup_change = max(pA_change, pB_change, ϕ1_change, ϕ2_change)
+        gap = max(r_gap, κC_gap, κM_gap, κV_gap)
+
+        stalled_iterations = (gap > stall_tolerance * previous_gap) ?
+                             stalled_iterations + 1 : 0
+        previous_gap = gap
 
         value_guess = frozen_result.solution
         r .= (1 - damping) .* r .+ damping .* frozen_result.saved.r_implied
         κC .= (1 - damping) .* κC .+ damping .* frozen_result.saved.κC_implied
         κM .= (1 - damping) .* κM .+ damping .* frozen_result.saved.κM_implied
         κV .= (1 - damping) .* κV .+ damping .* frozen_result.saved.κV_implied
-        warmups_since_global_attempt += 1
         candidate_guess = (; value_guess.pA, value_guess.pB, value_guess.ϕ1,
                            value_guess.ϕ2, r, κC, κM, κV)
-        @printf "%4d %-8s %12.3e %12.3e %12.3e %12.3e %12.3e %12s\n" price_iteration "values" r_gap κC_gap κM_gap κV_gap warmup_change "-"
+        @printf "%4d %-8s %12.3e %12.3e %12.3e %12.3e  %12s\n" price_iteration "values" r_gap κC_gap κM_gap κV_gap "-"
 
-        if warmups_since_global_attempt >= warmups_between_global_attempts
-            trial_result = with_logger(NullLogger()) do
-                pdesolve(m, stategrid, candidate_guess;
-                         alg = NonlinearSolve.TrustRegion(), Δ = Inf,
-                         verbose = false)
-            end
+        if gap <= gap_at_last_global / global_retry_improvement ||
+           stalled_iterations >= patience
+            ## A failed attempt is an expected outcome here, so silence the
+            ## did-not-converge warning with `warn = false`.
+            trial_result = pdesolve(m, stategrid, candidate_guess;
+                                    alg = NonlinearSolve.TrustRegion(), Δ = Inf,
+                                    maxiters = global_maxiters,
+                                    verbose = false, warn = false)
             @printf "%4d %-8s %12s %12s %12s %12s %12s %12.3e\n" price_iteration "global" "-" "-" "-" "-" "-" trial_result.residual_norm
-            warmups_since_global_attempt = 0
+            gap_at_last_global = gap
+            stalled_iterations = 0
         end
 
-        if trial_result !== nothing
-            if trial_result.converged
-                candidate_guess = trial_result.solution
-                break
+        if trial_result !== nothing && !trial_result.converged
+            if trial_result.residual_norm > 0.5 * residual_at_last_global
+                patience += 1
             end
-            if trial_result.residual_norm <= reuse_failed_global_tol
-                value_guess = (; pA = trial_result.solution.pA,
-                               pB = trial_result.solution.pB,
-                               ϕ1 = trial_result.solution.ϕ1,
-                               ϕ2 = trial_result.solution.ϕ2)
-                r .= (1 - damping) .* r .+ damping .* trial_result.solution.r
-                κC .= (1 - damping) .* κC .+ damping .* trial_result.solution.κC
-                κM .= (1 - damping) .* κM .+ damping .* trial_result.solution.κM
-                κV .= (1 - damping) .* κV .+ damping .* trial_result.solution.κV
-            end
+            residual_at_last_global = trial_result.residual_norm
             trial_result = nothing
-            continue
         end
     end
 
-    (; value_guess.pA, value_guess.pB, value_guess.ϕ1, value_guess.ϕ2,
-     r, κC, κM, κV), trial_result
+    return trial_result
 end
-end
+
+result = solve_alternating(m, stategrid, guess)
 
 # ## The solution
 #

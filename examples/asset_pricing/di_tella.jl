@@ -64,7 +64,7 @@ end
 # relative investment opportunity measure is ``Q = (p_A/p_B)^{1/(\psi-1)}``. These names — and
 # their finite differences, e.g. `pAx_up` — are what reappear inside the equation below.
 
-function initialize_y(m::DiTellaModel, stategrid)
+function initialize_guess(m::DiTellaModel, stategrid)
   xn = length(stategrid[:x])
   νn = length(stategrid[:ν])
   (; pA = ones(xn, νn), pB = ones(xn, νn), p = ones(xn, νn))
@@ -73,7 +73,7 @@ end
 # We build the grid and the guess at the default calibration:
 
 stategrid = initialize_stategrid(m)
-guess = initialize_y(m, stategrid)
+guess = initialize_guess(m, stategrid)
 
 # ## The PDE equation
 #

@@ -259,7 +259,11 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   inner nonlinear solve failed at that `Δ`: no step is taken (so there is no residual to
   show) and it is retried with `Δ/10` — the unusual causes, a `NaN` from the model or a
   singular Jacobian, are flagged in parentheses. With `verbose = false` a successful
-  solve prints nothing; convergence failures are always reported with `@warn`.
+  solve prints nothing; convergence failures are still reported with `@warn`.
+* `warn = true`: report convergence failures with `@warn` even when `verbose = false`,
+  so solves embedded in silenced loops (e.g. estimation) still surface failures. Pass
+  `warn = false` when the caller inspects convergence itself and a failure is an
+  expected outcome (e.g. probing whether a guess is good enough for a one-shot solve).
 * `alg = NonlinearSolve.NewtonRaphson()`: NonlinearSolve algorithm used for each
   nonlinear solve. EconPDEs exports the `NonlinearSolve` module, so pass any compatible
   algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
@@ -287,7 +291,7 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   coloring of `jac_prototype`; pass one when it is known in closed form, as `pdesolve`
   does for its stencil pattern.
 """
-function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
     _reject_removed_solver_keywords(kwargs)
     # Bounds are static across pseudo-transient iterations.
     has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
@@ -319,9 +323,9 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
             # Format fast solves in milliseconds so they do not display as "0.0s".
             verbose && @printf "Converged (%s)\n" (elapsed < 1 ? @sprintf("%.0fms", 1000 * elapsed) : @sprintf("%.1fs", elapsed))
         else
-            # warn even when verbose = false: solves embedded in silenced loops
-            # (e.g. estimation) must still surface failures
-            @warn "did not converge: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol)). `Δ = Inf` disables pseudo-transient continuation — try a finite initial time step `Δ`, a better initial guess, or more `maxiters`."
+            # warn even when verbose = false (unless warn = false): solves embedded in
+            # silenced loops (e.g. estimation) must still surface failures
+            warn && @warn "did not converge: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol)). `Δ = Inf` disables pseudo-transient continuation — try a finite initial time step `Δ`, a better initial guess, or more `maxiters`."
         end
         return ypost, residual_norm
     else
@@ -368,11 +372,11 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
             # Format fast solves in milliseconds so they do not display as "0.0s".
             verbose && @printf "Converged after %d time steps (%s)\n" iter (elapsed < 1 ? @sprintf("%.0fms", 1000 * elapsed) : @sprintf("%.1fs", elapsed))
         elseif stepper.Δ < minΔ
-            # warn even when verbose = false: solves embedded in silenced loops
-            # (e.g. estimation) must still surface failures
-            @warn "did not converge after $iter time steps: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."
+            # warn even when verbose = false (unless warn = false): solves embedded in
+            # silenced loops (e.g. estimation) must still surface failures
+            warn && @warn "did not converge after $iter time steps: the pseudo-transient time step fell below `minΔ` = $minΔ (residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol))). This usually means a non-monotone finite-difference scheme (wrong upwind direction) or a poor initial guess — try `check_monotonicity = true` or a better initial guess."
         else
-            @warn "did not converge after $iter time steps: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol)). If the residual was still falling, increase `maxiters`; otherwise try a better initial guess or `check_monotonicity = true`."
+            warn && @warn "did not converge after $iter time steps: residual $(@sprintf("%.2e", residual_norm)) > tolerance $(@sprintf("%.2e", abstol)). If the residual was still falling, increase `maxiters`; otherwise try a better initial guess or `check_monotonicity = true`."
         end
         return ypost, residual_norm
     end

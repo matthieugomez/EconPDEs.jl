@@ -48,13 +48,13 @@ end
 # ``F``, such as `Fz_up`) are what reappear in the equation below. We then build the grid, guess,
 # and time grid from the model:
 
-function initialize_y(m::TuckmanVilaModel, stategrid)
+function initialize_guess(m::TuckmanVilaModel, stategrid)
     zn = length(stategrid[:z])
     (; F = zeros(zn))
 end
 
 stategrid = initialize_stategrid(m)
-guess = initialize_y(m, stategrid)
+guess = initialize_guess(m, stategrid)
 τs = range(0, m.T, length = 10)
 
 # ## The PDE equation

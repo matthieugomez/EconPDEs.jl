@@ -62,8 +62,12 @@ state grid with any positive number of state variables.
   is the time step.
 * `verbose`: print a one-line problem summary, convergence progress, and a final
   convergence summary. Defaults to `true`. With `verbose = false` a successful solve
-  prints nothing — convergence failures are always reported with `@warn` — so `pdesolve`
+  prints nothing — convergence failures are still reported with `@warn` — so `pdesolve`
   can run inside a loop (e.g. an estimation) without flooding the log.
+* `warn`: report convergence failures with `@warn` even when `verbose = false`. Defaults
+  to `true`. Pass `warn = false` when the caller checks `result.converged` itself and a
+  failure is an expected outcome (e.g. probing whether a guess is already good enough
+  for a one-shot `Δ = Inf` solve).
 * Further stationary solver knobs (`scale`, `minΔ`, `maxΔ`) are forwarded to
   [`finiteschemesolve`](@ref). Further inner-solve knobs (`inner_maxiters`,
   `inner_abstol`, `inner_verbose`) are also accepted for time-dependent problems.
@@ -80,7 +84,7 @@ Returns an `EconPDEResult` with fields `solution` (a `NamedTuple` with the solve
 unknowns, or an empty `NamedTuple` if the PDE saves nothing). `result.converged` reports
 whether the residual met the tolerance (across all times, for a time-dependent problem).
 """
-function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, lower_bound = nothing, upper_bound = nothing, abstol = sqrt(eps()), verbose = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
+function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, lower_bound = nothing, upper_bound = nothing, abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     _reject_removed_solver_keywords(kwargs)
     _reject_pdesolve_lower_level_keywords(kwargs)
     # `grid`, `guess`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a
@@ -106,23 +110,23 @@ function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
     # the sign-convention check runs by default; the stencil (monotonicity) warnings are opt-in
     monotonicity_check = MonotonicityChecker(stategrid, guess; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings, check_stencils = check_monotonicity)
     if τs === nothing
-        return _solve_stationary(pde, stategrid, guess, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, kwargs...)
+        return _solve_stationary(pde, stategrid, guess, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, warn = warn, alg = alg, maxiters = maxiters, kwargs...)
     else
         _reject_time_dependent_stationary_keywords(kwargs)
         _check_time_grid(τs)
-        return _solve_backward(pde, stategrid, guess, τs, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, kwargs...)
+        return _solve_backward(pde, stategrid, guess, τs, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, warn = warn, alg = alg, maxiters = maxiters, kwargs...)
     end
 end
 
 # Stationary problem: one pseudo-transient continuation solve of the stationary residual.
-function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol, verbose, alg, maxiters, kwargs...)
+function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol, verbose, warn, alg, maxiters, kwargs...)
     ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
     saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
     verbose && println("Solving for ", _problem_description(guess, stategrid))
     residual! = (ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array))
     G! = jac_prototype === nothing ? residual! : ResidualWrapper(residual!)
-    y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), jac_prototype = jac_prototype, colorvec = colorvec, lower_bound = vec(lower_bound_array), upper_bound = vec(upper_bound_array), abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, monotonicity_check = monotonicity_check, kwargs...)
+    y_array, residual_norm = finiteschemesolve(G!, vec(guess_array); is_algebraic = vec(is_algebraic_array), jac_prototype = jac_prototype, colorvec = colorvec, lower_bound = vec(lower_bound_array), upper_bound = vec(upper_bound_array), abstol = abstol, verbose = verbose, warn = warn, alg = alg, maxiters = maxiters, monotonicity_check = monotonicity_check, kwargs...)
     y_array = reshape(y_array, size(guess_array)...)
     # split the concatenated solution array back into one named array per unknown
     solution = NamedTuple{ynames}(ntuple(k -> collect(selectdim(y_array, ndims(y_array), k)), length(ynames)))
@@ -137,7 +141,7 @@ end
 
 # Time-dependent problem: starting from the terminal condition at τs[end], take one
 # implicit time step per interval of the time grid, recording the solution at each time.
-function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol, verbose, alg, maxiters = 100, inner_maxiters = maxiters, inner_abstol = abstol, inner_verbose = false, kwargs...)
+function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol, verbose, warn = true, alg, maxiters = 100, inner_maxiters = maxiters, inner_abstol = abstol, inner_verbose = false, kwargs...)
     ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
     S = size(stategrid)
@@ -185,7 +189,7 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
             end
             # an unconverged step would otherwise be silently accepted and propagated
             # to all earlier times; `!(x <= tol)` also catches a NaN residual
-            if !(residual_norms[iτ] <= abstol)
+            if warn && !(residual_norms[iτ] <= abstol)
                 @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `inner_maxiters`"
             end
             y_array = reshape(y_array, size(guess_array)...)

@@ -59,13 +59,13 @@ end
 # wealth–consumption ratio). These names (and the finite differences of ``p``, such as `pλ_up`)
 # are what reappear in the equation below. We then build the grid and guess from the model:
 
-function initialize_y(m::WachterModel, stategrid)
+function initialize_guess(m::WachterModel, stategrid)
     λn = length(stategrid[:λ])
     (; p = ones(λn))
 end
 
 stategrid = initialize_stategrid(m)
-guess = initialize_y(m, stategrid)
+guess = initialize_guess(m, stategrid)
 
 # ## The PDE equation
 #

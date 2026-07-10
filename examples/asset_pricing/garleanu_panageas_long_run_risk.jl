@@ -398,7 +398,7 @@ function solve_alternating(m, stategrid, guess;
                                     alg = NonlinearSolve.TrustRegion(), Δ = Inf,
                                     maxiters = global_maxiters,
                                     verbose = false, warn = false)
-            @printf "%4d %-8s %12s %12s %12s %12s %12s %12.3e\n" price_iteration "global" "-" "-" "-" "-" "-" trial_result.residual_norm
+            @printf "%4d %-8s %12s %12s %12s %12s  %12.3e\n" price_iteration "global" "-" "-" "-" "-" trial_result.residual_norm
             gap_at_last_global = gap
             stalled_iterations = 0
         end

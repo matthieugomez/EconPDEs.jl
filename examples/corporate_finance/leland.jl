@@ -17,7 +17,7 @@
 # ``E(\delta^*)=0`` and smooth-pasting ``E'(\delta^*)=0`` conditions at the endogenous default
 # threshold ``\delta^*``.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -35,13 +35,13 @@ end
 
 m = LelandModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state ``δ`` (the cash flow).
 
 stategrid = (; δ = range(0, 0.2, step = 0.005))
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown function ``E`` (equity value) —
 # one value per grid point, the value of the cash-flow claim net of the after-tax coupon, floored
@@ -50,7 +50,7 @@ stategrid = (; δ = range(0, 0.2, step = 0.005))
 
 guess = (; E = max.(stategrid[:δ] ./ (m.r - m.μ) .- (1 .- m.τ) .* m.C ./ m.r, 0.0))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

@@ -13,7 +13,7 @@
 # solves a nonlinear elliptic PDE. The gradient-nonlinear risk terms ``\sigma_\mu^2 p_\mu^2/p``
 # and ``\sigma_v^2 p_v^2/p`` come from the market prices of long-run-risk and variance risk.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -35,7 +35,7 @@ end
 
 m = BansalYaronModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` with two keys (`μ` and `v`), one per state variable. The
 # grid spans the ergodic ranges of ``\mu`` (Normal) and ``v`` (Gamma). The ``\sqrt v`` diffusion
@@ -48,7 +48,7 @@ m = BansalYaronModel()
 vs = range(quantile(νdistribution, 0.0), quantile(νdistribution, 0.99), length = vn)
 stategrid = (; μ = μs, v = vs)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
 # wealth–consumption ratio), a matrix over the ``(\mu, v)`` grid. These names (and the finite
@@ -56,7 +56,7 @@ stategrid = (; μ = μs, v = vs)
 
 guess = (; p = ones(μn, vn))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

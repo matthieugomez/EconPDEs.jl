@@ -7,7 +7,7 @@
 # rises. The unknown is the specialists' wealth–consumption ratio ``p_S``; goods-market clearing
 # ties the aggregate price–consumption ratio ``p`` to it.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -28,7 +28,7 @@ end
 
 m = HeKrishnamurthy()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state variable ``x``, the specialists' wealth
 # share. It runs over ``(0, 1)`` — the endpoints are dropped — and is raised to the power ``1.5``,
@@ -38,7 +38,7 @@ m = HeKrishnamurthy()
 xn = 100
 stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the single unknown function (`pS`, the
 # specialists' wealth–consumption ratio), initialized flat at one. This name — and its finite
@@ -46,7 +46,7 @@ stategrid =  (; x = range(0, 1, length = xn+2)[2:(end-1)].^1.5)
 
 guess = (; pS = ones(length(stategrid[:x])))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and

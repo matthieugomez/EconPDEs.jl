@@ -23,7 +23,7 @@
 # equation as a callable on it — and the numerical solution is plotted against the
 # closed-form benchmark.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -64,7 +64,7 @@ m_benchmark = NeoclassicalGrowthModel(;
     ρ = m.δ * (m.α * γ_benchmark - 1),
 )
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by capital ``k``. We center it on the benchmark steady
 # state ``\bar k`` (where ``\alpha A \bar k^{\alpha-1} = \rho + \delta``), spanning ``0.1\bar k`` to
@@ -75,7 +75,7 @@ m_benchmark = NeoclassicalGrowthModel(;
 k̄ = (α * A / (ρ + δ))^(1 / (1 - α))
 stategrid = (; k = range(0.1 * k̄, 5 * k̄, length = 1000))
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — one value per grid point,
 # the generic value of consuming gross output forever. These names (and the finite differences of
@@ -89,7 +89,7 @@ guess = (; v = [(A * k^α)^(1 - γ) / (1 - γ) / ρ for k in stategrid[:k]])
 closed_form_consumption(k) = φ * A * k^α
 closed_form_value(k) = (φ * A)^(-γ) * k^(1 - α * γ) / (1 - α * γ)
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and

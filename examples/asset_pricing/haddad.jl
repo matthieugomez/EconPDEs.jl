@@ -16,7 +16,7 @@
 # premia and volatility are **endogenous** and jointly determined. The two states themselves follow
 # mean-reverting square-root processes.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -45,7 +45,7 @@ end
 
 m = HaddadModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` with two keys — this model has two state variables, expected
 # growth ``\mu`` and consumption variance ``v``. Each axis spans the ergodic range of its process,
@@ -63,7 +63,7 @@ vmax = quantile(Gamma(α, β), 0.999)
 vs = range(vmin,  vmax, length = 30)
 stategrid = (; μ = μs, v = vs)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the single unknown function (`p`, the
 # price–consumption ratio), a matrix over the ``(\mu, v)`` grid initialized flat at one. This name —
@@ -72,7 +72,7 @@ stategrid = (; μ = μs, v = vs)
 
 guess =   (; p = ones(length(stategrid[:μ]), length(stategrid[:v])))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

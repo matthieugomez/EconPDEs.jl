@@ -22,7 +22,7 @@
 # derivatives make the Hamiltonian concave in the relevant control; otherwise the bounded
 # Hamiltonian is maximized directly.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -53,7 +53,7 @@ end
 
 m = AchdouHanLasryLionsMollModel_RiskyAsset()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by income ``y`` and wealth ``a``. Income spans the bulk
 # of its ergodic (Gamma) distribution; wealth uses a curved grid, finer near the borrowing
@@ -64,7 +64,7 @@ ys = collect(range(quantile(distribution, 0.001), quantile(distribution, 0.999),
 as = m.amin .+ (m.amax - m.amin) .* collect(range(0.0, 1.0, length = 150)).^2
 stategrid = (; y = ys, a = as)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — here the Merton-tail
 # value of consuming out of financial plus human wealth ``a + y/r``. These names (and the finite
@@ -73,7 +73,7 @@ stategrid = (; y = ys, a = as)
 cshare = _merton_consumption_rate(m)
 guess = (; v = [cshare^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

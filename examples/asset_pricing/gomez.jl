@@ -7,7 +7,7 @@
 # households' wealth–consumption ratio ``p_H``. Demographics (birth, death, and entry of
 # entrepreneurs) keep the distribution stationary.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -41,7 +41,7 @@ end
 
 m = GomezModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state variable ``x``, the entrepreneurs'
 # consumption share. It spans ``[0, 1]`` but is squared, concentrating points near ``x = 0`` where
@@ -49,7 +49,7 @@ m = GomezModel()
 
 stategrid = (; x = range(0, 1, 300) .^ 2)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the single unknown function (`pH`, the
 # households' wealth–consumption ratio), initialized flat at one. This name — and its finite
@@ -57,7 +57,7 @@ stategrid = (; x = range(0, 1, 300) .^ 2)
 
 guess = (; pH = ones(length(stategrid[:x])))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding the unknown and

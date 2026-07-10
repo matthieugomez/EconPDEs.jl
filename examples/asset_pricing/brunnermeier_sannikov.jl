@@ -12,7 +12,7 @@
 # upward so each step reuses the previous ``q`` to build ``q_x`` by finite difference. That
 # order-dependent sweep is why the model struct is mutable and carries `q_old`.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -39,7 +39,7 @@ end
 
 m = BrunnermeierSannikov()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` whose key is the state variable ``x`` (the experts' wealth
 # share). The single state ``x \in (0, 1)`` sits on 200 interior grid points, with the two
@@ -51,7 +51,7 @@ stategrid =  (; x = range(0, 1.0, length = xn+2)[2:(end-1)])
 Δx = step(stategrid[:x])
 xmin = minimum(stategrid[:x])
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose keys are the unknown functions (`pE, pH`),
 # holding one starting value at each grid point. These names — and the finite differences of `pE`
@@ -59,7 +59,7 @@ xmin = minimum(stategrid[:x])
 
 guess = (; pE =  9 .* ones(xn), pH =   10 .* ones(xn))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # A small bracketing helper locates a sign change for the crisis-region root-find below, starting
 # from the previous step's ``\Psi``:

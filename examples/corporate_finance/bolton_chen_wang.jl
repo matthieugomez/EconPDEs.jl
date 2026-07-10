@@ -14,7 +14,7 @@
 # ``v'`` falls to one, and a *refinancing* boundary, where the firm issues equity at marginal cost
 # ``\gamma`` and fixed cost ``\phi``.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -36,13 +36,13 @@ end
 
 m = BoltonChenWangModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state ``w`` (the cash–capital ratio).
 
 stategrid = (; w = range(0.0, 0.3, length = 100))
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown function ``v`` — one value per
 # grid point, with firm value initialized to the cash ratio ``w`` itself. This name (and its finite
@@ -50,7 +50,7 @@ stategrid = (; w = range(0.0, 0.3, length = 100))
 
 guess = (; v = stategrid[:w])
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it takes
 # the current `state` (a grid point) and `u` — the local bundle holding the unknown and its

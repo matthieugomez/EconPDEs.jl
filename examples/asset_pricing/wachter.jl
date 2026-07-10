@@ -14,7 +14,7 @@
 # disaster risk moves over time, so do risk premia and valuations — even though realized
 # consumption is smooth outside disasters.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -42,7 +42,7 @@ end
 
 m = WachterModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` whose key is the state variable (`λ`, the disaster
 # intensity). The state ``\lambda`` ranges from zero up to well above its long-run mean
@@ -53,7 +53,7 @@ function initialize_stategrid(m::WachterModel; λn = 30)
   (; λ = range(0.0, 0.1, length = λn))
 end
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
 # wealth–consumption ratio). These names (and the finite differences of ``p``, such as `pλ_up`)
@@ -67,7 +67,7 @@ end
 stategrid = initialize_stategrid(m)
 guess = initialize_guess(m, stategrid)
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

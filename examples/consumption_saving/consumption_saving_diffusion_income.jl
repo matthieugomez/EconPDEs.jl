@@ -16,7 +16,7 @@
 # with first-order condition ``c = (\partial_a v)^{-1/\gamma}`` and the borrowing constraint
 # ``a \ge a_{\min}`` enforced as a state constraint (saving cannot be negative at the limit).
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -37,7 +37,7 @@ end
 
 m = AchdouHanLasryLionsMollModel_Diffusion()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state variables ``y`` and ``a``. Income spans
 # the bulk of its ergodic (Gamma) distribution; assets run from the borrowing limit ``a_{\min}``
@@ -48,7 +48,7 @@ stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0
                         a =  range(m.amin, m.amax, length = 1000)
                         )
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown ``v`` — one value per grid
 # point, here the value of consuming the annuity value of total wealth ``a + y/r`` forever. These
@@ -57,7 +57,7 @@ stategrid = (; y = range(quantile(distribution, 0.001), quantile(distribution, 0
 
 guess = (; v = [(m.ρ / m.γ + (1 - 1 / m.γ) * m.r)^(-m.γ) * (a + y / m.r)^(1 - m.γ) / (1 - m.γ) for y in stategrid[:y], a in stategrid[:a]])
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

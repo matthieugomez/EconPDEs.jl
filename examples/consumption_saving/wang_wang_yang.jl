@@ -17,7 +17,7 @@
 #
 # with the consumption–income ratio recovered from ``c = (r + \psi(\rho - r))\, p\, p'^{-\psi}``.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -38,14 +38,14 @@ end
 
 m = WangWangYangModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state ``w`` (the wealth-to-income ratio), running
 # from the borrowing limit to a large upper bound on a simple linear grid.
 
 stategrid = (; w = range(m.wmin, m.wmax, length = 1001))
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the unknown function ``p`` — one value per
 # grid point. The guess ``p = 1 + w`` reflects total wealth as financial plus one unit of human
@@ -54,7 +54,7 @@ stategrid = (; w = range(m.wmin, m.wmax, length = 1001))
 
 guess = (; p = 1 .+ stategrid[:w])
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

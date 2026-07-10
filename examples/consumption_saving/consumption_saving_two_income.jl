@@ -13,7 +13,7 @@
 # A **borrowing constraint** ``a \ge \underline a`` is enforced by preventing the asset drift
 # from turning negative at the lower bound.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -35,7 +35,7 @@ end
 
 m = AchdouHanLasryLionsMollModel_TwoStates()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the single continuous state ``a``. The asset grid is
 # finer near the borrowing limit, where consumption is most curved; the borrowing limit itself is
@@ -44,7 +44,7 @@ m = AchdouHanLasryLionsMollModel_TwoStates()
 m.amin += 0.001
 stategrid = (; a = m.amin .+ range(0, (m.amax - m.amin)^(1 / 2), length = 200) .^ 2)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` keyed by the two unknown value functions ``v_l`` and
 # ``v_h`` — one autarky-style starting value per grid point. These names (and their finite
@@ -55,7 +55,7 @@ guess = (;
     vh = (m.ρ ./ m.γ .+ (1 .- m.γ) .* m.r)^(-m.γ) .* (stategrid[:a] .+ m.yh ./ m.r) .^ (1 - m.γ) ./ (1 - m.γ),
 )
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

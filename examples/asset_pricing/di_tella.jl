@@ -8,7 +8,7 @@
 # ``p``, which is pinned down by an algebraic market-clearing constraint (`is_algebraic`) rather
 # than by its own time derivative.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -43,7 +43,7 @@ end
 
 m = DiTellaModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the two state variables ``x`` (the experts' wealth
 # share) and ``\nu`` (the idiosyncratic risk state), built by a helper. The ``\nu`` range matches
@@ -56,7 +56,7 @@ function initialize_stategrid(m::DiTellaModel; xn = 30, νn = 30)
   (; x = xs, ν = νs)
 end
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a flat `NamedTuple` whose keys are the unknown functions
 # (`pA, pB, p`), one starting value per grid point. The transformed objects `pA` and `pB` are
@@ -75,7 +75,7 @@ end
 stategrid = initialize_stategrid(m)
 guess = initialize_guess(m, stategrid)
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and

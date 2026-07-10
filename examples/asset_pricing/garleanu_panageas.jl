@@ -11,7 +11,7 @@
 # depends on the very derivatives ``p_A', p_B'`` we are solving for — so the upwind direction
 # must be recomputed from the resulting drift ``\mu_x`` each iteration.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters:
 
@@ -43,14 +43,14 @@ end
 
 m = GarleanuPanageasModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` keyed by the state variable ``x``, the consumption share of
 # type A, on ``[0, 1]``.
 
 stategrid = (; x = range(0.0, 1.0, length = 100))
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose keys are the four coupled unknown functions
 # (`pA, pB, ϕ1, ϕ2`), all initialized flat at one. These names — and their finite differences, such
@@ -58,7 +58,7 @@ stategrid = (; x = range(0.0, 1.0, length = 100))
 
 guess = (; pA = ones(length(stategrid[:x])), pB = ones(length(stategrid[:x])), ϕ1 = ones(length(stategrid[:x])), ϕ2 = ones(length(stategrid[:x])))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the equilibrium conditions. Following the package convention,
 # it takes the current `state` (a grid point) and `u` — the local bundle holding each unknown and

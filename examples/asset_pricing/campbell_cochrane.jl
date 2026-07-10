@@ -12,7 +12,7 @@
 # where the drift ``\mu_p``, volatility ``\sigma_p``, price of risk ``\kappa``, and riskless
 # rate ``r`` are all functions of ``s`` through the habit.
 
-# ## The model
+# ## Defining the model
 #
 # The parameters live in a `struct`:
 
@@ -31,7 +31,7 @@ end
 
 m = CampbellCochraneModel()
 
-# ## The grid
+# ## Defining the grid
 #
 # We define the grid, a `NamedTuple` whose key is the state variable (`s`, the log surplus
 # consumption ratio). The grid concentrates points near the reflecting upper bound ``s_{\max}``,
@@ -49,7 +49,7 @@ end
 
 stategrid = initialize_stategrid(m)
 
-# ## The initial guess
+# ## Defining an initial guess
 #
 # We define the initial guess, a `NamedTuple` whose key is the unknown function (`p`, the
 # price–consumption ratio). These names (and the finite differences of ``p``, such as `ps_up`)
@@ -57,7 +57,7 @@ stategrid = initialize_stategrid(m)
 
 guess = (; p = ones(length(stategrid[:s])))
 
-# ## The PDE equation
+# ## Defining the PDE
 #
 # We now write the function encoding the HJB equation. Following the package convention, it
 # takes the current `state` (a grid point) and `u` (each unknown together with its

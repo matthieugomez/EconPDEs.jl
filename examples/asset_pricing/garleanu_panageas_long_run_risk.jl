@@ -1,15 +1,17 @@
-# # Gârleanu–Panageas with long-run risk: alternating values and prices
+# # Gârleanu–Panageas with long-run risk: values backward, prices forward
 #
 # This example solves a heterogeneous-agent a la Gârleanu–Panageas economy but where the
 # aggregate endowment process has long-run-risk dynamics. There are now three state
 # variables: `x`, the type-A consumption share; `μ`, expected endowment growth; and `v`,
-# the conditional variance of endowment growth. 
+# the conditional variance of endowment growth.
 #
-# To my knowledge, no one has ever discussed such a model 
+# To my knowledge, no one has ever discussed such a model
 # --- one reason being that that it is hard to solve models on a 3D state grid.
 # The example presents a helpful solution method: formulate the model in EconPDEs by treating the
-# interest rate and prices of risk as state-dependent unknown functions, and alternate
-# between valuation equations and market-clearing price updates.
+# interest rate and prices of risk as state-dependent unknown functions, and solve the
+# joint system in one continuation that marches the valuation equations backward in
+# pseudo-time and relaxes the market-clearing equations forward (tâtonnement), using a
+# signed per-unknown time step `Δ`.
 #
 # This example illustrates a useful way to write general-equilibrium asset-pricing
 # systems. Rather than first solving the equilibrium pricing equations for the interest
@@ -35,13 +37,10 @@
 # risk premia, or volatilities feed back strongly into the law of motion. It is not needed
 # in every model: when the equilibrium prices have simple closed forms and substituting
 # them leaves a well-conditioned HJB, the shorter reduced-form PDE is preferable.
-# The computation alternates between fixed-price valuation equations and price updates
-# from market clearing.
 
 using EconPDEs
 using Distributions
 using Plots
-using Printf
 
 struct GarleanuPanageasLongRunRiskModel
     γA::Float64
@@ -227,6 +226,12 @@ function (model::GarleanuPanageasLongRunRiskModel)(state::NamedTuple, u::NamedTu
                 δ * ((νA / pA + (1 - νA) / pB) * human_capital - 1)) /
                 (ψA * x + ψB * (1 - x))
 
+    ## The market-clearing equations are written in their natural forward (tâtonnement)
+    ## direction: the residual is positive when the implied price exceeds the current
+    ## guess, so the price converges by marching *forward* in pseudo-time. The valuation
+    ## equations above are backward equations instead (hence their leading minus). The
+    ## signed `Δ` passed to `pdesolve` below encodes this per unknown: negative time
+    ## steps for the price functions, positive for the valuation functions.
     rt = r_implied - r
     κCt = κC_implied - κC
     κMt = κM_implied - κM
@@ -246,7 +251,7 @@ end
 # Define the state grid and the initial guess for value functions and equilibrium price
 # functions.
 function initialize_stategrid(m::GarleanuPanageasLongRunRiskModel;
-        xn = 10, μn = 5, vn = 5)
+        xn = 20, μn = 5, vn = 5)
     μsd = sqrt(m.νμ^2 * m.vbar / (2 * m.κμ))
     μdistribution = Normal(m.μbar, μsd)
     vdistribution = Gamma(2 * m.κv * m.vbar / m.νv^2, m.νv^2 / (2 * m.κv))
@@ -285,137 +290,60 @@ m = GarleanuPanageasLongRunRiskModel()
 stategrid = initialize_stategrid(m)
 guess = initialize_guess(m, stategrid)
 
-# Alternate between prices and value functions. Holding `r`, `κC`, `κM`, and `κV` fixed,
-# solve the valuation block `(pA, pB, ϕ1, ϕ2)`. Then update prices toward the values
-# implied by market clearing.
-
-struct GarleanuPanageasLongRunRiskFrozenPriceModel
-    model::GarleanuPanageasLongRunRiskModel
-    stategrid::NamedTuple
-    r::Array{Float64, 3}
-    κC::Array{Float64, 3}
-    κM::Array{Float64, 3}
-    κV::Array{Float64, 3}
-end
-
-function (model::GarleanuPanageasLongRunRiskFrozenPriceModel)(
-        state::NamedTuple, u::NamedTuple)
-    ix = searchsortedfirst(model.stategrid.x, state.x)
-    iμ = searchsortedfirst(model.stategrid.μ, state.μ)
-    iv = searchsortedfirst(model.stategrid.v, state.v)
-    u_with_prices = merge(u, (; r = model.r[ix, iμ, iv],
-                              κC = model.κC[ix, iμ, iv],
-                              κM = model.κM[ix, iμ, iv],
-                              κV = model.κV[ix, iμ, iv]))
-    out, saved = model.model(state, u_with_prices)
-    return (; pAt = out.pAt, pBt = out.pBt, ϕ1t = out.ϕ1t, ϕ2t = out.ϕ2t), saved
-end
-
-# When to attempt the global solve? The damped price iteration converges linearly,
-# whereas the global Newton solve only converges from a guess inside its basin of
-# attraction — but then converges quadratically. A fixed schedule (say, every 10 price
-# iterations) either wastes expensive global attempts on guesses barely better than the
-# last failed one, or wastes price iterations after the guess is already good enough.
-# Instead, monitor the market-clearing gap — since the valuation block is solved to
-# tolerance, the gap is exactly the part of the full-system residual that the price
-# iteration still has to eliminate — and attempt the global solve when either
+# ## Solving jointly: values backward, prices forward
 #
-# 1. the gap has shrunk by `global_retry_improvement` since the last failed attempt:
-#    the guess is now materially better, so a retry has a real chance; or
-# 2. the gap has been stalling for `stall_patience` consecutive iterations: further
-#    price iterations will not improve the guess, so the global solve is the only
-#    remaining move.
+# The eight equations have two natures. The four valuation equations are backward
+# equations: discounting makes their false transient stable when marched backward in
+# pseudo-time, which is EconPDEs' baseline convention (and the reason for the leading
+# minus in `pAt`, `pBt`, `ϕ1t`, `ϕ2t`). The four market-clearing equations are written
+# in the natural tâtonnement direction, `rt = r_implied - r`: the price adjusts
+# *forward* toward the value implied by market clearing.
 #
-# One safeguard is needed on top: retrying on a fixed cadence can settle into a cycle in
-# which every attempt fails at the same residual. So whenever a failed attempt is not
-# materially better than the previous failed one, back off — increase the patience so
-# the price iteration explores longer before the next attempt.
+# A signed per-unknown `Δ` expresses exactly this: positive entries march an equation
+# backward, negative entries forward, and the magnitudes set relative speeds. Two
+# choices matter here.
 #
-# There is no point attempting the global solve on the initial guess itself: from the
-# analytical guess it essentially never converges, so it would be a pure cost. The first
-# attempt waits until the triggers above fire.
+# * Prices need damping. The feedback loop from the prices of risk to the wealth-share
+#   volatility to the valuation-ratio volatilities and back to the implied prices of
+#   risk is strong (type-B agents are very risk averse), so undamped market clearing
+#   overshoots. `Δ = -1` moves each price halfway toward its implied value per step —
+#   an implicit, damped tâtonnement.
+# * Values can move much faster than prices. Given prices, the valuation block is a
+#   well-behaved system of parabolic equations, so it gets a time step 100 times
+#   larger: each pseudo-time step solves the valuation equations essentially exactly
+#   at the current prices, jointly with the damped price update.
 #
-# Finally, cap each global attempt at `global_maxiters` solver iterations. A candidate
-# inside Newton's basin converges in a handful of iterations, so the cap never hurts a
-# successful attempt; it is the failed attempts that would otherwise burn the full
-# default budget, and bailing early makes them cheap.
-function solve_alternating(m, stategrid, guess;
-        damping = 0.5, global_retry_improvement = 5.0, stall_tolerance = 0.99,
-        stall_patience = 3, max_price_iterations = 100, global_maxiters = 30)
-    @printf "%4s %-8s %12s %12s %12s %12s  %12s\n" "iter" "step" "r_gap" "κC_gap" "κM_gap" "κV_gap" "residual"
-    value_guess = (; pA = copy(guess.pA), pB = copy(guess.pB),
-                   ϕ1 = copy(guess.ϕ1), ϕ2 = copy(guess.ϕ2))
-    r = copy(guess.r)
-    κC = copy(guess.κC)
-    κM = copy(guess.κM)
-    κV = copy(guess.κV)
-    ## No attempt has been made yet: NaN comparisons are false, so the first global
-    ## attempt comes from the stall rule, which then sets these baselines.
-    gap_at_last_global = NaN
-    residual_at_last_global = NaN
-    patience = stall_patience
-    previous_gap = Inf
-    stalled_iterations = 0
-    price_iteration = 0
-    trial_result = nothing
+# The `Δ` entries fix a relative profile; the continuation scales all of them by one
+# common adaptive factor. Left alone, that factor grows after every successful step, so
+# the damping fades and the iteration turns into full Newton on the whole system. On
+# fine grids that is premature: the price feedback loop becomes locally expansive (on
+# this model around `xn = 50`), undamped market-clearing steps far from the solution
+# fail, and the continuation wastes dozens of iterations thrashing between step sizes.
+# We therefore solve in two stages.
+#
+# 1. A **capped continuation** (`maxΔ = 3`): the adaptive factor may not grow beyond 3,
+#    so the price step stays damped throughout. An *implicit* damped step converges
+#    even where the feedback is too strong for explicit price updates — but only
+#    linearly, so tight tolerances would be slow. We stop at a loose `abstol = 1e-5`.
+# 2. A single **undamped Newton solve** (`Δ = Inf`) from the stage-1 iterate. Newton's
+#    basin of attraction is far larger than the 1e-5 handoff requires (a trust-region
+#    solve converges from market-clearing gaps of order 1e-2), and it finishes at
+#    machine precision in a handful of iterations.
+#
+# None of these numbers is delicate: value steps from 10 to 1000, price steps from
+# -0.1 to -10, and caps from 1 to 10 all converge, on grids from 10×5×5 to 100×5×5
+# and beyond.
 
-    while trial_result === nothing
-        price_iteration += 1
-        price_iteration > max_price_iterations &&
-            error("no convergence after $max_price_iterations price iterations")
+Δprofile = (; pA = 100.0, pB = 100.0, ϕ1 = 100.0, ϕ2 = 100.0,
+            r = -1.0, κC = -1.0, κM = -1.0, κV = -1.0)
 
-        frozen_model = GarleanuPanageasLongRunRiskFrozenPriceModel(
-            m, stategrid, r, κC, κM, κV)
-        frozen_result = pdesolve(frozen_model, stategrid, value_guess;
-                                 is_algebraic = (; pA = false, pB = false,
-                                                 ϕ1 = false, ϕ2 = false),
-                                 verbose = false)
+## stage 1 — capped damped continuation: robust from the analytical guess
+stage1 = pdesolve(m, stategrid, guess; Δ = Δprofile, maxΔ = 3.0,
+                  abstol = 1e-5, maxiters = 100)
 
-        r_gap = maximum(abs, frozen_result.saved.r_gap)
-        κC_gap = maximum(abs, frozen_result.saved.κC_gap)
-        κM_gap = maximum(abs, frozen_result.saved.κM_gap)
-        κV_gap = maximum(abs, frozen_result.saved.κV_gap)
-        gap = max(r_gap, κC_gap, κM_gap, κV_gap)
-
-        stalled_iterations = (gap > stall_tolerance * previous_gap) ?
-                             stalled_iterations + 1 : 0
-        previous_gap = gap
-
-        value_guess = frozen_result.solution
-        r .= (1 - damping) .* r .+ damping .* frozen_result.saved.r_implied
-        κC .= (1 - damping) .* κC .+ damping .* frozen_result.saved.κC_implied
-        κM .= (1 - damping) .* κM .+ damping .* frozen_result.saved.κM_implied
-        κV .= (1 - damping) .* κV .+ damping .* frozen_result.saved.κV_implied
-        candidate_guess = (; value_guess.pA, value_guess.pB, value_guess.ϕ1,
-                           value_guess.ϕ2, r, κC, κM, κV)
-        @printf "%4d %-8s %12.3e %12.3e %12.3e %12.3e  %12s\n" price_iteration "values" r_gap κC_gap κM_gap κV_gap "-"
-
-        if gap <= gap_at_last_global / global_retry_improvement ||
-           stalled_iterations >= patience
-            ## A failed attempt is an expected outcome here, so silence the
-            ## did-not-converge warning with `warn = false`.
-            trial_result = pdesolve(m, stategrid, candidate_guess;
-                                    alg = NonlinearSolve.TrustRegion(), Δ = Inf,
-                                    maxiters = global_maxiters,
-                                    verbose = false, warn = false)
-            @printf "%4d %-8s %12s %12s %12s %12s  %12.3e\n" price_iteration "global" "-" "-" "-" "-" trial_result.residual_norm
-            gap_at_last_global = gap
-            stalled_iterations = 0
-        end
-
-        if trial_result !== nothing && !trial_result.converged
-            if trial_result.residual_norm > 0.5 * residual_at_last_global
-                patience += 1
-            end
-            residual_at_last_global = trial_result.residual_norm
-            trial_result = nothing
-        end
-    end
-
-    return trial_result
-end
-
-result = solve_alternating(m, stategrid, guess)
+## stage 2 — undamped Newton polish: quadratic finish from the loose handoff
+result = pdesolve(m, stategrid, stage1.solution; Δ = Inf,
+                  alg = NonlinearSolve.TrustRegion(), maxiters = 100)
 
 # ## The solution
 #

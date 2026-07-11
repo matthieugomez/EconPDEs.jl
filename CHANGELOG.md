@@ -4,6 +4,37 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Improvements
+
+- `Δ` may now be a `NamedTuple`/`OrderedDict` in `pdesolve` (or a vector in
+  `finiteschemesolve`), giving each unknown its own pseudo-time step. The sign of an
+  entry sets the direction of that unknown's false transient: positive marches its
+  equation backward in time (the value-function convention), negative forward — so
+  market-clearing equations written in their natural tâtonnement direction
+  (`rt = r_implied - r`) can be relaxed toward equilibrium jointly with the value
+  functions, e.g. `Δ = (; pA = Inf, r = -1.0)`. `±Inf` entries disable damping for an
+  unknown. The entries fix a relative profile that the continuation scales by one common
+  adaptive factor.
+- Add a `max_residual_growth = 10.0` guard to the pseudo-transient continuation: an
+  accepted implicit step whose stationary residual grows by more than this factor (a
+  blowup, or a `NaN`, which counts as infinite growth) is now reverted and retried with
+  a smaller time step instead of accepted. The default is deliberately loose — false
+  transients may legitimately increase the residual, and rejecting every worsening step
+  can deadlock the continuation — so well-behaved solves are unaffected.
+- The sign-convention diagnostic now runs per unknown and understands relaxation
+  directions: an unknown whose residual-Jacobian diagonal is opposite in sign to its
+  pseudo-time step at every grid point is reported by name, with the suggestion to flip
+  either its `Δ` entry or its returned time derivative.
+- The Gârleanu–Panageas long-run-risk example now solves values and prices jointly with
+  a signed per-unknown `Δ` (values backward on a fast clock, prices forward on a damped
+  one), replacing the hand-rolled alternation between valuation solves and damped price
+  updates. The solve has two stages — a `maxΔ`-capped continuation to a loose tolerance
+  followed by one undamped Newton polish — and converges across grid sizes (tested from
+  10×5×5 to 100×5×5 and 50×9×9) where both the uncapped continuation and the old
+  alternation's damped price iteration degrade.
+
 ## [2.1.0] — 2026-07-10
 
 ### Improvements

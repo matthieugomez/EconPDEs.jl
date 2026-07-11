@@ -8,7 +8,7 @@ function _reject_pdesolve_lower_level_keywords(kwargs)
 end
 
 function _reject_time_dependent_stationary_keywords(kwargs)
-    for keyword in (:Δ, :scale, :minΔ, :maxΔ)
+    for keyword in (:Δ, :scale, :minΔ, :maxΔ, :max_residual_growth)
         haskey(kwargs, keyword) && throw(ArgumentError("`$keyword` only applies to stationary pseudo-transient continuation; time-dependent `pdesolve(..., τs)` uses the spacing of `τs` as the time step."))
     end
     return nothing
@@ -58,8 +58,16 @@ state grid with any positive number of state variables.
 * `maxiters`: maximum number of pseudo-transient iterations. Defaults to 100.
 * `Δ`: initial pseudo-transient time step for stationary problems. Defaults to `1.0`;
   pass `Δ = Inf` to solve the stationary residual in one nonlinear solve, with no
-  continuation. Not accepted when a time grid `τs` is supplied; then the spacing of `τs`
-  is the time step.
+  continuation. May also be a `NamedTuple`/`OrderedDict` giving one step per unknown
+  (scalars or grid-sized arrays; omitted unknowns default to `1.0`). The sign of an entry
+  sets the direction of that unknown's false transient: positive marches its equation
+  backward in time (the value-function convention `vt = -(RHS - ρv)`), negative forward —
+  so a market-clearing equation written in its natural tâtonnement direction
+  (`rt = r_implied - r`) relaxes toward equilibrium with a negative step, e.g.
+  `Δ = (; v = 1.0, r = -1.0)`. `±Inf` entries disable damping for that unknown. The
+  entries fix a relative profile; the continuation scales all of them by one common
+  adaptive factor. Not accepted when a time grid `τs` is supplied; then the spacing of
+  `τs` is the time step.
 * `verbose`: print a one-line problem summary, convergence progress, and a final
   convergence summary. Defaults to `true`. With `verbose = false` a successful solve
   prints nothing — convergence failures are still reported with `@warn` — so `pdesolve`
@@ -68,14 +76,15 @@ state grid with any positive number of state variables.
   to `true`. Pass `warn = false` when the caller checks `result.converged` itself and a
   failure is an expected outcome (e.g. probing whether a guess is already good enough
   for a one-shot `Δ = Inf` solve).
-* Further stationary solver knobs (`scale`, `minΔ`, `maxΔ`) are forwarded to
-  [`finiteschemesolve`](@ref). Further inner-solve knobs (`inner_maxiters`,
+* Further stationary solver knobs (`scale`, `minΔ`, `maxΔ`, `max_residual_growth`) are
+  forwarded to [`finiteschemesolve`](@ref). Further inner-solve knobs (`inner_maxiters`,
   `inner_abstol`, `inner_verbose`) are also accepted for time-dependent problems.
 * `check_monotonicity`: if true, warn when the assembled residual Jacobian has same-variable
   spatial off-diagonal entries with the wrong monotonicity sign. Defaults to false. A flipped
-  sign convention — returning `RHS - ρv` instead of `-(RHS - ρv)`, which makes the Jacobian
-  diagonal negative at every grid point — is detected and warned about regardless of this
-  option (whenever `Δ` is finite).
+  relaxation direction — a residual-Jacobian diagonal opposite in sign to the unknown's
+  pseudo-time step at every grid point, e.g. returning `RHS - ρv` instead of `-(RHS - ρv)`
+  with a positive `Δ` — is detected per unknown and warned about regardless of this option
+  (whenever the unknown's `Δ` entry is finite).
 * `monotonicity_tol`: tolerance for the monotonicity check. Defaults to 1e-6.
 * `monotonicity_max_warnings`: maximum number of monotonicity warnings to print. Defaults to 5.
 
@@ -110,6 +119,11 @@ function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
     # the sign-convention check runs by default; the stencil (monotonicity) warnings are opt-in
     monotonicity_check = MonotonicityChecker(stategrid, guess; tol = monotonicity_tol, max_warnings = monotonicity_max_warnings, check_stencils = check_monotonicity)
     if τs === nothing
+        # a NamedTuple/OrderedDict Δ gives one pseudo-time step per unknown; expand it over
+        # the grid into the flat per-equation vector understood by `finiteschemesolve`
+        if haskey(kwargs, :Δ) && (kwargs[:Δ] isa Union{NamedTuple, AbstractDict})
+            kwargs = merge((; kwargs...), (; Δ = vec(_delta_array(kwargs[:Δ], guess, S))))
+        end
         return _solve_stationary(pde, stategrid, guess, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, warn = warn, alg = alg, maxiters = maxiters, kwargs...)
     else
         _reject_time_dependent_stationary_keywords(kwargs)
@@ -353,6 +367,30 @@ function _bound_component(value, S, keyword::Symbol, name)
         return Float64.(value)
     end
     throw(ArgumentError("`$keyword.$name` must be a scalar or an array with the same size as the state grid"))
+end
+
+# Expand a per-unknown Δ (NamedTuple/OrderedDict of scalars or grid-sized arrays) into one
+# array of pseudo-time steps with a trailing unknown dimension, like the bound arrays.
+# Omitted unknowns keep the default step 1.0; signs and ±Inf pass through (validated in
+# `finiteschemesolve`).
+function _delta_array(Δ, @nospecialize(guess), S)
+    Δnt = _asnamedtuple(Δ)
+    extra = setdiff(keys(Δnt), keys(guess))
+    isempty(extra) || throw(ArgumentError("`Δ` contains names that are not in the initial guess: $(collect(extra)); valid names are $(collect(keys(guess)))"))
+    out = ones(S..., length(guess))
+    for (k, name) in enumerate(keys(guess))
+        haskey(Δnt, name) || continue
+        out_k = selectdim(out, ndims(out), k)
+        value = Δnt[name]
+        if value isa Number
+            out_k .= Float64(value)
+        elseif value isa AbstractArray && size(value) == S
+            out_k .= Float64.(value)
+        else
+            throw(ArgumentError("`Δ.$name` must be a real number or an array with the same size as the state grid $S"))
+        end
+    end
+    return out
 end
 
 # Call the PDE function once at the first grid point to learn whether it returns a second

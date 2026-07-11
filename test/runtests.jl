@@ -363,6 +363,71 @@ end
     @test_logs min_level=Logging.Warn pdesolve(correct_sign, grid, y0; verbose = false)
 end
 
+@testset "Signed per-function Δ" begin
+    # a value function v (backward relaxation, Δ > 0) coupled with a price-like unknown p
+    # whose equation is written in its natural forward (tâtonnement) direction
+    grid = (; x = range(0.1, 1.0, length = 5))
+    guess = (; v = zeros(5), p = zeros(5))
+    function forward_price(state, u)
+        vt = -(state.x + u.p - u.v)    # stationary equation v = x + p (ρ = 1)
+        pt = u.v / 2 - u.p             # market clearing p = v / 2, forward direction
+        return (; vt, pt)
+    end
+    # exact solution: v = 2x, p = x
+    result = pdesolve(forward_price, grid, guess; Δ = (; v = 1.0, p = -1.0), verbose = false)
+    @test result.converged
+    @test result.solution.v ≈ 2 .* collect(grid.x) atol = 1e-6
+    @test result.solution.p ≈ collect(grid.x) atol = 1e-6
+
+    # an undamped value block (Δ = Inf) combined with a forward-relaxed price
+    result_inf = pdesolve(forward_price, grid, guess; Δ = (; v = Inf, p = -1.0), verbose = false)
+    @test result_inf.converged
+    @test result_inf.solution.p ≈ collect(grid.x) atol = 1e-6
+
+    # relaxing the forward-written price equation backward is diagnosed per unknown
+    @test_logs (:warn, r"equation for `p`") match_mode=:any pdesolve(forward_price, grid, guess; Δ = (; v = 1.0, p = 2.0), maxiters = 1, verbose = false, warn = false)
+
+    # NamedTuple validation: unknown names and zero entries are rejected
+    @test_throws ArgumentError pdesolve(forward_price, grid, guess; Δ = (; bogus = 1.0), verbose = false)
+    @test_throws ArgumentError pdesolve(forward_price, grid, guess; Δ = (; v = 1.0, p = 0.0), verbose = false)
+
+    # vector Δ in finiteschemesolve, mixing a backward and a forward-relaxed equation
+    function mixed_residual!(ydot, y)
+        ydot[1] = y[1] - 2.0    # backward direction: positive step
+        ydot[2] = 3.0 - y[2]    # forward direction: negative step
+        return nothing
+    end
+    y, residual_norm = finiteschemesolve(mixed_residual!, [0.0, 0.0]; Δ = [1.0, -1.0], verbose = false)
+    @test y ≈ [2.0, 3.0] atol = 1e-6
+    @test residual_norm <= 1e-6
+
+    # a negative scalar Δ relaxes every equation forward
+    y_neg, residual_norm_neg = finiteschemesolve((ydot, y) -> (ydot[1] = 3.0 - y[1]; nothing), [0.0]; Δ = -1.0, verbose = false)
+    @test y_neg ≈ [3.0] atol = 1e-6
+    @test residual_norm_neg <= 1e-6
+
+    @test_throws ArgumentError finiteschemesolve(mixed_residual!, [0.0, 0.0]; Δ = [1.0], verbose = false)
+    @test_throws ArgumentError finiteschemesolve(mixed_residual!, [0.0, 0.0]; Δ = 0.0, verbose = false)
+end
+
+@testset "Residual-growth guard" begin
+    # the false transient from y0 = 0.6 toward the root at 0 passes the local maximum of
+    # |y - y³| at 1/√3 ≈ 0.577, so the residual must transiently increase along the way:
+    # the loose default guard rides through the hump and converges, while a strict
+    # monotonicity requirement rejects every step and deadlocks the time step at minΔ
+    hump!(ydot, y) = (ydot[1] = y[1] - y[1]^3; nothing)
+    y, residual_norm = finiteschemesolve(hump!, [0.6]; Δ = 0.1, verbose = false)
+    @test residual_norm <= sqrt(eps())
+    y_strict, residual_norm_strict = finiteschemesolve(hump!, [0.6]; Δ = 0.1, max_residual_growth = 1.0, verbose = false, warn = false)
+    @test !(residual_norm_strict <= sqrt(eps()))
+
+    # stationary-only keyword: rejected for time-dependent problems
+    grid = (; x = range(0.1, 1.0, length = 3))
+    guess = (; v = zeros(3))
+    linear_pde = (state, u) -> (; vt = -(state.x - u.v))
+    @test_throws ArgumentError pdesolve(linear_pde, grid, guess, [0.0, 1.0]; max_residual_growth = 5.0, verbose = false)
+end
+
 @testset "Bounded solve without sparse prototype" begin
     function bounded_residual!(ydot, y)
         ydot[1] = y[1] - 2.0

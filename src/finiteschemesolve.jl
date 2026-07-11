@@ -76,16 +76,34 @@ end
 _has_dynamic_rows(is_algebraic::Bool) = !is_algebraic
 _has_dynamic_rows(is_algebraic) = any(!, is_algebraic)
 
+# A row is relaxed when it is dynamic and its pseudo-time step is finite; only relaxed
+# rows receive the 1/Δ diagonal, so only they force structural diagonal entries.
+_has_relaxed_rows(Δ::Real, is_algebraic) = isfinite(Δ) && _has_dynamic_rows(is_algebraic)
+function _has_relaxed_rows(Δ::AbstractVector, is_algebraic)
+    for i in eachindex(Δ)
+        if is_algebraic isa Bool
+            dynamic_row = !is_algebraic
+        else
+            dynamic_row = !is_algebraic[i]
+        end
+        dynamic_row && isfinite(Δ[i]) && return true
+    end
+    return false
+end
+
 function _add_implicit_diagonal!(J, Δ, is_algebraic)
-    isinf(Δ) && return J
-    invΔ = inv(Δ)
     @inbounds for i in 1:min(size(J)...)
         if is_algebraic isa Bool
             dynamic_row = !is_algebraic
         else
             dynamic_row = !is_algebraic[i]
         end
-        dynamic_row && (J[i, i] += invΔ)
+        dynamic_row || continue
+        Δi = Δ isa Real ? Δ : Δ[i]
+        # ±Inf entries are undamped rows; a negative Δi is a forward-relaxed row and
+        # contributes a negative diagonal, matching its negative residual diagonal
+        isfinite(Δi) || continue
+        J[i, i] += inv(Δi)
     end
     return J
 end
@@ -106,7 +124,7 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
     _reject_removed_solver_keywords(kwargs)
     # Any non-default bound turns the implicit solve into a mixed complementarity problem.
     has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
-    force_diagonal = has_bounds || (!isinf(Δ) && _has_dynamic_rows(is_algebraic))
+    force_diagonal = has_bounds || _has_relaxed_rows(Δ, is_algebraic)
     function G_helper!(ydot, y)
         G!(ydot, y)
         ydot .-= .!is_algebraic .* (ypost .- y) ./ Δ
@@ -269,14 +287,28 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
 * `maxiters = 100`: maximum number of pseudo-transient (outer) iterations.
 * `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves the stationary residual
-  in one nonlinear solve, with no continuation.
+  in one nonlinear solve, with no continuation. May also be a vector with one entry per
+  element of `y0`. The sign of an entry sets the direction of that equation's false
+  transient: positive marches it backward in time (the value-function convention, which
+  requires a positive residual-Jacobian diagonal), negative forward (e.g. a market-clearing
+  equation written in its natural tâtonnement direction `rt = r_implied - r`, whose
+  diagonal is negative); `±Inf` entries disable damping for that equation. The entries fix
+  a relative profile: the continuation scales all of them by one common adaptive factor.
 * `scale = 10.0`: growth factor for the time step. After a successful step that reduces the
   residual, `Δ` is multiplied by `scale * (old residual / new residual)`, and `scale`
   compounds across consecutive improving steps. After a failed inner solve, `Δ` is divided
   by 10 and its regrowth is capped at half the failed `Δ`, so a `Δ` that just failed is not
   immediately retried; the cap relaxes by `scale` with each subsequent successful step.
 * `minΔ = 1e-9`, `maxΔ = Inf`: bounds on the time step. The solve stops when `Δ < minΔ`
-  (typically a sign that the scheme is non-monotone or the initial guess is poor).
+  (typically a sign that the scheme is non-monotone or the initial guess is poor). For a
+  vector `Δ`, the bounds — like the `TimeStep` column of the verbose output — refer to
+  the smallest finite `|Δ|` entry.
+* `max_residual_growth = 10.0`: guard on accepted steps. A step whose inner solve
+  converges but whose stationary residual exceeds `max_residual_growth` times the
+  previous residual (a blowup, or a `NaN`, which counts as infinite growth) is reverted
+  and retried with a smaller `Δ` instead of accepted. The default is deliberately loose:
+  a false transient may legitimately increase the residual along the way, and rejecting
+  every worsening step can deadlock the continuation at `minΔ`.
 * `inner_maxiters = 10`, `inner_abstol = sqrt(eps())`, `inner_verbose = false`: iteration
   limit, tolerance, and verbosity for each implicit time step (the inner solve).
 * `jac = nothing`: optional in-place Jacobian of the stationary residual `G!`, with
@@ -291,8 +323,18 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   coloring of `jac_prototype`; pass one when it is known in closed form, as `pdesolve`
   does for its stencil pattern.
 """
-function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, max_residual_growth = 10.0, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
     _reject_removed_solver_keywords(kwargs)
+    # Δ may be one pseudo-time step for all equations or one per equation. The sign of an
+    # entry sets the direction of that equation's false transient: positive marches it
+    # backward in time (the value-function convention), negative forward (e.g. tâtonnement
+    # price adjustment written as `rt = r_implied - r`).
+    if Δ isa AbstractVector
+        length(Δ) == length(y0) || throw(ArgumentError("`Δ` must be a real number or have one entry per element of `y0`: got length $(length(Δ)) for $(length(y0)) unknowns"))
+    elseif !(Δ isa Real)
+        throw(ArgumentError("`Δ` must be a real number or a vector with one entry per element of `y0`; the per-unknown NamedTuple form is only accepted by `pdesolve`, which expands it over the grid"))
+    end
+    any(x -> isnan(x) || iszero(x), Δ) && throw(ArgumentError("`Δ` entries must be nonzero and not NaN (use `Inf` for no damping, a negative entry for forward relaxation)"))
     # Bounds are static across pseudo-transient iterations.
     has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
     tstart = time()
@@ -300,7 +342,7 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
     ydot = zero(y0)
     # the sparsity pattern is fixed, so build the coloring and Jacobian cache once here
     # rather than inside every implicit time step
-    force_diagonal = has_bounds || (!isinf(Δ) && _has_dynamic_rows(is_algebraic))
+    force_diagonal = has_bounds || _has_relaxed_rows(Δ, is_algebraic)
     if jac === nothing
         J0c, fdcache = _sparse_fd_setup(jac_prototype, y0, colorvec; force_diagonal = force_diagonal)
     else
@@ -315,9 +357,9 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
         verbose && @warn "G! already returns zero with the initial value"
         return ypost, residual_norm
     end
-    if Δ == Inf
-        # infinite time step => solve in one step
-        ypost, residual_norm = implicit_timestep(G!, y0, Δ; is_algebraic = is_algebraic, lower_bound = lower_bound, upper_bound = upper_bound, abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, jac = jac, jac_prototype = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
+    if all(isinf, Δ)
+        # infinite time step => solve in one step (the sign of an infinite entry is moot)
+        ypost, residual_norm = implicit_timestep(G!, y0, Inf; is_algebraic = is_algebraic, lower_bound = lower_bound, upper_bound = upper_bound, abstol = abstol, verbose = verbose, alg = alg, maxiters = maxiters, jac = jac, jac_prototype = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
         if residual_norm <= abstol
             elapsed = time() - tstart
             # Format fast solves in milliseconds so they do not display as "0.0s".
@@ -329,7 +371,16 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
         end
         return ypost, residual_norm
     else
-        stepper = SERTimeStepController(Δ, scale, maxΔ)
+        # The controller adapts one positive multiplier over a fixed signed profile Δrel,
+        # gauged so that stepper.Δ (the bounded, printed step) is the smallest finite |Δ|.
+        if Δ isa AbstractVector
+            Δbase = minimum(abs(x) for x in Δ if isfinite(x))
+            Δrel = Δ ./ Δbase
+        else
+            Δbase = abs(Δ)
+            Δrel = sign(Δ)
+        end
+        stepper = SERTimeStepController(Δbase, scale, maxΔ)
         iter = 0
         if verbose
             @printf "Iter TimeStep Residual\n"
@@ -337,7 +388,7 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
         end
         while (iter < maxiters) && (stepper.Δ >= minΔ) && (residual_norm > abstol)
             iter += 1
-            y, nlresidual_norm = implicit_timestep(G!, ypost, stepper.Δ; is_algebraic = is_algebraic, lower_bound = lower_bound, upper_bound = upper_bound, abstol = inner_abstol, verbose = inner_verbose, alg = alg, maxiters = inner_maxiters, jac = jac, jac_prototype = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
+            y, nlresidual_norm = implicit_timestep(G!, ypost, stepper.Δ .* Δrel; is_algebraic = is_algebraic, lower_bound = lower_bound, upper_bound = upper_bound, abstol = inner_abstol, verbose = inner_verbose, alg = alg, maxiters = inner_maxiters, jac = jac, jac_prototype = J0c, fdcache = fdcache, monotonicity_check = monotonicity_check, kwargs...)
             G!(ydot, y)
             if has_bounds
                 # only unconstrained ydot is relevant for residual_norm calculation
@@ -347,13 +398,27 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
                 residual_norm, oldresidual_norm = norm(ydot) / length(ydot), residual_norm
             end
             residual_norm = isnan(residual_norm) ? Inf : residual_norm
-            if nlresidual_norm <= inner_abstol
+            if nlresidual_norm <= inner_abstol && residual_norm <= max_residual_growth * oldresidual_norm
                 # the implicit time step is correctly solved: accept the point and grow Δ
                 if verbose
                     @printf "%4d %8.2e %8.2e\n" iter stepper.Δ residual_norm
                 end
                 accept_step!(stepper, oldresidual_norm, residual_norm)
                 ypost, y = y, ypost
+            elseif nlresidual_norm <= inner_abstol
+                # the inner solve converged but the step grossly worsened the stationary
+                # residual (a blowup or NaN, not the mild non-monotonicity a false
+                # transient is allowed): revert the point and shrink Δ. Mild increases
+                # must stay accepted — near a locally expansive transient (e.g. strong
+                # price feedback), rejecting every worsening step deadlocks Δ at minΔ,
+                # whereas riding out the drift lets the controller regrow Δ and escape.
+                if verbose
+                    growth = residual_norm / oldresidual_norm
+                    growth_text = isfinite(growth) ? @sprintf("%.1f×", growth) : "∞"
+                    @printf "%4d %8.2e        ✗ (residual grew %s > max_residual_growth)\n" iter stepper.Δ growth_text
+                end
+                reject_step!(stepper)
+                residual_norm = oldresidual_norm
             else
                 if verbose
                     # ✗ sits in the residual column: the inner solve failed, so there is

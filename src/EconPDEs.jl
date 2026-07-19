@@ -1,8 +1,7 @@
 module EconPDEs
 using LinearAlgebra: norm, SingularException
 using SparseArrays: sparse, findnz, SparseMatrixCSC, rowvals, nzrange
-import NonlinearSolve
-using NonlinearSolve: NonlinearFunction, NonlinearProblem, solve
+using NLsolve: OnceDifferentiable, nlsolve
 using FiniteDiff: finite_difference_jacobian!, JacobianCache
 using Printf: @printf, @sprintf
 using PrecompileTools: @setup_workload, @compile_workload
@@ -104,8 +103,7 @@ include("pdesolve.jl")
 ##############################################################################
 export EconPDEResult,
 finiteschemesolve,
-pdesolve,
-NonlinearSolve
+pdesolve
 
 ##############################################################################
 ##

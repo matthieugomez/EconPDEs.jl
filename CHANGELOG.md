@@ -4,7 +4,15 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project follows
 [semantic versioning](https://semver.org/).
 
-## Unreleased
+## [3.0.0] — 2026-07-19
+
+### Breaking Changes
+
+- Revert back to using NLsolve as the default nonlinear solver, selected with
+  `alg = :newton` (the default) or `alg = :trust_region`. NonlinearSolve.jl is now
+  optional and is no longer exported by EconPDEs; load it explicitly before passing one
+  of its algorithm objects. Loading NonlinearSolve activates a package extension, so
+  calls such as `alg = NonlinearSolve.TrustRegion()` remain supported.
 
 ### Improvements
 
@@ -34,6 +42,10 @@ All notable changes to EconPDEs.jl are documented here. The format is based on
   followed by one undamped Newton polish — and converges across grid sizes (tested from
   10×5×5 to 100×5×5 and 50×9×9) where both the uncapped continuation and the old
   alternation's damped price iteration degrade.
+
+### Documentation
+
+- Standardize section headings across the example gallery.
 
 ## [2.1.0] — 2026-07-10
 

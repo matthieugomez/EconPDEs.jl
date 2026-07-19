@@ -4,7 +4,7 @@
 ##
 ##############################################################################
 # Compile-once barrier between the model-specific residual closure and the solver stack.
-# `finiteschemesolve`, `implicit_timestep`, FiniteDiff, and NonlinearSolve all
+# `finiteschemesolve`, `implicit_timestep`, FiniteDiff, and the nonlinear solver all
 # specialize on the residual's type, so without the barrier that whole chain recompiles
 # for every new model function (several hundred ms per model). Hiding the closure behind
 # an untyped field gives the chain a single fixed type, compiled once and cached in the
@@ -20,8 +20,8 @@ function _reject_removed_solver_keywords(kwargs)
     haskey(kwargs, :innerdist) && throw(ArgumentError("`innerdist` was removed in EconPDEs 2.0; use `inner_abstol` instead."))
     haskey(kwargs, :y̲) && throw(ArgumentError("`y̲` was removed in EconPDEs 2.0; use `lower_bound` instead."))
     haskey(kwargs, :ȳ) && throw(ArgumentError("`ȳ` was removed in EconPDEs 2.0; use `upper_bound` instead."))
-    haskey(kwargs, :method) && throw(ArgumentError("`method` was removed in EconPDEs 2.0; use a NonlinearSolve algorithm object, e.g. `alg = NonlinearSolve.NewtonRaphson()` or `alg = NonlinearSolve.TrustRegion()`."))
-    haskey(kwargs, :autodiff) && throw(ArgumentError("`autodiff` was removed in EconPDEs 2.0; pass a NonlinearSolve algorithm object through `alg` instead."))
+    haskey(kwargs, :method) && throw(ArgumentError("`method` was removed in EconPDEs 2.0; use `alg = :newton` or `alg = :trust_region`, or load NonlinearSolve and pass one of its algorithm objects."))
+    haskey(kwargs, :autodiff) && throw(ArgumentError("`autodiff` was removed in EconPDEs 2.0; EconPDEs configures its Jacobian internally, or you can load NonlinearSolve and configure a NonlinearSolve algorithm through `alg`."))
     haskey(kwargs, :algorithm) && throw(ArgumentError("`algorithm` was renamed in EconPDEs 2.0; use `alg` instead."))
     haskey(kwargs, :iterations) && throw(ArgumentError("`iterations` was renamed in EconPDEs 2.0; use `maxiters` instead."))
     haskey(kwargs, :inner_iterations) && throw(ArgumentError("`inner_iterations` was renamed in EconPDEs 2.0; use `inner_maxiters` instead."))
@@ -33,12 +33,12 @@ end
 
 # The barrier applies only when a sparsity pattern is available: the Jacobian is then
 # colored finite differences, so the solver only ever calls the residual on Float64
-# vectors. Without a pattern, NonlinearSolve differentiates through the residual with
-# ForwardDiff, and the closure stays unwrapped so that path specializes on it as before.
+# vectors. Without a pattern, the backend differentiates through the residual, and the
+# closure stays unwrapped so that path specializes on it as before.
 
-# Normalize a user-supplied Jacobian prototype to the sparse matrix handed to
-# `NonlinearFunction`. If the implicit step or MCP reformulation can add diagonal entries,
-# make those structural nonzeros explicit before NonlinearSolve allocates a Jacobian.
+# Normalize a user-supplied Jacobian prototype to the sparse matrix handed to the nonlinear
+# solver. If the implicit step or MCP reformulation can add diagonal entries,
+# make those structural nonzeros explicit before the nonlinear solver allocates a Jacobian.
 function _normalize_jac_prototype(jac_prototype, colorvec = nothing; force_diagonal = false)
     jac_prototype === nothing && return nothing, colorvec
     J0c = sparse(jac_prototype)
@@ -120,7 +120,37 @@ function _apply_minmax_mcp_jacobian!(J, residual, y, lower_bound, upper_bound)
     return J
 end
 
-function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), abstol = sqrt(eps()), verbose = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, jac = nothing, jac_prototype = nothing, colorvec = nothing, fdcache = nothing, monotonicity_check = nothing, kwargs...)
+# Symbols select NLsolve algorithms in core; package extensions add methods for algorithm
+# objects from optional backends.
+function _newtonstep(residual!, jac, jac_prototype, y0, alg::Symbol; maxiters, abstol, verbose, kwargs...)
+    alg in (:newton, :trust_region) || throw(ArgumentError("NLsolve `alg` must be `:newton` or `:trust_region`; got `$(repr(alg))`"))
+    try
+        if jac === nothing
+            result = nlsolve(residual!, y0; method = alg, autodiff = :forward,
+                iterations = maxiters, ftol = abstol, show_trace = verbose, kwargs...)
+        elseif jac_prototype === nothing
+            result = nlsolve(residual!, jac, y0; method = alg,
+                iterations = maxiters, ftol = abstol, show_trace = verbose, kwargs...)
+        else
+            df = OnceDifferentiable(residual!, jac, copy(y0), copy(y0), copy(jac_prototype))
+            result = nlsolve(df, y0; method = alg, iterations = maxiters,
+                ftol = abstol, show_trace = verbose, kwargs...)
+        end
+        final_residual = similar(result.zero)
+        residual!(final_residual, result.zero)
+        return result.zero, norm(final_residual) / length(final_residual)
+    catch err
+        # A singular Jacobian can simply mean that the pseudo-time step is too large.
+        err isa SingularException || rethrow()
+        return y0, Inf
+    end
+end
+
+function _newtonstep(residual!, jac, jac_prototype, y0, alg; kwargs...)
+    throw(ArgumentError("unsupported nonlinear solver algorithm `$(typeof(alg))`; load NonlinearSolve.jl before passing a NonlinearSolve algorithm object"))
+end
+
+function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)...), lower_bound = fill(-Inf, length(ypost)), upper_bound = fill(Inf, length(ypost)), abstol = sqrt(eps()), verbose = true, alg = :newton, maxiters = 100, jac = nothing, jac_prototype = nothing, colorvec = nothing, fdcache = nothing, monotonicity_check = nothing, kwargs...)
     _reject_removed_solver_keywords(kwargs)
     # Any non-default bound turns the implicit solve into a mixed complementarity problem.
     has_bounds = any(x -> x != -Inf, lower_bound) || any(x -> x != Inf, upper_bound)
@@ -195,27 +225,14 @@ function implicit_timestep(G!, ypost, Δ; is_algebraic = fill(false, size(ypost)
         end
     end
 
-    G_solve! = (du, u, p) -> solve_residual!(du, u)
-    if solve_jac === nothing
-        f = NonlinearFunction{true}(G_solve!; jac_prototype = J0c)
-    else
-        f = NonlinearFunction{true}(G_solve!; jac = (J, u, p) -> solve_jac(J, u), jac_prototype = J0c)
-    end
-    problem = NonlinearProblem(f, ypost)
-    try
-        result = solve(problem, alg; maxiters = maxiters, abstol = abstol, verbose = verbose, kwargs...)
-        return result.u, norm(result.resid) / length(result.resid)
-    catch err
-        # catch SingularException error because can simply mean time step too big
-        err isa SingularException || rethrow()
-        return ypost, Inf
-    end
+    return _newtonstep(solve_residual!, solve_jac, J0c, ypost, alg;
+        maxiters = maxiters, abstol = abstol, verbose = verbose, kwargs...)
 end
 
-# Adaptive pseudo-transient time step, using the same SER residual-ratio idea as
-# NonlinearSolve's `PseudoTransient`, plus EconPDEs-specific acceleration and rejected-step
-# caps. Keeping the update rule in this controller lets `finiteschemesolve` focus on
-# solving/checking implicit steps.
+# Adaptive pseudo-transient time step, using a switched-evolution-relaxation (SER)
+# residual ratio plus EconPDEs-specific acceleration and rejected-step caps. Keeping the
+# update rule in this controller lets `finiteschemesolve` focus on solving/checking
+# implicit steps.
 mutable struct SERTimeStepController
     Δ::Float64
     scale::Float64  # base growth factor for accepted steps
@@ -282,9 +299,9 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   so solves embedded in silenced loops (e.g. estimation) still surface failures. Pass
   `warn = false` when the caller inspects convergence itself and a failure is an
   expected outcome (e.g. probing whether a guess is good enough for a one-shot solve).
-* `alg = NonlinearSolve.NewtonRaphson()`: NonlinearSolve algorithm used for each
-  nonlinear solve. EconPDEs exports the `NonlinearSolve` module, so pass any compatible
-  algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
+* `alg = :newton`: NLsolve method used for each nonlinear solve; `:trust_region` is also
+  supported. To use a NonlinearSolve.jl algorithm instead, load NonlinearSolve and pass
+  an algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
 * `maxiters = 100`: maximum number of pseudo-transient (outer) iterations.
 * `Δ = 1.0`: initial pseudo-transient time step. `Δ = Inf` solves the stationary residual
   in one nonlinear solve, with no continuation. May also be a vector with one entry per
@@ -313,9 +330,9 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   limit, tolerance, and verbosity for each implicit time step (the inner solve).
 * `jac = nothing`: optional in-place Jacobian of the stationary residual `G!`, with
   signature `jac(J, y)`. EconPDEs adds the pseudo-time diagonal implied by `Δ` and
-  `is_algebraic` before handing the Jacobian to NonlinearSolve.
+  `is_algebraic` before handing the Jacobian to the nonlinear solver.
 * `jac_prototype = nothing`: prototype/sparsity pattern for the residual Jacobian. This is
-  metadata for the `NonlinearFunction`, not an algorithm choice. When `jac` is omitted,
+  metadata for the nonlinear solver, not an algorithm choice. When `jac` is omitted,
   a sparse prototype makes EconPDEs compute the Jacobian by colored finite differences;
   when `jac` is supplied, the prototype controls the allocated Jacobian type.
 * `colorvec = nothing`: column coloring of `jac_prototype` for the colored finite differences
@@ -323,7 +340,7 @@ so most users should call `pdesolve` instead. It returns the tuple `(y, residual
   coloring of `jac_prototype`; pass one when it is known in closed form, as `pdesolve`
   does for its stencil pattern.
 """
-function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, max_residual_growth = 10.0, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
+function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lower_bound = fill(-Inf, length(y0)), upper_bound = fill(Inf, length(y0)), abstol = sqrt(eps()), verbose = true, warn = true, alg = :newton, maxiters = 100, Δ = 1.0, scale = 10.0, minΔ = 1e-9, maxΔ = Inf, max_residual_growth = 10.0, inner_maxiters = 10, inner_abstol = sqrt(eps()), inner_verbose = false, jac = nothing, jac_prototype = nothing, colorvec = nothing, monotonicity_check = nothing, kwargs...)
     _reject_removed_solver_keywords(kwargs)
     # Δ may be one pseudo-time step for all equations or one per equation. The sign of an
     # entry sets the direction of that equation's false transient: positive marches it

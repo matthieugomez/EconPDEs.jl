@@ -4,7 +4,7 @@ Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 EconPDEs = "a3315474-fad9-5060-8696-cee5f38a87b7"
 InfinitesimalGenerators = "2fce0c6f-5f0b-5c85-85c9-2ffe1d5ee30d"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
-NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 

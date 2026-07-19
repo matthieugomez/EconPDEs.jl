@@ -4,6 +4,12 @@ using SparseArrays
 using OrderedCollections: OrderedDict
 using EconPDEs
 
+# NonlinearSolve is optional: EconPDEs loads and precompiles with NLsolve alone, then the
+# extension activates when a user explicitly loads NonlinearSolve.
+@test Base.get_extension(EconPDEs, :EconPDEsNonlinearSolveExt) === nothing
+using NonlinearSolve
+@test Base.get_extension(EconPDEs, :EconPDEsNonlinearSolveExt) !== nothing
+
 #========================================================================================
 Shared model: deterministic neoclassical growth (closed-form steady state to check).
 ========================================================================================#
@@ -225,15 +231,18 @@ end
     bounded = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, lower_bound = (; v = fill(3.0, 5)), verbose = false)
     @test bounded.solution.v ≈ fill(3.0, 5)
     @test_throws ArgumentError pdesolve(linear_pde, linear_grid, linear_guess; lower_bound = (; w = zeros(5)), verbose = false)
-    trust_region_result = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = NonlinearSolve.TrustRegion(), verbose = false)
-    @test trust_region_result.solution.v ≈ fill(2.0, 5)
+    nlsolve_trust_region = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = :trust_region, verbose = false)
+    @test nlsolve_trust_region.solution.v ≈ fill(2.0, 5)
+    nonlinear_solve_trust_region = pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = NonlinearSolve.TrustRegion(), verbose = false)
+    @test nonlinear_solve_trust_region.solution.v ≈ fill(2.0, 5)
+    @test_throws ArgumentError pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = :unsupported, verbose = false)
 
     # ambiguous generated names: states (k, a) with unknowns (v, vk) collide on vka_up
     @test_throws ArgumentError pdesolve((s, u) -> (; vt = 0.0, vkt = 0.0),
                                         (; k = 0:0.1:1, a = 0:0.1:1),
                                         (; v = ones(11, 11), vk = ones(11, 11)); verbose = false)
 
-    # removed 1.x keywords are rejected before reaching NonlinearSolve
+    # removed 1.x keywords are rejected before reaching the nonlinear solver
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; maxdist = 1e-6, verbose = false)
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; innerdist = 1e-6, verbose = false)
     @test_throws ArgumentError pdesolve(growth_hjb, grid, guess; autodiff = :finite, verbose = false)

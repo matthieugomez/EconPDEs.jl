@@ -51,9 +51,9 @@ state grid with any positive number of state variables.
   inequalities (optimal stopping), solved as a mixed complementarity problem. Pass either
   arrays in the same order as the unknowns or a `NamedTuple`/`OrderedDict` with the same
   names as `guess`. Default to `-Inf`/`Inf` (unbounded).
-* `alg = NonlinearSolve.NewtonRaphson()`: NonlinearSolve algorithm used for each
-  nonlinear solve. EconPDEs exports the `NonlinearSolve` module, so pass any compatible
-  algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
+* `alg = :newton`: NLsolve method used for each nonlinear solve; `:trust_region` is also
+  supported. To use a NonlinearSolve.jl algorithm instead, load NonlinearSolve and pass
+  an algorithm object, for example `alg = NonlinearSolve.TrustRegion()`.
 * `abstol`: convergence tolerance on the residual. Defaults to `sqrt(eps())`.
 * `maxiters`: maximum number of pseudo-transient iterations. Defaults to 100.
 * `Δ`: initial pseudo-transient time step for stationary problems. Defaults to `1.0`;
@@ -93,7 +93,7 @@ Returns an `EconPDEResult` with fields `solution` (a `NamedTuple` with the solve
 unknowns, or an empty `NamedTuple` if the PDE saves nothing). `result.converged` reports
 whether the residual met the tolerance (across all times, for a time-dependent problem).
 """
-function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, lower_bound = nothing, upper_bound = nothing, abstol = sqrt(eps()), verbose = true, warn = true, alg = NonlinearSolve.NewtonRaphson(), maxiters = 100, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
+function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Nothing, AbstractVector} = nothing; is_algebraic = nothing, bc = nothing, lower_bound = nothing, upper_bound = nothing, abstol = sqrt(eps()), verbose = true, warn = true, alg = :newton, maxiters = 100, check_monotonicity = false, monotonicity_tol = 1e-6, monotonicity_max_warnings = 5, kwargs...)
     _reject_removed_solver_keywords(kwargs)
     _reject_pdesolve_lower_level_keywords(kwargs)
     # `grid`, `guess`, `is_algebraic`, and `bc` may be passed either as an OrderedDict or as a

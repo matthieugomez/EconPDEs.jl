@@ -260,10 +260,18 @@ Jacobian is sparse. `pdesolve` builds the sparsity pattern from the local stenci
 computes the Jacobian by colored finite differences. Recomputing this Jacobian lets the
 solver take much larger accepted `Δ` steps, so the benefit is speed as well as robustness.
 At the lower-level [`finiteschemesolve`](api.md) interface, `jac`, `jac_prototype`, and
-`colorvec` describe the residual function's Jacobian data, matching the `NonlinearFunction`
-side of the SciML API. Algorithm choices such as linear solvers, line searches, trust
-regions, and AD defaults belong in `alg = NonlinearSolve.NewtonRaphson(...)` or another
-NonlinearSolve algorithm object.
+`colorvec` describe the residual function's Jacobian data independently of the nonlinear
+solver backend. By default, `alg = :newton` uses NLsolve's Newton method;
+`alg = :trust_region` selects its trust-region method. NonlinearSolve.jl is an optional
+backend: load it and pass one of its algorithm objects to activate the package extension,
+for example:
+
+```julia
+using NonlinearSolve
+using EconPDEs
+
+result = pdesolve(pde, grid, guess; alg = NonlinearSolve.TrustRegion())
+```
 
 A fuller writeup with references is the method note in the repository:
 [`examples/details.pdf`](https://github.com/matthieugomez/EconPDEs.jl/blob/main/examples/details.pdf).
@@ -284,7 +292,7 @@ and `maxΔ` are rejected.
 | `abstol` | `sqrt(eps())` | convergence tolerance on the residual norm |
 | `inner_maxiters` | `10` | nonlinear-solver iterations per implicit time step |
 | `inner_abstol` | `sqrt(eps())` | tolerance of the inner nonlinear solve |
-| `alg` | `NonlinearSolve.NewtonRaphson()` | NonlinearSolve algorithm object for each nonlinear solve, e.g. `NonlinearSolve.TrustRegion()` |
+| `alg` | `:newton` | NLsolve method (`:newton` or `:trust_region`); after loading NonlinearSolve, its algorithm objects are also accepted |
 | `verbose` | `true` | print the problem summary, the iteration table, and a convergence summary; failures warn even when `false` |
 | `lower_bound`, `upper_bound` | `-Inf`, `Inf` | bounds for variational inequalities (see [Optimal stopping](boundary_conditions.md#Optimal-stopping-(free-boundaries))) |
 | `is_algebraic` | all `false` | mark equations with no time derivative (static/algebraic conditions) |
@@ -308,9 +316,10 @@ Roughly in order of likelihood:
    directional cross derivative. Run with `check_monotonicity = true` (below). If the
    scheme is clean, improve the initial guess — a closed-form limit of the model (no risk,
    log utility, unconstrained) is usually enough.
-4. **The inner nonlinear solve keeps failing (many `rejected` lines).** Try
-   `alg = NonlinearSolve.TrustRegion()`, a smaller initial `Δ` (e.g. `1e-2` for stiff systems with several
-   coupled unknowns), or loosen `inner_maxiters`.
+4. **The inner nonlinear solve keeps failing (many `rejected` lines).** Try a smaller
+   initial `Δ` (e.g. `1e-2` for stiff systems with several coupled unknowns), loosen
+   `inner_maxiters`, or load NonlinearSolve and try
+   `alg = NonlinearSolve.TrustRegion()`.
 5. **It converges, but to something economically wrong.** Check `residual_norm` is actually
    small; refine the grid (the solution should be stable under refinement); and inspect the
    solved policies at the boundaries — a misplaced boundary condition shows up there first.

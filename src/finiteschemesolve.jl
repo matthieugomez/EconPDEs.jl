@@ -140,9 +140,15 @@ function _newtonstep(residual!, jac, jac_prototype, y0, alg::Symbol; maxiters, a
         residual!(final_residual, result.zero)
         return result.zero, norm(final_residual) / length(final_residual)
     catch err
-        # A singular Jacobian can simply mean that the pseudo-time step is too large.
-        err isa SingularException || rethrow()
-        return y0, Inf
+        # A singular Jacobian can simply mean that the pseudo-time step is too large, and
+        # a non-finite residual that the model runs into mid-continuation means the step
+        # went too far. Both are reported as a failed inner solve — Inf for a singular
+        # Jacobian, NaN for a non-finite residual — so the continuation shrinks Δ and
+        # retries instead of surfacing NLsolve's exception (which lists raw equation
+        # indices that mean nothing to a `pdesolve` caller).
+        err isa SingularException && return y0, Inf
+        err isa IsFiniteException && return y0, NaN
+        rethrow()
     end
 end
 
@@ -369,9 +375,9 @@ function finiteschemesolve(G!, y0; is_algebraic = fill(false, size(y0)...), lowe
     # check that does not return NAN or zero
     G!(ydot, ypost)
     residual_norm = norm(ydot) / length(ydot)
-    isnan(residual_norm) && throw(ArgumentError("G! returns NaN with the initial value"))
+    isnan(residual_norm) && throw(ArgumentError("the residual function `G!` returns NaN at the initial guess `y0`"))
     if residual_norm <= abstol
-        verbose && @warn "G! already returns zero with the initial value"
+        verbose && @warn "the residual at the initial guess is already below the tolerance `abstol`; returning the initial guess unchanged"
         return ypost, residual_norm
     end
     if all(isinf, Δ)

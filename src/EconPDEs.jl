@@ -1,7 +1,7 @@
 module EconPDEs
 using LinearAlgebra: norm, SingularException
 using SparseArrays: sparse, findnz, SparseMatrixCSC, rowvals, nzrange
-using NLsolve: OnceDifferentiable, nlsolve
+using NLsolve: OnceDifferentiable, nlsolve, IsFiniteException
 using FiniteDiff: finite_difference_jacobian!, JacobianCache
 using Printf: @printf, @sprintf
 using PrecompileTools: @setup_workload, @compile_workload

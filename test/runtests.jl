@@ -237,6 +237,32 @@ end
     @test nonlinear_solve_trust_region.solution.v ≈ fill(2.0, 5)
     @test_throws ArgumentError pdesolve(linear_pde, linear_grid, linear_guess; Δ = Inf, alg = :unsupported, verbose = false)
 
+    # a NaN initial guess names the unknown
+    err = try pdesolve(growth_hjb, grid, (; v = fill(NaN, size(guess.v))); verbose = false); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("initial guess", err.msg) && occursin("`v`", err.msg)
+
+    # a PDE that evaluates to NaN at the initial guess is reported in the user's
+    # vocabulary (which time derivative, at which state), not as a `G!` failure
+    err = try pdesolve((s, u) -> (; vt = s.x / s.x - u.v), (; x = range(-1.0, 1.0, length = 11)), (; v = zeros(11)); verbose = false); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("`vt`", err.msg) && occursin("x = 0", err.msg) && !occursin("G!", err.msg)
+
+    # ... and at the terminal condition of a time-dependent solve
+    err = try pdesolve((s, u, t) -> (; vt = s.x / s.x - u.v), (; x = range(-1.0, 1.0, length = 11)), (; v = zeros(11)), [0.0, 1.0]; verbose = false); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("terminal condition", err.msg) && occursin("`vt`", err.msg)
+
+    # a vector Δ with one entry per unknown (instead of per equation) points to the NamedTuple form
+    err = try pdesolve(growth_hjb, grid, guess; Δ = [1.0], verbose = false); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("NamedTuple", err.msg)
+
+    # a PDE that returns NaN only at a later time degrades to a convergence warning,
+    # not an escaped NLsolve exception
+    result_nan = @test_logs (:warn, r"returned NaN") match_mode = :any pdesolve((s, u, t) -> (; vt = t < 0.5 ? 0 / 0 : -(s.x + 0.01 * u.vxx - u.v)), (; x = range(-1.0, 1.0, length = 11)), (; v = zeros(11)), [0.0, 0.4, 1.0]; verbose = false)
+    @test !result_nan.converged
+
     # ambiguous generated names: states (k, a) with unknowns (v, vk) collide on vka_up
     @test_throws ArgumentError pdesolve((s, u) -> (; vt = 0.0, vkt = 0.0),
                                         (; k = 0:0.1:1, a = 0:0.1:1),

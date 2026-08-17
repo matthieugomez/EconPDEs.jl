@@ -105,6 +105,7 @@ function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
     S = size(stategrid)
     for (name, v) in pairs(guess)
         size(v) == S || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` has size $(size(v)) but the state grid has size $S"))
+        all(isfinite, v) || throw(ArgumentError("the initial guess (e.g. terminal value) for `$name` contains NaN or Inf"))
     end
     is_algebraic = _fill_is_algebraic(is_algebraic, guess, S)
     # Concatenate the per-unknown arrays into one array with a trailing unknown dimension.
@@ -123,6 +124,10 @@ function pdesolve(pde, @nospecialize(grid), @nospecialize(guess), τs::Union{Not
         # the grid into the flat per-equation vector understood by `finiteschemesolve`
         if haskey(kwargs, :Δ) && (kwargs[:Δ] isa Union{NamedTuple, AbstractDict})
             kwargs = merge((; kwargs...), (; Δ = vec(_delta_array(kwargs[:Δ], guess, S))))
+        elseif haskey(kwargs, :Δ) && (kwargs[:Δ] isa AbstractVector) && length(kwargs[:Δ]) != prod(S) * length(guess)
+            # catch the natural mistake of passing one entry per unknown before it reaches
+            # `finiteschemesolve`, whose error counts flattened equations, not unknowns
+            throw(ArgumentError("a vector `Δ` must have one entry per equation, i.e. length $(prod(S) * length(guess)) (grid points × unknowns): got length $(length(kwargs[:Δ])). To set one time step per unknown, pass a NamedTuple, e.g. `Δ = (; $(first(keys(guess))) = 1.0)`."))
         end
         return _solve_stationary(pde, stategrid, guess, guess_array, is_algebraic_array, bc_array, lower_bound_array, upper_bound_array, jac_prototype, colorvec, monotonicity_check; abstol = abstol, verbose = verbose, warn = warn, alg = alg, maxiters = maxiters, kwargs...)
     else
@@ -137,6 +142,7 @@ function _solve_stationary(pde, stategrid::StateGrid, @nospecialize(guess), gues
     ynames = tuple(keys(guess)...)
     solutionnames = Val(ynames)
     saved = _init_saved(pde, stategrid, solutionnames, ynames, guess_array, bc_array)
+    _check_initial_residual(pde, stategrid, solutionnames, ynames, guess_array, bc_array, "the initial guess")
     verbose && println("Solving for ", _problem_description(guess, stategrid))
     residual! = (ydot, yvec) -> pde!(pde, stategrid, solutionnames, ydot, yvec, bc_array, size(guess_array))
     G! = jac_prototype === nothing ? residual! : ResidualWrapper(residual!)
@@ -165,6 +171,7 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
     # the PDE function may or may not take a time argument; check once, not at every time step
     has_time = _pde_has_time_argument(pde, stategrid, solutionnames, guess_array, bc_array, τs[end])
     pde_terminal = has_time ? ((state, u) -> pde(state, u, τs[end])) : pde
+    _check_initial_residual(pde_terminal, stategrid, solutionnames, ynames, guess_array, bc_array, "the terminal condition (τ = $(τs[end]))")
     # scratch arrays on the state grid, refilled at each time and copied into the time slices
     saved_scratch = _init_saved(pde_terminal, stategrid, solutionnames, ynames, guess_array, bc_array)
     if saved_scratch === nothing
@@ -204,7 +211,11 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
             # an unconverged step would otherwise be silently accepted and propagated
             # to all earlier times; `!(x <= tol)` also catches a NaN residual
             if warn && !(residual_norms[iτ] <= abstol)
-                @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `inner_maxiters`"
+                if isnan(residual_norms[iτ])
+                    @warn "the implicit time step at τ = $(τs[iτ-1]) failed: the PDE function returned NaN during the solve; the solution at this and earlier times may be inaccurate — try a finer time grid, and check the PDE for divisions by zero or logs/sqrt of nonpositive numbers"
+                else
+                    @warn "the implicit time step at τ = $(τs[iτ-1]) did not converge (residual norm: $(@sprintf("%.2e", residual_norms[iτ]))); the solution at this and earlier times may be inaccurate — try a finer time grid or more `inner_maxiters`"
+                end
             end
             y_array = reshape(y_array, size(guess_array)...)
         end
@@ -221,6 +232,35 @@ function _solve_backward(pde, stategrid::StateGrid, @nospecialize(guess), τs, g
         end
     end
     return EconPDEResult(solution, residual_norms, saved, abstol)
+end
+
+# Evaluate the residual once at the starting point and, if any time derivative is NaN,
+# report it in the user's own vocabulary — which equation, at how many grid points, at
+# which state values — instead of letting the lower-level solver fail with a message
+# about the assembled residual `G!` (or NLsolve fail with raw equation indices).
+function _check_initial_residual(pde, stategrid::StateGrid, solutionnames, ynames, y_array::AbstractArray, bc_array::AbstractArray, description::String)
+    ydot_array = similar(y_array, Float64)
+    pde!(pde, stategrid, solutionnames, ydot_array, y_array, bc_array)
+    any(isnan, ydot_array) || return nothing
+    io = IOBuffer()
+    print(io, "the PDE function returns NaN at ", description, ":")
+    N = ndims(stategrid)
+    for (k, name) in enumerate(ynames)
+        slice = selectdim(ydot_array, N + 1, k)
+        n = count(isnan, slice)
+        n == 0 && continue
+        I = CartesianIndices(size(slice))[findfirst(isnan, slice)]
+        state = join((_format_state_value(s, stategrid.x[d][I[d]]) for (d, s) in enumerate(keys(stategrid.x))), ", ")
+        print(io, "\n  `", Symbol(name, :t), "` is NaN at ", n, " of ", length(slice), " grid points, e.g. at (", state, ")")
+    end
+    print(io, "\nCheck the PDE function at these states — common causes are a division by zero or a log/sqrt/power of a nonpositive number, often at a grid boundary or where the initial guess leaves the function's domain.")
+    throw(ArgumentError(String(take!(io))))
+end
+
+function _format_state_value(name, value)
+    # Real-valued states are easier to scan with compact numeric formatting.
+    formatted = value isa Real ? @sprintf("%.6g", value) : sprint(show, value)
+    return string(name, " = ", formatted)
 end
 
 # e.g. "2 unknowns (pA, pB) on grid x×z = 30×40" — shared by both solve paths

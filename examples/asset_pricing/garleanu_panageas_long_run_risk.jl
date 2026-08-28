@@ -325,14 +325,15 @@ guess = initialize_guess(m, stategrid)
 #    so the price step stays damped throughout. An *implicit* damped step converges
 #    even where the feedback is too strong for explicit price updates — but only
 #    linearly, so tight tolerances would be slow. We stop at a loose `abstol = 1e-5`.
-# 2. A single **undamped Newton solve** (`Δ = Inf`) from the stage-1 iterate. Newton's
-#    basin of attraction is far larger than the 1e-5 handoff requires (a trust-region
-#    solve converges from market-clearing gaps of order 1e-2), and it finishes at
+# 2. A single **undamped Newton solve** (`Δ = Inf`) from the stage-1 iterate. The 1e-5
+#    handoff is well inside Newton's basin of attraction, and the polish finishes at
 #    machine precision in a handful of iterations.
 #
-# None of these numbers is delicate: value steps from 10 to 1000, price steps from
+# The `Δ` profile is not delicate: value steps from 10 to 1000, price steps from
 # -0.1 to -10, and caps from 1 to 10 all converge, on grids from 10×5×5 to 100×5×5
-# and beyond.
+# and beyond. The handoff tolerance is the one number that matters: from a much
+# looser handoff (say 1e-2) the undamped Newton solve diverges, so stage 1 must run
+# to 1e-5 before switching.
 
 Δprofile = (; pA = 100.0, pB = 100.0, ϕ1 = 100.0, ϕ2 = 100.0,
             r = -1.0, κC = -1.0, κM = -1.0, κV = -1.0)
@@ -342,8 +343,7 @@ stage1 = pdesolve(m, stategrid, guess; Δ = Δprofile, maxΔ = 3.0,
                   abstol = 1e-5, maxiters = 100)
 
 ## stage 2 — undamped Newton polish: quadratic finish from the loose handoff
-result = pdesolve(m, stategrid, stage1.solution; Δ = Inf,
-                  alg = NonlinearSolve.TrustRegion(), maxiters = 100)
+result = pdesolve(m, stategrid, stage1.solution; Δ = Inf, maxiters = 100)
 
 # ## The solution
 #

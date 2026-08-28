@@ -126,7 +126,14 @@ function _newtonstep(residual!, jac, jac_prototype, y0, alg::Symbol; maxiters, a
     alg in (:newton, :trust_region) || throw(ArgumentError("NLsolve `alg` must be `:newton` or `:trust_region`; got `$(repr(alg))`"))
     try
         if jac === nothing
-            result = nlsolve(residual!, y0; method = alg, autodiff = :forward,
+            # NLsolve 4 and 5 spell the `autodiff` keyword differently (a Symbol vs an
+            # ADTypes backend), so the dense fallback Jacobian is built with FiniteDiff
+            # here rather than through that keyword.
+            fdcache = JacobianCache(copy(y0))
+            fd_jac!(J, y) = finite_difference_jacobian!(J, residual!, y, fdcache)
+            df = OnceDifferentiable(residual!, fd_jac!, copy(y0), copy(y0),
+                zeros(eltype(y0), length(y0), length(y0)))
+            result = nlsolve(df, y0; method = alg,
                 iterations = maxiters, ftol = abstol, show_trace = verbose, kwargs...)
         elseif jac_prototype === nothing
             result = nlsolve(residual!, jac, y0; method = alg,
